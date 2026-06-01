@@ -10,8 +10,12 @@ class Config:
 
     # ── Database ──────────────────────────────────────────────────────────────────
     _db_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'binna.db'))
-    # Render (and older Heroku) provide postgres:// — SQLAlchemy requires postgresql://
-    SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
+    # Normalize postgres:// → postgresql://
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+    # Use psycopg3 driver for PostgreSQL connections
+    if _db_url.startswith('postgresql://'):
+        _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+    SQLALCHEMY_DATABASE_URI = _db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── JWT ───────────────────────────────────────────────────────────────────────
