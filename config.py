@@ -9,10 +9,9 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'binna-dev-secret-CHANGE-IN-PRODUCTION')
 
     # ── Database ──────────────────────────────────────────────────────────────────
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'DATABASE_URL',
-        'sqlite:///' + os.path.join(basedir, 'binna.db')
-    )
+    _db_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'binna.db'))
+    # Render (and older Heroku) provide postgres:// — SQLAlchemy requires postgresql://
+    SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── JWT ───────────────────────────────────────────────────────────────────────
