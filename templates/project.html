@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Project</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="/static/js/binna-api.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--surface:#ffffff;--surface2:#f8f9fb;
+  --border:#e4e7ed;--border2:#d0d5e0;
+  --accent:#1a56db;--accent-bg:#eff4ff;--accent-hover:#1648c0;
+  --text:#111827;--muted:#6b7280;--muted2:#9ca3af;
+  --danger:#dc2626;--danger-bg:#fff1f0;
+  --success:#16a34a;--success-bg:#f0fdf4;
+  --warning:#d97706;--warning-bg:#fffbeb;
+  --radius:10px;--shadow:0 1px 4px rgba(0,0,0,.08);
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+
+/* ── Topbar ─────────────────────────────────────────────────────────────── */
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 24px;height:56px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:100;
+}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.back-btn{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+  border-radius:var(--radius);border:1px solid var(--border2);background:transparent;
+  font-size:13px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;
+  transition:all .15s;text-decoration:none;
+}
+.back-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
+.topbar-logo{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-.5px}
+.topbar-divider{width:1px;height:24px;background:var(--border)}
+.topbar-project{display:flex;align-items:center;gap:8px}
+.proj-code-badge{
+  background:var(--accent-bg);color:var(--accent);border:1px solid #c7d7fd;
+  font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;font-family:'Inter',sans-serif;
+  letter-spacing:.3px;
+}
+.proj-name-top{font-size:14px;font-weight:600;color:var(--text)}
+
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-badge{display:flex;align-items:center;gap:8px}
+.avatar{
+  width:30px;height:30px;border-radius:50%;background:var(--accent);
+  color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;
+}
+.username-label{font-size:13px;font-weight:500;color:var(--text)}
+.btn-logout{
+  padding:6px 12px;border-radius:var(--radius);border:1px solid var(--border2);
+  background:transparent;font-size:12px;color:var(--muted);cursor:pointer;
+  font-family:'Inter',sans-serif;transition:all .15s;
+}
+.btn-logout:hover{background:#fff1f0;border-color:#fecdca;color:var(--danger)}
+
+/* ── Page layout ─────────────────────────────────────────────────────────── */
+.page{max-width:1200px;margin:0 auto;padding:28px 24px 60px}
+
+/* ── Project header ──────────────────────────────────────────────────────── */
+.proj-header{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:28px 32px;margin-bottom:28px;
+  box-shadow:var(--shadow);
+}
+.proj-header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.proj-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.proj-code{
+  background:var(--accent-bg);color:var(--accent);border:1px solid #c7d7fd;
+  font-size:13px;font-weight:700;padding:4px 10px;border-radius:8px;
+  font-family:'Inter',sans-serif;letter-spacing:.4px;
+}
+.proj-title{font-size:22px;font-weight:700;color:var(--text)}
+.status-badge{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+  border-radius:20px;font-size:11px;font-weight:600;
+}
+.status-active{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.status-on-hold{background:#fef9c3;color:#854d0e;border:1px solid #fef08a}
+.status-completed{background:#f0f9ff;color:#0c4a6e;border:1px solid #bae6fd}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.proj-meta{display:flex;gap:24px;margin-top:16px;flex-wrap:wrap}
+.meta-item{display:flex;flex-direction:column;gap:2px}
+.meta-label{font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px}
+.meta-value{font-size:13px;font-weight:500;color:var(--text)}
+.meta-value.empty{color:var(--muted2);font-style:italic}
+
+.proj-actions{display:flex;gap:8px;flex-shrink:0}
+.btn-sm{
+  padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);
+  background:var(--surface);font-size:12px;font-weight:500;color:var(--muted);
+  cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;
+  display:inline-flex;align-items:center;gap:5px;
+}
+.btn-sm:hover{background:var(--surface2);color:var(--text)}
+.btn-sm-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-sm-primary:hover{background:var(--accent-hover);color:#fff}
+
+/* ── Modules grid ────────────────────────────────────────────────────────── */
+.section-title{
+  font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.consultant-title{color:#6d28d9;letter-spacing:.6px}
+.consultant-title::after{background:#ede9fe}
+.module-card.consultant{border-left:3px solid #7c3aed}
+.module-card.consultant .module-icon{background:#f5f3ff}
+.module-card.consultant:hover{border-color:#7c3aed;box-shadow:0 8px 24px rgba(124,58,237,.1)}
+
+.modules-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:16px;
+}
+.module-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:20px;cursor:pointer;transition:all .2s;text-decoration:none;color:inherit;
+  display:flex;flex-direction:column;gap:12px;
+  box-shadow:var(--shadow);
+}
+.module-card:hover{
+  border-color:var(--accent);transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(26,86,219,.1);
+}
+.module-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.module-icon{
+  width:40px;height:40px;border-radius:10px;background:var(--accent-bg);
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;
+}
+.module-badge{
+  font-size:10px;font-weight:600;color:var(--muted2);
+  background:var(--surface2);border:1px solid var(--border);
+  padding:2px 7px;border-radius:5px;letter-spacing:.3px;
+}
+.module-name{font-size:14px;font-weight:600;color:var(--text)}
+.module-desc{font-size:12px;color:var(--muted);line-height:1.5}
+.module-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-top:10px;border-top:1px solid var(--border);margin-top:auto;
+}
+.module-status{font-size:11px;color:var(--muted2)}
+.module-open{
+  font-size:12px;font-weight:500;color:var(--accent);
+  display:flex;align-items:center;gap:3px;
+}
+.module-card:hover .module-open{text-decoration:underline}
+
+/* ── Skeleton ────────────────────────────────────────────────────────────── */
+.skeleton{background:linear-gradient(90deg,#e4e7ed 25%,#f0f2f5 50%,#e4e7ed 75%);
+  background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── Team Members Legend ─────────────────────────────────────────────────── */
+.members-section{margin-top:32px}
+.legend-row{
+  display:flex;align-items:center;gap:10px;padding:9px 14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:9px;
+  margin-bottom:7px;transition:box-shadow .15s;
+}
+.legend-row:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.legend-swatch{
+  width:13px;height:13px;border-radius:3px;flex-shrink:0;
+  box-shadow:0 0 0 1px rgba(0,0,0,.12);
+}
+.legend-info{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden}
+.legend-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend-role{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend-btns{display:flex;gap:4px;flex-shrink:0}
+.legend-btn{
+  width:26px;height:26px;border-radius:6px;border:1px solid var(--border);
+  background:transparent;cursor:pointer;font-size:12px;line-height:1;
+  display:flex;align-items:center;justify-content:center;transition:all .12s;padding:0;
+  color:var(--muted);
+}
+.legend-btn:hover{background:var(--surface2);color:var(--text)}
+.legend-btn.del:hover{background:var(--danger-bg);border-color:#fecdca;color:var(--danger)}
+
+/* ── Edit modal ──────────────────────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:32px;width:100%;max-width:500px;
+  box-shadow:0 24px 64px rgba(0,0,0,.2);
+  animation:modal-in .18s ease;
+}
+@keyframes modal-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.modal-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:20px}
+.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.form-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+.form-input,.form-select{
+  background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);
+  padding:10px 12px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;
+  transition:border-color .15s;
+}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--accent)}
+.form-input::placeholder{color:var(--muted2)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-cancel{
+  padding:9px 18px;border-radius:var(--radius);border:1px solid var(--border2);
+  background:transparent;font-size:13px;color:var(--muted);cursor:pointer;
+  font-family:'Inter',sans-serif;
+}
+.btn-cancel:hover{background:var(--surface2)}
+.btn-save{
+  padding:9px 20px;border-radius:var(--radius);background:var(--accent);
+  color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:background .15s;
+}
+.btn-save:hover{background:var(--accent-hover)}
+.btn-save:disabled{opacity:.5;cursor:not-allowed}
+
+textarea.form-input{resize:vertical;min-height:72px}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="/dashboard" class="back-btn">← Dashboard</a>
+    <div class="topbar-logo">BINNA</div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-project">
+      <span class="proj-code-badge" id="top-code">…</span>
+      <span class="proj-name-top" id="top-name">Loading…</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="user-badge">
+      <div class="avatar" id="user-avatar">?</div>
+      <span class="username-label" id="user-name"></span>
+    </div>
+    <button class="btn-logout" onclick="BINNA.logout()">Log out</button>
+  </div>
+</div>
+
+<!-- Page -->
+<div class="page">
+
+  <!-- Project header -->
+  <div class="proj-header" id="proj-header">
+    <div class="proj-header-top">
+      <div>
+        <div class="proj-title-row">
+          <div class="skeleton" style="width:70px;height:26px" id="skel-code"></div>
+          <div class="skeleton" style="width:200px;height:28px" id="skel-name"></div>
+        </div>
+        <div class="proj-meta" id="proj-meta" style="display:none"></div>
+      </div>
+      <div class="proj-actions" id="proj-actions" style="display:none">
+        <button class="btn-sm" onclick="openEditModal()">✏️ Edit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modules -->
+  <div id="modules-container">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- Team Members Legend -->
+  <div class="members-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap">Team Members</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <button class="btn-sm btn-sm-primary" id="btn-add-member" onclick="openAddMember()" style="display:none">+ Add Member</button>
+    </div>
+    <div id="team-legend-list">
+      <div class="skeleton" style="width:300px;height:36px;border-radius:9px;margin-bottom:7px"></div>
+      <div class="skeleton" style="width:260px;height:36px;border-radius:9px"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit modal -->
+<div class="overlay" id="edit-overlay" onclick="closeEditIfBg(event)">
+  <div class="modal">
+    <div class="modal-title">Edit Project</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Project Code</label>
+        <input class="form-input" id="e-code" placeholder="APS" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="e-status">
+          <option value="active">Active</option>
+          <option value="on-hold">On Hold</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Project Name</label>
+      <input class="form-input" id="e-name" placeholder="Al-Pharaon Station" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Client</label>
+      <input class="form-input" id="e-client" placeholder="Ministry of..." />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Consultant</label>
+        <input class="form-input" id="e-consultant" placeholder="Engineering Co." />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contractor</label>
+        <input class="form-input" id="e-contractor" placeholder="Build Co." />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-input" id="e-desc" placeholder="Brief project overview…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-save" id="btn-save-edit" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Team Member modal -->
+<div class="overlay" id="member-overlay" onclick="closeMemberIfBg(event)">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title" id="member-modal-title">Add Team Member</div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="m-name" placeholder="e.g. Ahmed Al-Karimi" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Role / Title</label>
+      <input class="form-input" id="m-role" placeholder="e.g. Site Engineer" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <input type="color" id="m-color" value="#1a56db" style="width:44px;height:36px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;padding:3px;background:var(--surface2)" />
+        <div id="color-presets" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeMemberModal()">Cancel</button>
+      <button class="btn-save" id="btn-save-member" onclick="saveMember()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<script>
+if (!BINNA.requireAuth()) throw 0;
+
+// ── Determine project ID from URL ─────────────────────────────────────────
+const pathParts = window.location.pathname.split('/');
+const PROJECT_ID = parseInt(pathParts[pathParts.length - 1], 10);
+if (!PROJECT_ID) { window.location.href = '/dashboard'; throw 0; }
+
+let PROJECT = null;
+let MY_ROLE  = null;
+
+// ── Module definitions ────────────────────────────────────────────────────
+const MAIN_MODULES = [
+  { key:'dc',        icon:'📁', name:'Document Control',           desc:'Manage incoming & outgoing correspondence, letters, and official communications.' },
+  { key:'dr',        icon:'📋', name:'Daily Reports',              desc:'Track daily site activities, weather, manpower, work done, and visitors.' },
+  { key:'contract',  icon:'📋', name:'Contract & Payment',         desc:'Contract details, BOQ, variation orders, and client payment certificates (ذرعات).' },
+  { key:'financial', icon:'💰', name:'Financial',                  desc:'Track project income and expenses, USD/IQD cash flow, and net financial position.' },
+  { key:'gantt',     icon:'📊', name:'Gantt Chart',                desc:'Visualise project schedule, milestones, progress, and task dependencies.' },
+  { key:'sub',       icon:'🏗️', name:'Subcontractor Management',   desc:'Manage subcontractors, scopes of work, agreements, and performance tracking.' },
+];
+
+const CONSULTANT_MODULES = [
+  { key:'mir',  icon:'🧱', name:'Material Inspection',      desc:'Submit material inspection requests (MIR) for approval before installation.' },
+  { key:'fir',  icon:'🔍', name:'Field Inspection',         desc:'Raise and track field inspection requests (FIR) for completed work items.' },
+  { key:'ms',   icon:'📄', name:'Method Statements',        desc:'Prepare and submit method statements for consultant review and approval.' },
+  { key:'rfi',  icon:'❓', name:'Requests for Information', desc:'Raise RFIs for clarifications on design drawings and specifications.' },
+  { key:'dwg',  icon:'📐', name:'Drawings',                 desc:'Submit construction drawings for consultant review and track approval status.' },
+  { key:'lbt',  icon:'🧪', name:'Lab Tests',                desc:'Record and track laboratory test results for materials and soil samples.' },
+];
+
+// ── Render a group of module cards ────────────────────────────────────────
+function moduleCardHtml(m, isConsultant) {
+  const codeLabel = m.key === 'financial' ? 'FINANCIAL'
+                  : m.key === 'gantt'     ? 'GANTT'
+                  : m.key.toUpperCase();
+  const extraClass = isConsultant ? ' consultant' : '';
+  return `
+  <a class="module-card${extraClass}" href="/legacy/${m.key}" onclick="setLegacyProject(event, '${m.key}')">
+    <div class="module-card-top">
+      <div class="module-icon">${m.icon}</div>
+      <span class="module-badge">${codeLabel}</span>
+    </div>
+    <div>
+      <div class="module-name">${m.name}</div>
+      <div class="module-desc">${m.desc}</div>
+    </div>
+    <div class="module-footer">
+      <span class="module-status" id="mod-status-${m.key}">—</span>
+      <span class="module-open">Open →</span>
+    </div>
+  </a>`;
+}
+
+// ── Render modules grid ───────────────────────────────────────────────────
+function renderModules() {
+  const container = document.getElementById('modules-container');
+  container.innerHTML =
+    `<div class="section-title">Project Modules</div>
+     <div class="modules-grid" id="modules-grid-main">
+       ${MAIN_MODULES.map(m => moduleCardHtml(m, false)).join('')}
+     </div>
+     <div class="section-title consultant-title" style="margin-top:28px">
+       <span style="display:inline-flex;align-items:center;gap:7px">
+         <span style="font-size:14px">🏛️</span> Consultant Submissions
+       </span>
+     </div>
+     <div class="modules-grid" id="modules-grid-consultant">
+       ${CONSULTANT_MODULES.map(m => moduleCardHtml(m, true)).join('')}
+     </div>`;
+}
+
+// ── Set localStorage for legacy pages & navigate ──────────────────────────
+function setLegacyProject(e, moduleKey) {
+  if (!PROJECT) return;
+  // Write the full project object that legacy pages read from binna_project
+  const legacyProj = {
+    id:         PROJECT.id,
+    code:       PROJECT.code,
+    name:       PROJECT.name,
+    client:     PROJECT.client      || '',
+    consultant: PROJECT.consultant  || '',
+    contractor: PROJECT.contractor  || '',
+  };
+  localStorage.setItem('binna_project',         JSON.stringify(legacyProj));
+  localStorage.setItem('binna_current_project', JSON.stringify(legacyProj));
+  // Let the href navigate normally
+}
+
+// ── Load project ──────────────────────────────────────────────────────────
+async function loadProject() {
+  try {
+    const data = await BINNA.get(`/projects/${PROJECT_ID}`);
+    PROJECT  = data.project;
+    MY_ROLE  = data.my_role;
+
+    // Persist as current project
+    BINNA.setProject(PROJECT);
+
+    renderHeader();
+    document.getElementById('btn-add-member').style.display = 'inline-flex';
+    renderTeamLegend();
+
+  } catch (err) {
+    if (err.status === 403 || err.status === 404) {
+      window.location.href = '/dashboard';
+    }
+  }
+}
+
+function statusClass(s) {
+  if (s === 'active')    return 'status-active';
+  if (s === 'on-hold')   return 'status-on-hold';
+  if (s === 'completed') return 'status-completed';
+  return 'status-active';
+}
+function statusLabel(s) {
+  if (s === 'on-hold') return 'On Hold';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function renderHeader() {
+  const p = PROJECT;
+  // Topbar
+  document.getElementById('top-code').textContent = p.code;
+  document.getElementById('top-name').textContent = p.name;
+  document.title = `BINNA — ${p.code}`;
+
+  // Remove skeletons
+  document.getElementById('skel-code').outerHTML =
+    `<span class="proj-code">${BINNA.esc(p.code)}</span>`;
+  document.getElementById('skel-name').outerHTML =
+    `<span class="proj-title">${BINNA.esc(p.name)}</span>
+     <span class="status-badge ${statusClass(p.status)}">
+       <span class="status-dot"></span>${statusLabel(p.status)}
+     </span>`;
+
+  // Meta row
+  const meta = document.getElementById('proj-meta');
+  const def  = (v) => v ? BINNA.esc(v) : '<span class="empty">—</span>';
+  meta.innerHTML = `
+    <div class="meta-item"><span class="meta-label">Client</span><span class="meta-value">${def(p.client)}</span></div>
+    <div class="meta-item"><span class="meta-label">Consultant</span><span class="meta-value">${def(p.consultant)}</span></div>
+    <div class="meta-item"><span class="meta-label">Contractor</span><span class="meta-value">${def(p.contractor)}</span></div>
+    ${p.description ? `<div class="meta-item"><span class="meta-label">Description</span><span class="meta-value">${BINNA.esc(p.description)}</span></div>` : ''}
+  `;
+  meta.style.display = 'flex';
+
+  // Show edit button for admin/owner
+  const _ROLE = { viewer: 0, member: 1, admin: 2, owner: 3 };
+  if ((_ROLE[MY_ROLE] || 0) >= _ROLE.admin) {
+    document.getElementById('proj-actions').style.display = 'flex';
+  }
+}
+
+// ── Team Members Legend (localStorage) ───────────────────────────────────
+const PRESET_COLORS = ['#1a56db','#7c3aed','#059669','#dc2626','#d97706','#0891b2','#be185d','#65a30d','#c2410c','#0f766e'];
+let _editingMemberIdx = -1;
+
+function teamKey() { return `binna_team_${PROJECT_ID}`; }
+function getTeamMembers() {
+  try { return JSON.parse(localStorage.getItem(teamKey()) || '[]'); } catch { return []; }
+}
+function saveTeamMembers(arr) { localStorage.setItem(teamKey(), JSON.stringify(arr)); }
+
+function renderTeamLegend() {
+  const list = document.getElementById('team-legend-list');
+  const members = getTeamMembers();
+  if (!members.length) {
+    list.innerHTML = '<p style="font-size:13px;color:var(--muted2);padding:4px 0">No team members yet — click "+ Add Member" to build your project legend.</p>';
+    return;
+  }
+  list.innerHTML = members.map((m, i) => `
+    <div class="legend-row">
+      <span class="legend-swatch" style="background:${BINNA.esc(m.color)}"></span>
+      <div class="legend-info">
+        <span class="legend-name">${BINNA.esc(m.name)}</span>
+        <span class="legend-role">${BINNA.esc(m.role || '')}</span>
+      </div>
+      <div class="legend-btns">
+        <button class="legend-btn" onclick="openEditMember(${i})" title="Edit">✏</button>
+        <button class="legend-btn del" onclick="deleteMember(${i})" title="Remove">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildColorPresets(currentColor) {
+  const container = document.getElementById('color-presets');
+  container.innerHTML = PRESET_COLORS.map(c => `
+    <button type="button" title="${c}"
+      onclick="document.getElementById('m-color').value='${c}';buildColorPresets('${c}')"
+      style="width:22px;height:22px;border-radius:5px;border:2px solid ${c === currentColor ? '#111' : 'transparent'};
+             background:${c};cursor:pointer;padding:0;transition:border-color .1s"></button>
+  `).join('');
+}
+
+function openAddMember() {
+  _editingMemberIdx = -1;
+  document.getElementById('member-modal-title').textContent = 'Add Team Member';
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-role').value = '';
+  const used = getTeamMembers().map(m => m.color);
+  const next = PRESET_COLORS.find(c => !used.includes(c)) || PRESET_COLORS[0];
+  document.getElementById('m-color').value = next;
+  document.getElementById('btn-save-member').textContent = 'Add Member';
+  buildColorPresets(next);
+  document.getElementById('member-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('m-name').focus(), 60);
+}
+
+function openEditMember(idx) {
+  const m = getTeamMembers()[idx];
+  if (!m) return;
+  _editingMemberIdx = idx;
+  document.getElementById('member-modal-title').textContent = 'Edit Team Member';
+  document.getElementById('m-name').value = m.name;
+  document.getElementById('m-role').value = m.role || '';
+  document.getElementById('m-color').value = m.color;
+  document.getElementById('btn-save-member').textContent = 'Save Changes';
+  buildColorPresets(m.color);
+  document.getElementById('member-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('m-name').focus(), 60);
+}
+
+function closeMemberModal() { document.getElementById('member-overlay').classList.remove('open'); }
+function closeMemberIfBg(e) { if (e.target === document.getElementById('member-overlay')) closeMemberModal(); }
+
+function saveMember() {
+  const name  = document.getElementById('m-name').value.trim();
+  const role  = document.getElementById('m-role').value.trim();
+  const color = document.getElementById('m-color').value;
+  if (!name) { BINNA.toast('Name is required', 'error'); return; }
+  const members = getTeamMembers();
+  if (_editingMemberIdx >= 0) {
+    members[_editingMemberIdx] = { ...members[_editingMemberIdx], name, role, color };
+    BINNA.toast('Member updated ✓', 'success', 2000);
+  } else {
+    members.push({ id: Date.now(), name, role, color });
+    BINNA.toast('Member added ✓', 'success', 2000);
+  }
+  saveTeamMembers(members);
+  closeMemberModal();
+  renderTeamLegend();
+}
+
+function deleteMember(idx) {
+  const members = getTeamMembers();
+  members.splice(idx, 1);
+  saveTeamMembers(members);
+  renderTeamLegend();
+  BINNA.toast('Member removed', 'info', 2000);
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────
+function openEditModal() {
+  if (!PROJECT) return;
+  document.getElementById('e-code').value       = PROJECT.code       || '';
+  document.getElementById('e-status').value     = PROJECT.status     || 'active';
+  document.getElementById('e-name').value       = PROJECT.name       || '';
+  document.getElementById('e-client').value     = PROJECT.client     || '';
+  document.getElementById('e-consultant').value = PROJECT.consultant || '';
+  document.getElementById('e-contractor').value = PROJECT.contractor || '';
+  document.getElementById('e-desc').value       = PROJECT.description|| '';
+  document.getElementById('edit-overlay').classList.add('open');
+}
+function closeEditModal() {
+  document.getElementById('edit-overlay').classList.remove('open');
+}
+function closeEditIfBg(e) {
+  if (e.target === document.getElementById('edit-overlay')) closeEditModal();
+}
+
+async function saveEdit() {
+  const btn = document.getElementById('btn-save-edit');
+  const payload = {
+    code:        document.getElementById('e-code').value.trim().toUpperCase(),
+    status:      document.getElementById('e-status').value,
+    name:        document.getElementById('e-name').value.trim(),
+    client:      document.getElementById('e-client').value.trim(),
+    consultant:  document.getElementById('e-consultant').value.trim(),
+    contractor:  document.getElementById('e-contractor').value.trim(),
+    description: document.getElementById('e-desc').value.trim(),
+  };
+  if (!payload.code || !payload.name) { BINNA.toast('Code and Name are required.', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const data = await BINNA.put(`/projects/${PROJECT_ID}`, payload);
+    PROJECT = data.project;
+    BINNA.setProject(PROJECT);
+    closeEditModal();
+    renderHeader();
+    BINNA.toast('Project updated ✓', 'success');
+  } catch (err) {
+    BINNA.toast(err.error || 'Save failed', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  }
+}
+
+// ── User badge ────────────────────────────────────────────────────────────
+function renderUser() {
+  const u = BINNA.getUser();
+  if (!u) return;
+  const initials = (u.username || u.email || '?')[0].toUpperCase();
+  document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('user-name').textContent   = u.username || u.email;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+renderUser();
+renderModules();
+loadProject();
+</script>
+</body>
+</html>

@@ -1,0 +1,893 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Daily Reports</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
+  --border:#d0d5dd;--border2:#e4e7ec;
+  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
+  --accent:#1a56db;--accent-light:#eff4ff;
+  --success:#027a48;--success-bg:#ecfdf3;--success-br:#6ce9a6;
+  --danger:#b42318;--radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-.3px;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center}
+.logo:hover{color:#1648c0}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:7px}
+#sidebar-toggle-btn{background:transparent;border:1px solid transparent;border-radius:5px;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0}
+#sidebar-toggle-btn:hover{background:var(--surface);border-color:var(--border)}
+.proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
+.proj-badge b{color:var(--accent);margin-right:4px}
+.module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
+.btn:hover{background:var(--surface)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#1648c0}
+.btn-red{color:var(--danger);border-color:#fecdca}
+.btn-red:hover{background:#fff1f0}
+.btn-sm{padding:5px 11px;font-size:12px}
+
+/* MAIN */
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;transition:width .22s ease,min-width .22s ease,padding .22s ease,border .22s ease;overflow:hidden;min-width:0}
+.sidebar.collapsed{width:0;padding:0;border-right:none}
+.sidebar-section{padding:6px 20px 4px;font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--muted2);text-transform:uppercase;margin-top:8px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:2px solid transparent;font-weight:400;text-decoration:none}
+.sidebar-item:hover{background:var(--surface);color:var(--text)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);border-left:2px solid var(--accent)}
+.sidebar-item .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+.main{flex:1;overflow-y:auto;padding:24px 28px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.stat-val{font-size:26px;font-weight:700;color:var(--text);line-height:1}
+.stats-toggle{display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px}
+.stats-toggle-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s}
+.stats-toggle-btn:hover{background:var(--surface);color:var(--text)}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.search{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:220px}
+.search:focus{outline:none;border-color:var(--accent)}
+.search::placeholder{color:var(--muted2)}
+.filter-sel{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;cursor:pointer}
+.rec-count{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* TABLE */
+.table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+td{padding:11px 14px;font-size:12.5px;border-bottom:1px solid var(--border2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface)}
+tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--accent);outline-offset:-1px}
+.code-cell{font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
+.muted-cell{color:var(--muted);font-size:12px}
+.action-btns{display:flex;gap:5px}
+.icon-btn{background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;color:var(--muted);font-size:12px;transition:all .12s;font-family:'Inter',sans-serif}
+.icon-btn:hover{background:var(--surface);color:var(--text)}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty .icon{font-size:40px;opacity:.15;margin-bottom:10px}
+
+/* WEATHER BADGE */
+.weather-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;border:1px solid var(--border2);background:var(--surface)}
+
+/* NUMBER PILLS */
+.num-pill{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--text2)}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:#00000077;z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:20px 0;opacity:0;pointer-events:none;transition:opacity .18s;overflow-y:auto}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border:1px solid var(--border);border-radius:12px;width:680px;transform:translateY(14px);transition:transform .18s;box-shadow:0 24px 48px rgba(0,0,0,.12);margin:auto}
+.overlay.open .modal{transform:translateY(0)}
+.mhead{padding:20px 22px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;justify-content:space-between}
+.mtitle{font-size:16px;font-weight:700}
+.msubtitle{font-size:12px;color:var(--muted);margin-top:2px}
+.mbody{padding:22px}
+.mfoot{padding:14px 22px;border-top:1px solid var(--border2);display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.closex{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.closex:hover{color:var(--text);background:var(--surface)}
+
+/* FORM */
+.section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;padding-bottom:8px;border-bottom:1px solid var(--border2);margin-bottom:14px;margin-top:20px}
+.section-title:first-child{margin-top:0}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.frow.full{grid-template-columns:1fr}
+.frow.tri{grid-template-columns:1fr 1fr 1fr}
+.frow.quad{grid-template-columns:1fr 1fr 1fr 1fr}
+.fgrp{display:flex;flex-direction:column;gap:4px}
+.flbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text2)}
+.req{color:var(--danger)}
+.fi,.fs,.ft{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:100%;transition:border-color .12s}
+.fi:focus,.fs:focus,.ft:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
+.fhint{font-size:10.5px;color:var(--muted2);margin-top:2px}
+
+/* DATE INPUT */
+.sd-wrap{position:relative;display:flex;align-items:center}
+.sd-input{flex:1;background:var(--white);border:1px solid var(--border);border-radius:7px;padding:8px 32px 8px 11px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:100%;transition:border-color .12s}
+.sd-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
+.sd-input::placeholder{color:var(--muted2)}
+.sd-cal{position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0;line-height:1}
+.sd-hidden{position:absolute;right:0;top:0;bottom:0;width:30px;opacity:0;cursor:pointer}
+
+/* WEATHER SELECTOR */
+.weather-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.weather-opt{border:1px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;cursor:pointer;transition:all .12s;background:var(--white)}
+.weather-opt:hover{border-color:var(--accent);background:var(--accent-light)}
+.weather-opt.selected{border-color:var(--accent);background:var(--accent-light);font-weight:600}
+.weather-opt .wicon{font-size:22px;margin-bottom:4px}
+.weather-opt .wlbl{font-size:11px;color:var(--text2)}
+
+/* WORKS LIST */
+.works-list{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px}
+.work-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border2);background:var(--white)}
+.work-item:last-child{border-bottom:none}
+.work-item-num{font-size:11px;color:var(--muted2);width:20px;flex-shrink:0;text-align:center}
+.work-item-text{flex:1;font-size:13px;color:var(--text)}
+.work-item-remove{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:14px;padding:0 3px;border-radius:3px;font-family:'Inter',sans-serif}
+.work-item-remove:hover{color:var(--danger)}
+.work-add-row{display:flex;gap:8px;padding:8px;background:var(--surface);border-top:1px solid var(--border2)}
+.work-add-row input{flex:1;background:var(--white);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif}
+.work-add-row input:focus{outline:none;border-color:var(--accent)}
+.work-empty{padding:14px;text-align:center;font-size:12px;color:var(--muted2);font-style:italic}
+
+/* VISITORS TABLE */
+.visitors-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px}
+.visitor-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border2);align-items:center}
+.visitor-row:last-child{border-bottom:none}
+.visitor-row.header{background:var(--surface);font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.visitor-add-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;padding:8px;background:var(--surface);border-top:1px solid var(--border2)}
+.visitor-add-row input,.visitor-add-row select{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif}
+.visitor-add-row input:focus,.visitor-add-row select:focus{outline:none;border-color:var(--accent)}
+
+/* DETAIL */
+.detail-section{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.detail-section-title{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px}
+.drow{display:flex;gap:10px;margin-bottom:8px;align-items:flex-start}
+.dkey{font-size:11px;color:var(--muted);width:130px;flex-shrink:0;padding-top:1px;text-transform:uppercase;letter-spacing:.4px}
+.dval{font-size:13px;color:var(--text);flex:1;word-break:break-word}
+.works-view-list{list-style:none;padding:0}
+.works-view-list li{padding:4px 0;border-bottom:1px solid var(--border2);font-size:13px;display:flex;gap:8px;align-items:baseline}
+.works-view-list li:last-child{border-bottom:none}
+.works-view-list li span{font-size:10px;color:var(--muted2);width:18px;flex-shrink:0}
+
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  body{background:#fff}
+  .topbar,.toolbar,.action-btns,.overlay{display:none!important}
+  .main{padding:0;max-width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
+    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
+    <div class="proj-badge"><b id="proj-code">APS</b><span id="proj-name">Auxiliary Pump Station</span></div>
+  </div>
+  <div class="topbar-right">
+    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
+    <div class="module-tag">DR — Daily Reports</div>
+    <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>
+    <button class="btn btn-primary" type="button" onclick="openAdd()">+ New Daily Report</button>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">Project</div>
+  <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
+  <a class="sidebar-item active" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
+  <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
+  <a class="sidebar-item" href="/legacy/financial"><span class="dot"></span> Financial</a>
+  <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
+  <a class="sidebar-item" href="/legacy/sub"><span class="dot"></span> Subcontractor Mgmt</a>
+  <div class="sidebar-section">Consultant</div>
+  <a class="sidebar-item" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
+  <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
+  <a class="sidebar-item" href="/legacy/mir"><span class="dot"></span> MIR</a>
+  <a class="sidebar-item" href="/legacy/ms"><span class="dot"></span> Method Statements</a>
+  <a class="sidebar-item" href="/legacy/rfi"><span class="dot"></span> RFI</a>
+  <a class="sidebar-item" href="/legacy/lbt"><span class="dot"></span> Lab Tests</a>
+  <div style="margin-top:auto">
+    <div id="sidebar-team-legend" style="padding:10px 16px 4px;display:none">
+      <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:var(--muted2);text-transform:uppercase;margin-bottom:6px">Team</div>
+      <div id="sidebar-team-items"></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted2)">BINNA v2.0</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="stats-toggle">
+    <button class="stats-toggle-btn" id="stats-toggle-btn" onclick="toggleStats()">▲ Hide Dashboard</button>
+  </div>
+  <div id="stats-section">
+  <div class="stats">
+    <div class="stat-card"><div class="stat-label">Total Reports</div><div class="stat-val" style="color:var(--accent)" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-val" id="s-month">—</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Workers / Day</div><div class="stat-val" id="s-workers">—</div></div>
+    <div class="stat-card"><div class="stat-label">Last Report Date</div><div class="stat-val" style="font-size:18px" id="s-last">—</div></div>
+  </div>
+  </div><!-- /stats-section -->
+
+  <div class="toolbar">
+    <input class="search" type="text" id="search" placeholder="Search any field — weather, notes, date, code, visitor…" oninput="renderTable()"/>
+    <select class="filter-sel" id="filter-weather" onchange="renderTable()">
+      <option value="">All Weather</option>
+      <option value="sunny">☀️ Sunny</option>
+      <option value="partly-cloudy">⛅ Partly Cloudy</option>
+      <option value="cloudy">☁️ Cloudy</option>
+      <option value="windy">💨 Windy</option>
+      <option value="light-rain">🌦️ Light Rain</option>
+      <option value="rain">🌧️ Rain</option>
+      <option value="heavy-rain">⛈️ Heavy Rain</option>
+      <option value="dust">🌫️ Dust / Sandstorm</option>
+      <option value="hot">🌡️ Extreme Heat</option>
+      <option value="fog">🌁 Fog</option>
+    </select>
+    <span class="rec-count" id="rec-count"></span>
+    <button class="btn btn-primary btn-sm" type="button" onclick="openAdd()">+ New Daily Report</button>
+  </div>
+
+  <div class="table-wrap">
+    <div id="table-body"></div>
+  </div>
+</div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="overlay" id="modal-add">
+  <div class="modal">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="modal-title">New Daily Report</div>
+        <div class="msubtitle" id="modal-code-preview">Code will be assigned automatically</div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-add')">✕</button>
+    </div>
+    <div class="mbody">
+
+      <!-- HEADER INFO -->
+      <div class="section-title" style="margin-top:0">Report Information</div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Report Date <span class="req">*</span></label>
+          <div class="sd-wrap">
+            <input class="sd-input" id="f-date" placeholder="DD/MM/YYYY" maxlength="10" oninput="onDateType(this)"/>
+            <button class="sd-cal" type="button" onclick="document.getElementById('f-date-h').showPicker?document.getElementById('f-date-h').showPicker():document.getElementById('f-date-h').click()">&#128197;</button>
+            <input type="date" class="sd-hidden" id="f-date-h" onchange="fromCal(this,'f-date')"/>
+          </div>
+        </div>
+        <div class="fgrp" style="justify-content:flex-end;padding-top:22px">
+          <div style="background:var(--accent-light);border:1px solid #c7d7fd;border-radius:7px;padding:8px 14px;font-family:monospace;font-size:14px;font-weight:700;color:var(--accent)" id="code-preview-box">APS-DR-001</div>
+          <div style="font-size:10.5px;color:var(--muted2);margin-top:4px">Auto-generated report code</div>
+        </div>
+      </div>
+
+      <!-- WEATHER -->
+      <div class="section-title">Weather Condition</div>
+      <div class="weather-grid" id="weather-grid">
+        <div class="weather-opt selected" data-val="sunny" onclick="selectWeather(this)"><div class="wicon">☀️</div><div class="wlbl">Sunny</div></div>
+        <div class="weather-opt" data-val="partly-cloudy" onclick="selectWeather(this)"><div class="wicon">⛅</div><div class="wlbl">Partly Cloudy</div></div>
+        <div class="weather-opt" data-val="cloudy" onclick="selectWeather(this)"><div class="wicon">☁️</div><div class="wlbl">Cloudy</div></div>
+        <div class="weather-opt" data-val="windy" onclick="selectWeather(this)"><div class="wicon">💨</div><div class="wlbl">Windy</div></div>
+        <div class="weather-opt" data-val="light-rain" onclick="selectWeather(this)"><div class="wicon">🌦️</div><div class="wlbl">Light Rain</div></div>
+        <div class="weather-opt" data-val="rain" onclick="selectWeather(this)"><div class="wicon">🌧️</div><div class="wlbl">Rain</div></div>
+        <div class="weather-opt" data-val="heavy-rain" onclick="selectWeather(this)"><div class="wicon">⛈️</div><div class="wlbl">Heavy Rain</div></div>
+        <div class="weather-opt" data-val="dust" onclick="selectWeather(this)"><div class="wicon">🌫️</div><div class="wlbl">Dust / Sandstorm</div></div>
+        <div class="weather-opt" data-val="hot" onclick="selectWeather(this)"><div class="wicon">🌡️</div><div class="wlbl">Extreme Heat</div></div>
+        <div class="weather-opt" data-val="fog" onclick="selectWeather(this)"><div class="wicon">🌁</div><div class="wlbl">Fog</div></div>
+      </div>
+      <div class="frow full" style="margin-top:10px">
+        <div class="fgrp">
+          <label class="flbl">Weather Notes</label>
+          <input class="fi" type="text" id="f-weather-notes" placeholder="e.g. Temperature 42°C, dust storm from 2pm..."/>
+        </div>
+      </div>
+
+      <!-- MANPOWER -->
+      <div class="section-title">Manpower on Site</div>
+      <div class="frow quad">
+        <div class="fgrp">
+          <label class="flbl">Engineers</label>
+          <input class="fi" type="number" id="f-engineers" min="0" value="0" placeholder="0"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Laborers</label>
+          <input class="fi" type="number" id="f-laborers" min="0" value="0" placeholder="0"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Technicians</label>
+          <input class="fi" type="number" id="f-technicians" min="0" value="0" placeholder="0"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Other</label>
+          <input class="fi" type="number" id="f-other-workers" min="0" value="0" placeholder="0"/>
+        </div>
+      </div>
+
+      <!-- VISITORS -->
+      <div class="section-title">Visitors</div>
+      <div class="visitors-wrap" id="visitors-wrap">
+        <div class="visitor-row header"><span>Name</span><span>Organization / Role</span><span></span></div>
+        <div id="visitors-list"></div>
+        <div class="visitor-add-row">
+          <input type="text" id="v-name" placeholder="Visitor name"/>
+          <input type="text" id="v-org" placeholder="Organization or role"/>
+          <button class="btn btn-primary btn-sm" type="button" onclick="addVisitor()">+ Add</button>
+        </div>
+      </div>
+
+      <!-- WORKS DONE -->
+      <div class="section-title">Works Done Today <span class="req">*</span></div>
+      <div class="works-list" id="works-list">
+        <div class="work-empty" id="works-empty">No works added yet</div>
+        <div class="work-add-row">
+          <input type="text" id="w-input" placeholder="Describe a work item completed today..." onkeydown="if(event.key==='Enter'){event.preventDefault();addWork();}"/>
+          <button class="btn btn-primary btn-sm" type="button" onclick="addWork()">+ Add</button>
+        </div>
+      </div>
+
+      <!-- NEXT DAY PLAN -->
+      <div class="section-title">Next Day Plan</div>
+      <div class="frow full">
+        <div class="fgrp">
+          <textarea class="ft" id="f-next-plan" rows="3" placeholder="Describe the planned work for tomorrow..."></textarea>
+        </div>
+      </div>
+
+      <!-- GENERAL NOTES -->
+      <div class="section-title">General Notes / Issues</div>
+      <div class="frow full">
+        <div class="fgrp">
+          <textarea class="ft" id="f-notes" rows="2" placeholder="Any incidents, delays, issues, or remarks..."></textarea>
+        </div>
+      </div>
+
+      <!-- PHOTOS -->
+      <div class="section-title">Site Photos <span style="font-size:10px;color:var(--muted2);text-transform:none;letter-spacing:0;font-weight:400">(optional — multiple allowed)</span></div>
+      <div id="photo-drop" style="background:var(--surface);border:2px dashed var(--border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;position:relative;transition:all .12s" onclick="document.getElementById('f-photos').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handlePhotoDrop(event)">
+        <input type="file" id="f-photos" accept="image/*" multiple style="display:none" onchange="handlePhotos(this.files)"/>
+        <div style="font-size:24px;opacity:.3;margin-bottom:6px">📷</div>
+        <p style="font-size:12px;color:var(--muted)">Click or drag & drop photos here<br><span style="font-size:11px;color:var(--muted2)">JPG, PNG, WEBP — multiple allowed</span></p>
+      </div>
+      <div id="photo-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+
+      <!-- PREPARED BY -->
+      <div class="frow" style="margin-top:16px">
+        <div class="fgrp">
+          <label class="flbl">Prepared By</label>
+          <input class="fi" type="text" id="f-prepared-by" placeholder="Engineer name"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Reviewed By</label>
+          <input class="fi" type="text" id="f-reviewed-by" placeholder="Site manager or PM name"/>
+        </div>
+      </div>
+
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-red btn-sm" type="button" id="btn-delete" style="margin-right:auto;display:none" onclick="deleteDR()">&#128465; Delete</button>
+      <button class="btn" type="button" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveDR()">Save Daily Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="overlay" id="modal-view">
+  <div class="modal" style="width:640px">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="view-title"></div>
+        <div class="msubtitle" id="view-sub"></div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-view')">✕</button>
+    </div>
+    <div class="mbody" id="view-body"></div>
+    <div class="mfoot">
+      <button class="btn btn-sm" type="button" id="view-edit-btn">✏️ Edit</button>
+      <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>
+      <button class="btn" type="button" onclick="closeModal('modal-view')">Close</button>
+    </div>
+  </div>
+</div>
+</div><!-- /layout -->
+
+<script src="/static/js/binna-api.js"></script>
+<script>
+'use strict';
+if (!BINNA.requireProject()) { throw new Error('auth'); }
+const PROJECT    = BINNA.getProject();
+const PROJECT_ID = PROJECT.id;
+
+let allRecords = [];
+let editId     = null;
+let _selId     = null;
+let works      = [];
+let visitors   = [];
+let selWeather = 'sunny';
+let drPhotos   = []; // array of File objects or existing photo names
+let statsVisible = true;
+
+function selectRow(id) {
+  _selId = id;
+  document.querySelectorAll('#table-body tr.row-sel').forEach(r => r.classList.remove('row-sel'));
+  const tr = document.querySelector(`#table-body tr[data-id="${id}"]`);
+  if (tr) tr.classList.add('row-sel');
+}
+
+// ── Stats toggle ──────────────────────────────────────────────────────────────
+function toggleStats() {
+  statsVisible = !statsVisible;
+  document.getElementById('stats-section').style.display = statsVisible ? '' : 'none';
+  document.getElementById('stats-toggle-btn').textContent = statsVisible ? '▲ Hide Dashboard' : '▼ Show Dashboard';
+}
+
+// ── Photos ────────────────────────────────────────────────────────────────────
+function handlePhotos(files) {
+  if (!files || !files.length) return;
+  Array.from(files).forEach(function(f){ drPhotos.push(f); });
+  renderPhotoPreview();
+}
+function handlePhotoDrop(e) {
+  e.preventDefault();
+  document.getElementById('photo-drop').style.borderColor = 'var(--border)';
+  handlePhotos(e.dataTransfer.files);
+}
+function removePhoto(idx) {
+  drPhotos.splice(idx, 1);
+  renderPhotoPreview();
+}
+function renderPhotoPreview() {
+  var el = document.getElementById('photo-preview');
+  if (!drPhotos.length) { el.innerHTML = ''; return; }
+  el.innerHTML = drPhotos.map(function(f, i) {
+    var src = typeof f === 'string' ? f : URL.createObjectURL(f);
+    var name = typeof f === 'string' ? f : f.name;
+    return '<div style="position:relative;display:inline-block">'
+      +'<img src="'+src+'" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border2)" title="'+escHtml(name)+'"/>'
+      +'<button onclick="removePhoto('+i+')" type="button" style="position:absolute;top:-4px;right:-4px;background:#b42318;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;padding:0">✕</button>'
+      +'</div>';
+  }).join('');
+}
+
+const WEATHER_MAP = {
+  'sunny':        {icon:'☀️', label:'Sunny'},
+  'partly-cloudy':{icon:'⛅', label:'Partly Cloudy'},
+  'cloudy':       {icon:'☁️', label:'Cloudy'},
+  'windy':        {icon:'💨', label:'Windy'},
+  'light-rain':   {icon:'🌦️', label:'Light Rain'},
+  'rain':         {icon:'🌧️', label:'Rain'},
+  'heavy-rain':   {icon:'⛈️', label:'Heavy Rain'},
+  'dust':         {icon:'🌫️', label:'Dust / Sandstorm'},
+  'hot':          {icon:'🌡️', label:'Extreme Heat'},
+  'fog':          {icon:'🌁', label:'Fog'},
+};
+
+window.addEventListener('DOMContentLoaded', async function() {
+  BINNA.injectProjectBadge();
+  var bl = document.getElementById('back-link');
+  if (bl) bl.href = '/project/' + PROJECT_ID;
+  await loadRecords();
+  BINNA.registerDeleteSelected(function() { if (_selId) { editId = _selId; deleteDR(); } });
+});
+
+async function loadRecords() {
+  try {
+    const data = await BINNA.fetchDRs(PROJECT_ID);
+    allRecords = data.items || [];
+  } catch(e) {
+    BINNA.toast('Failed to load: ' + (e.error || 'error'), 'error');
+    allRecords = [];
+  }
+  renderTable();
+  updateStats();
+}
+
+// ── OPEN ADD ──────────────────────────────────────────────────────────────────
+async function openAdd(id) {
+  editId = id || null;
+  works = []; visitors = []; selWeather = 'sunny'; drPhotos = [];
+  document.getElementById('photo-preview').innerHTML = '';
+  var r = id ? allRecords.find(x => x.id === id) : null;
+
+  document.getElementById('modal-title').textContent = r ? 'Edit Daily Report' : 'New Daily Report';
+  document.getElementById('btn-delete').style.display = r ? 'inline-flex' : 'none';
+
+  if (r) {
+    document.getElementById('modal-code-preview').textContent = 'Report: ' + r.code;
+    document.getElementById('code-preview-box').textContent   = r.code;
+  } else {
+    try {
+      const nc = await BINNA.drNextCode(PROJECT_ID);
+      document.getElementById('modal-code-preview').textContent = 'Report: ' + nc.code;
+      document.getElementById('code-preview-box').textContent   = nc.code;
+    } catch { }
+  }
+
+  // Date
+  document.getElementById('f-date').value = r ? disp(r.date) : disp(isoToday());
+
+  // Weather
+  selWeather = r ? (r.weather || 'sunny') : 'sunny';
+  document.querySelectorAll('.weather-opt').forEach(el => {
+    el.classList.toggle('selected', el.getAttribute('data-val') === selWeather);
+  });
+  document.getElementById('f-weather-notes').value = r ? (r.weather_notes || '') : '';
+
+  // Manpower
+  document.getElementById('f-engineers').value     = r ? (r.engineers     || 0) : 0;
+  document.getElementById('f-laborers').value      = r ? (r.laborers      || 0) : 0;
+  document.getElementById('f-technicians').value   = r ? (r.technicians   || 0) : 0;
+  document.getElementById('f-other-workers').value = r ? (r.other_workers || 0) : 0;
+
+  // Works
+  works = r ? JSON.parse(JSON.stringify(r.works || [])) : [];
+  renderWorks();
+
+  // Visitors
+  visitors = r ? JSON.parse(JSON.stringify(r.visitors || [])) : [];
+  renderVisitors();
+
+  // Text fields
+  document.getElementById('f-next-plan').value   = r ? (r.next_plan   || '') : '';
+  document.getElementById('f-notes').value       = r ? (r.notes       || '') : '';
+  document.getElementById('f-prepared-by').value = r ? (r.prepared_by || '') : '';
+  document.getElementById('f-reviewed-by').value = r ? (r.reviewed_by || '') : '';
+
+  openModal('modal-add');
+}
+
+// ── WEATHER ───────────────────────────────────────────────────────────────────
+function selectWeather(el) {
+  selWeather = el.getAttribute('data-val');
+  document.querySelectorAll('.weather-opt').forEach(function(e){ e.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+// ── WORKS ─────────────────────────────────────────────────────────────────────
+function addWork() {
+  var input = document.getElementById('w-input');
+  var val = input.value.trim();
+  if (!val) return;
+  works.push(val);
+  input.value = '';
+  renderWorks();
+  input.focus();
+}
+
+function removeWork(i) {
+  works.splice(i, 1);
+  renderWorks();
+}
+
+function renderWorks() {
+  var list = document.getElementById('works-list');
+  var empty = document.getElementById('works-empty');
+  if (!works.length) {
+    if (empty) empty.style.display = 'block';
+    // Remove existing work items
+    list.querySelectorAll('.work-item').forEach(function(el){ el.remove(); });
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.querySelectorAll('.work-item').forEach(function(el){ el.remove(); });
+  var addRow = list.querySelector('.work-add-row');
+  works.forEach(function(w, i) {
+    var div = document.createElement('div');
+    div.className = 'work-item';
+    div.innerHTML = '<span class="work-item-num">'+(i+1)+'</span>'
+      +'<span class="work-item-text">'+escHtml(w)+'</span>'
+      +'<button class="work-item-remove" type="button" onclick="removeWork('+i+')">✕</button>';
+    list.insertBefore(div, addRow);
+  });
+}
+
+// ── VISITORS ──────────────────────────────────────────────────────────────────
+function addVisitor() {
+  var name = document.getElementById('v-name').value.trim();
+  var org  = document.getElementById('v-org').value.trim();
+  if (!name) { alert('Please enter visitor name.'); return; }
+  visitors.push({name:name, org:org});
+  document.getElementById('v-name').value = '';
+  document.getElementById('v-org').value  = '';
+  renderVisitors();
+}
+
+function removeVisitor(i) {
+  visitors.splice(i, 1);
+  renderVisitors();
+}
+
+function renderVisitors() {
+  var el = document.getElementById('visitors-list');
+  if (!visitors.length) { el.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--muted2);font-style:italic">No visitors today</div>'; return; }
+  var html = '';
+  visitors.forEach(function(v, i) {
+    html += '<div class="visitor-row">'
+      +'<span style="font-size:13px">'+escHtml(v.name)+'</span>'
+      +'<span style="font-size:12px;color:var(--muted)">'+escHtml(v.org||'—')+'</span>'
+      +'<button class="work-item-remove" type="button" onclick="removeVisitor('+i+')">✕</button>'
+    +'</div>';
+  });
+  el.innerHTML = html;
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+async function saveDR() {
+  var date = getISO('f-date');
+  if (!date) { BINNA.toast('Report date is required (DD/MM/YYYY).', 'error'); return; }
+
+  const payload = {
+    date:          date,
+    weather:       selWeather,
+    weather_notes: document.getElementById('f-weather-notes').value.trim(),
+    engineers:     parseInt(document.getElementById('f-engineers').value)     || 0,
+    laborers:      parseInt(document.getElementById('f-laborers').value)      || 0,
+    technicians:   parseInt(document.getElementById('f-technicians').value)   || 0,
+    other_workers: parseInt(document.getElementById('f-other-workers').value) || 0,
+    works:         JSON.parse(JSON.stringify(works)),
+    visitors:      JSON.parse(JSON.stringify(visitors)),
+    next_plan:     document.getElementById('f-next-plan').value.trim(),
+    notes:         document.getElementById('f-notes').value.trim(),
+    prepared_by:   document.getElementById('f-prepared-by').value.trim(),
+    reviewed_by:   document.getElementById('f-reviewed-by').value.trim(),
+    photos:        drPhotos.map(function(f){ return typeof f === 'string' ? f : f.name; }),
+  };
+
+  try {
+    if (editId) {
+      const oldRec = JSON.parse(JSON.stringify(allRecords.find(x => x.id === editId) || {}));
+      const eid = editId;
+      await BINNA.updateDR(PROJECT_ID, editId, payload);
+      await loadRecords();
+      BINNA.toast('Report updated.', 'success');
+      BINNA.undo.push(async function() {
+        try {
+          await BINNA.updateDR(PROJECT_ID, eid, oldRec);
+          await loadRecords();
+          BINNA.toast('Undone', 'info', 1500);
+        } catch(e) { BINNA.toast('Undo failed: '+(e.error||e), 'error'); }
+      });
+    } else {
+      const result = await BINNA.createDR(PROJECT_ID, payload);
+      const newId = result.item ? result.item.id : null;
+      await loadRecords();
+      BINNA.toast('Report created.', 'success');
+      if (newId) BINNA.undo.push(async function() {
+        try {
+          await BINNA.deleteDR(PROJECT_ID, newId);
+          await loadRecords();
+          BINNA.toast('Undone', 'info', 1500);
+        } catch(e) { BINNA.toast('Undo failed: '+(e.error||e), 'error'); }
+      });
+    }
+    closeModal('modal-add');
+  } catch(e) {
+    BINNA.toast((e.error || e.message || 'Save failed'), 'error');
+  }
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+async function deleteDR() {
+  var r = editId ? allRecords.find(x => x.id === editId) : null;
+  if (!confirm('Delete ' + (r ? r.code : 'this report') + '?')) return;
+  const snap = JSON.parse(JSON.stringify(r || {}));
+  const delId = editId;
+  try {
+    await BINNA.deleteDR(PROJECT_ID, editId);
+    if (_selId === delId) _selId = null;
+    closeModal('modal-add');
+    await loadRecords();
+    BINNA.toast('Report deleted.', 'success');
+    BINNA.undo.push(async function() {
+      try {
+        await BINNA.createDR(PROJECT_ID, snap);
+        await loadRecords();
+        BINNA.toast('Undone (re-created with new code)', 'info', 2500);
+      } catch(e) { BINNA.toast('Undo failed: '+(e.error||e), 'error'); }
+    });
+  } catch(e) {
+    BINNA.toast((e.error || 'Delete failed'), 'error');
+  }
+}
+
+// ── VIEW ──────────────────────────────────────────────────────────────────────
+function viewDR(id) {
+  var r = allRecords.find(x => x.id === id); if (!r) return;
+  var w = WEATHER_MAP[r.weather] || {icon:'?', label:r.weather};
+  var totalWorkers = (r.engineers||0)+(r.laborers||0)+(r.technicians||0)+(r.other_workers||0);
+
+  document.getElementById('view-title').textContent = r.code+' — '+disp(r.date);
+  document.getElementById('view-sub').textContent   = w.icon+' '+w.label+(r.weather_notes?' — '+r.weather_notes:'');
+
+  var worksHTML = (r.works||[]).map(function(w,i){
+    return '<li><span>'+(i+1)+'.</span> '+escHtml(w)+'</li>';
+  }).join('');
+
+  var visitorsHTML = r.visitors && r.visitors.length
+    ? r.visitors.map(function(v){ return '<div class="drow"><div class="dkey"></div><div class="dval">'+escHtml(v.name)+(v.org?' <span style="color:var(--muted)">— '+escHtml(v.org)+'</span>':'')+'</div></div>'; }).join('')
+    : '<div class="drow"><div class="dkey"></div><div class="dval" style="color:var(--muted2)">No visitors</div></div>';
+
+  document.getElementById('view-body').innerHTML =
+    '<div class="detail-section">'
+    +'<div class="detail-section-title">Report Details</div>'
+    +'<div class="drow"><div class="dkey">Code</div><div class="dval" style="font-family:monospace;font-weight:700;color:var(--accent)">'+r.code+'</div></div>'
+    +'<div class="drow"><div class="dkey">Date</div><div class="dval">'+disp(r.date)+'</div></div>'
+    +'<div class="drow"><div class="dkey">Weather</div><div class="dval">'+w.icon+' '+w.label+(r.weather_notes?' <span style="color:var(--muted)">— '+escHtml(r.weather_notes)+'</span>':'')+'</div></div>'
+    +'</div>'
+    +'<div class="detail-section">'
+    +'<div class="detail-section-title">Manpower on Site (Total: '+totalWorkers+')</div>'
+    +'<div class="frow quad" style="margin:0">'
+    +'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Engineers</div><div style="font-size:22px;font-weight:700;color:var(--accent)">'+(r.engineers||0)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Laborers</div><div style="font-size:22px;font-weight:700">'+(r.laborers||0)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Technicians</div><div style="font-size:22px;font-weight:700">'+(r.technicians||0)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Other</div><div style="font-size:22px;font-weight:700">'+(r.other_workers||0)+'</div></div>'
+    +'</div>'
+    +'</div>'
+    +'<div class="detail-section"><div class="detail-section-title">Visitors</div>'+visitorsHTML+'</div>'
+    +'<div class="detail-section"><div class="detail-section-title">Works Done Today</div><ul class="works-view-list">'+worksHTML+'</ul></div>'
+    +(r.next_plan?'<div class="detail-section"><div class="detail-section-title">Next Day Plan</div><div style="font-size:13px;white-space:pre-wrap;color:var(--text)">'+escHtml(r.next_plan)+'</div></div>':'')
+    +(r.notes?'<div class="detail-section"><div class="detail-section-title">Notes / Issues</div><div style="font-size:13px;color:var(--muted);white-space:pre-wrap">'+escHtml(r.notes)+'</div></div>':'')
+    +(r.photos&&r.photos.length?'<div class="detail-section"><div class="detail-section-title">Site Photos ('+r.photos.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+r.photos.map(function(p){return '<div style="font-size:12px;background:var(--accent-light);color:var(--accent);border:1px solid #c7d7fd;border-radius:5px;padding:3px 8px">📷 '+escHtml(p)+'</div>';}).join('')+'</div></div>':'')
+    +'<div class="detail-section"><div class="detail-section-title">Signatures</div>'
+    +'<div class="drow"><div class="dkey">Prepared By</div><div class="dval">'+(r.prepared_by||'—')+'</div></div>'
+    +'<div class="drow"><div class="dkey">Reviewed By</div><div class="dval">'+(r.reviewed_by||'—')+'</div></div>'
+    +'</div>';
+
+  document.getElementById('view-edit-btn').onclick = function(){ closeModal('modal-view'); openAdd(id); };
+  openModal('modal-view');
+}
+
+// ── TABLE ─────────────────────────────────────────────────────────────────────
+function renderTable() {
+  var search  = document.getElementById('search').value.toLowerCase();
+  var wFilter = document.getElementById('filter-weather').value;
+
+  var filtered = allRecords.filter(function(r) {
+    if (wFilter && r.weather !== wFilter) return false;
+    if (search && !(
+      (r.code||'').toLowerCase().includes(search) ||
+      (r.weather||'').toLowerCase().includes(search) ||
+      (r.weather_notes||'').toLowerCase().includes(search) ||
+      (r.notes||'').toLowerCase().includes(search) ||
+      (r.next_plan||'').toLowerCase().includes(search) ||
+      (r.prepared_by||'').toLowerCase().includes(search) ||
+      (r.reviewed_by||'').toLowerCase().includes(search) ||
+      disp(r.date).includes(search) ||
+      (r.works||[]).some(function(w){ return w.toLowerCase().includes(search); }) ||
+      (r.visitors||[]).some(function(v){
+        return (v.name||'').toLowerCase().includes(search) ||
+               (v.org||'').toLowerCase().includes(search);
+      })
+    )) return false;
+    return true;
+  });
+
+  filtered.sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
+  document.getElementById('rec-count').textContent = filtered.length+' report'+(filtered.length!==1?'s':'');
+
+  if (!filtered.length) {
+    document.getElementById('table-body').innerHTML = '<div class="empty"><div class="icon">📋</div><p>'+(allRecords.length?'No results match your filters.':'No daily reports yet. Click <b>+ New Daily Report</b> to begin.')+'</p></div>';
+    return;
+  }
+
+  var html = '<table><thead><tr>'
+    +'<th>Code</th><th>Date</th><th>Weather</th>'
+    +'<th>Engineers</th><th>Laborers</th><th>Total</th>'
+    +'<th>Works Done</th><th>Visitors</th><th></th>'
+    +'</tr></thead><tbody>';
+
+  filtered.forEach(function(r) {
+    var w = WEATHER_MAP[r.weather] || {icon:'?', label:r.weather};
+    var total = (r.engineers||0)+(r.laborers||0)+(r.technicians||0)+(r.other_workers||0);
+    var firstWork = r.works && r.works.length ? r.works[0] : '—';
+    if (firstWork.length > 50) firstWork = firstWork.slice(0,50)+'...';
+    html += '<tr data-id="'+r.id+'" onclick="selectRow('+r.id+')">'
+      +'<td><span class="code-cell">'+r.code+'</span></td>'
+      +'<td class="muted-cell">'+disp(r.date)+'</td>'
+      +'<td><span class="weather-badge">'+w.icon+' '+w.label+'</span></td>'
+      +'<td style="text-align:center;font-weight:600;color:var(--accent)">'+(r.engineers||0)+'</td>'
+      +'<td style="text-align:center;font-weight:600">'+(r.laborers||0)+'</td>'
+      +'<td style="text-align:center;font-weight:700">'+total+'</td>'
+      +'<td class="muted-cell" style="word-break:break-word;overflow-wrap:break-word" title="'+escHtml(firstWork)+'">'+escHtml(firstWork)+' <span style="color:var(--muted2);font-size:11px">'+(r.works&&r.works.length>1?'(+'+(r.works.length-1)+' more)':'')+'</span></td>'
+      +'<td style="text-align:center">'+(r.visitors&&r.visitors.length?r.visitors.length:0)+'</td>'
+      +'<td><div class="action-btns">'
+        +'<button class="icon-btn" type="button" onclick="viewDR('+r.id+')" title="View">👁</button>'
+        +'<button class="icon-btn" type="button" onclick="openAdd('+r.id+')" title="Edit">✏️</button>'
+      +'</div></td>'
+    +'</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('table-body').innerHTML = html;
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('s-total').textContent = allRecords.length;
+
+  var now = new Date();
+  var thisMonth = allRecords.filter(function(r){
+    var d = new Date(r.date+'T00:00:00');
+    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  });
+  document.getElementById('s-month').textContent = thisMonth.length;
+
+  var totalW = allRecords.reduce(function(a,r){ return a+(r.engineers||0)+(r.laborers||0)+(r.technicians||0)+(r.other_workers||0); }, 0);
+  document.getElementById('s-workers').textContent = allRecords.length ? Math.round(totalW/allRecords.length) : 0;
+
+  if (allRecords.length) {
+    var sorted = allRecords.slice().sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
+    document.getElementById('s-last').textContent = disp(sorted[0].date);
+  } else {
+    document.getElementById('s-last').textContent = '—';
+  }
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(function(o){
+  o.addEventListener('click', function(e){ if(e.target===o) o.classList.remove('open'); });
+});
+
+// ── DATE HELPERS ──────────────────────────────────────────────────────────────
+function isoToday(){ return new Date().toISOString().split('T')[0]; }
+function disp(s){ if(!s)return'—'; var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function getISO(fieldId){
+  var v=document.getElementById(fieldId).value;
+  var m=v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? m[3]+'-'+m[2]+'-'+m[1] : null;
+}
+function onDateType(el){
+  var v=el.value.replace(/[^0-9]/g,'');
+  if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);
+  if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);
+  if(v.length>10)v=v.slice(0,10);
+  el.value=v;
+}
+function fromCal(natEl,fieldId){
+  if(!natEl.value)return;
+  var p=natEl.value.split('-');
+  document.getElementById(fieldId).value=p[2]+'/'+p[1]+'/'+p[0];
+}
+function escHtml(s){ return BINNA.esc(s); }
+
+// ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────────
+var _sidebarOpen = true;
+function toggleSidebar() {
+  _sidebarOpen = !_sidebarOpen;
+  var sb  = document.getElementById('sidebar');
+  var btn = document.getElementById('sidebar-toggle-btn');
+  if (_sidebarOpen) {
+    sb.classList.remove('collapsed');
+    btn.textContent = '☰';
+    btn.title = 'Hide Sidebar';
+  } else {
+    sb.classList.add('collapsed');
+    btn.textContent = '▶';
+    btn.title = 'Show Sidebar';
+  }
+}
+BINNA.renderSidebarTeam();
+</script>
+</body>
+</html>
+

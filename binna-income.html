@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Income</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;--border:#d0d5dd;--border2:#e4e7ec;--text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;--accent:#1a56db;--accent-light:#eff4ff;--success:#027a48;--danger:#b42318;--warning:#b54708;--radius:8px;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-.3px;text-decoration:none;display:inline-flex;align-items:center}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:7px}
+#sidebar-toggle-btn{background:transparent;border:1px solid transparent;border-radius:5px;cursor:pointer;color:var(--text2);padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0}
+#sidebar-toggle-btn:hover{background:var(--surface);border-color:var(--border)}
+.proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
+.proj-badge b{color:var(--accent);margin-right:4px}
+.module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surface)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#1648c0}
+.btn-sm{padding:5px 11px;font-size:12px}
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;overflow:hidden;min-width:0;transition:width .22s,padding .22s,border .22s}
+.sidebar.collapsed{width:0;padding:0;border-right:none}
+.sidebar-section{padding:6px 20px 4px;font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--muted2);text-transform:uppercase;margin-top:8px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:2px solid transparent;font-weight:400;text-decoration:none}
+.sidebar-item:hover{background:var(--surface);color:var(--text)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);border-left:2px solid var(--accent)}
+.sidebar-item .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+.main{flex:1;padding:20px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+/* FILTERS */
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
+.filter-bar input,.filter-bar select{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif}
+.filter-bar input:focus,.filter-bar select:focus{outline:none;border-color:var(--accent)}
+.filter-bar input[type=text]{min-width:220px}
+.filter-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+/* TABLE */
+.table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+thead th{background:var(--surface);border-bottom:1px solid var(--border2);padding:9px 11px;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap;user-select:none}
+thead th.num-h{text-align:right}
+thead th.sortable{cursor:pointer}
+thead th.sortable:hover{background:#edf2ff;color:var(--accent)}
+thead th.sort-active{color:var(--accent)}
+tbody td{border-bottom:1px solid var(--border2);padding:0;vertical-align:middle;overflow:hidden}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f8faff}
+.cell-in{width:100%;border:none;outline:none;background:transparent;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);padding:8px 11px;cursor:text}
+.cell-in:focus{background:#fffde7;outline:2px solid var(--accent);outline-offset:-2px}
+.cell-in[readonly]{cursor:default;color:var(--muted);background:var(--surface)}
+td.row-num{width:40px;text-align:center;color:var(--muted2);font-size:11px;background:var(--surface);padding:8px 4px;user-select:none}
+td.del-cell{width:32px;text-align:center}
+.del-btn{border:none;background:transparent;cursor:pointer;color:var(--muted2);font-size:14px;padding:4px 8px;border-radius:4px}
+.del-btn:hover{color:var(--danger);background:#fff1f0}
+/* PAGINATION */
+.pag-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0}
+.pag-btns{display:flex;gap:4px;align-items:center}
+.pag-btns button{padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:var(--white);cursor:pointer;font-size:12px;font-family:'Inter',sans-serif;color:var(--text2);min-width:34px}
+.pag-btns button:hover:not(:disabled){background:var(--surface)}
+.pag-btns button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pag-btns button:disabled{opacity:.4;cursor:default}
+/* SUMMARY */
+.summary-section{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.summary-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.sum-table{width:100%;border-collapse:collapse}
+.sum-table td{padding:5px 8px;font-size:13px;border-bottom:1px solid var(--border2)}
+.sum-table td.num{text-align:right;font-family:monospace;font-weight:600}
+.sum-table tr:last-child td{border-bottom:none;font-weight:700;font-size:14px;color:var(--success);padding-top:8px}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.page-header h1{font-size:20px;font-weight:700;color:var(--text)}
+.page-header .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.results-info{font-size:12px;color:var(--muted)}
+@media print{.topbar,.sidebar,.filter-bar,.pag-bar,.del-btn,.btn{display:none!important}.main{padding:0}}
+</style>
+<script src="/static/js/binna-api.js?v=3"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
+    <a href="/dashboard" class="logo">BINNA <span>Construction PM</span></a>
+    <div class="proj-badge"><b id="proj-code"></b><span id="proj-name"></span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <a id="back-link" href="/legacy/financial" class="btn btn-sm" style="text-decoration:none">← Back to Financial</a>
+    <div class="module-tag">💰 Income</div>
+    <span id="save-indicator" style="font-size:11px;font-weight:600;padding:0 4px"></span>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">Project</div>
+  <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
+  <a class="sidebar-item" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
+  <a class="sidebar-item" href="/legacy/lbt"><span class="dot"></span> Lab Tests</a>
+  <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
+  <a class="sidebar-item active" href="/legacy/financial"><span class="dot"></span> Financial</a>
+  <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
+  <div class="sidebar-section">Consultant</div>
+  <a class="sidebar-item" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
+  <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
+  <a class="sidebar-item" href="/legacy/mir"><span class="dot"></span> MIR</a>
+  <a class="sidebar-item" href="/legacy/ms"><span class="dot"></span> Method Statements</a>
+  <a class="sidebar-item" href="/legacy/rfi"><span class="dot"></span> RFI</a>
+</div>
+
+<div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+<div class="main">
+
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <h1>&#8593; Income</h1>
+    <div class="sub" id="page-sub">All income entries</div>
+  </div>
+  <button class="btn btn-primary" onclick="addEntry()">+ Add Income Entry</button>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <input type="text" id="q" placeholder="Search description, category, amount…" oninput="applyFilter()" style="flex:1;min-width:200px"/>
+  <div class="filter-sep"></div>
+  <input type="text" id="from-date" maxlength="10" placeholder="From DD/MM/YYYY" oninput="autoFmt(this);applyFilter()" style="width:140px"/>
+  <span style="color:var(--muted);font-size:12px">–</span>
+  <input type="text" id="to-date" maxlength="10" placeholder="To DD/MM/YYYY" oninput="autoFmt(this);applyFilter()" style="width:140px"/>
+  <button class="btn btn-sm" onclick="clearDates()">Clear</button>
+  <div class="filter-sep"></div>
+  <select id="cat-filter" onchange="applyFilter()"><option value="">All Categories</option></select>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th class="sortable" onclick="setSort('desc')" id="th-desc">Description / Source <span id="arr-desc"></span></th>
+        <th class="sortable" onclick="setSort('cat')" id="th-cat" style="width:130px">Category <span id="arr-cat"></span></th>
+        <th class="sortable" onclick="setSort('date')" id="th-date" style="width:110px">Date <span id="arr-date">▼</span></th>
+        <th style="width:65px">Currency</th>
+        <th class="sortable num-h" onclick="setSort('amount')" id="th-amount" style="width:110px">Amount <span id="arr-amount"></span></th>
+        <th class="num-h" style="width:75px">Rate</th>
+        <th class="num-h" style="width:130px">Amount (IQD)</th>
+        <th style="width:32px"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"><tr><td colspan="9" style="text-align:center;padding:20px;color:var(--muted2)">Loading…</td></tr></tbody>
+  </table>
+</div>
+
+<!-- Pagination + Show All -->
+<div class="pag-bar">
+  <div class="results-info" id="results-info"></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="pag-btns" id="pagination"></div>
+    <button class="btn btn-sm" id="show-all-btn" onclick="toggleShowAll()">Show All</button>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="summary-section">
+  <div class="summary-title">Summary by Category</div>
+  <div id="cat-summary"><span style="color:var(--muted2);font-size:12px">No data</span></div>
+</div>
+
+</div><!-- /main -->
+</div>
+</div><!-- /layout -->
+
+<script>
+if (!BINNA.requireProject()) throw 0;
+const PROJECT = BINNA.getProject();
+const PROJECT_ID = PROJECT ? PROJECT.id : null;
+
+(function(){
+  if(PROJECT){
+    var ce=document.getElementById('proj-code');if(ce)ce.textContent=PROJECT.code||'';
+    var ne=document.getElementById('proj-name');if(ne)ne.textContent=PROJECT.name||'';
+  }
+  var bl=document.getElementById('back-link');
+  if(bl&&PROJECT_ID)bl.href='/legacy/financial';
+})();
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+var fullData={income:[],expenses:[],incomeCategories:[],expenseCategories:[],usdRate:1310};
+var allRows=[], filteredRows=[];
+var sortCol='date', sortAsc=false;
+var page=1, perPage=20, showAll=false;
+var _saveTimer=null, _pendingSave=false;
+var _sidebarOpen=true;
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function fmt(n){return Math.round(n).toLocaleString('en-US');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function isoToDisp(s){if(!s)return'—';var p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'—';}
+function dispToISO(s){if(!s||s.length!==10)return'';var p=s.split('/');return(p.length===3&&p[2].length===4)?p[2]+'-'+p[1]+'-'+p[0]:'';}
+function autoFmt(el){var v=el.value.replace(/\D/g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);el.value=v.slice(0,10);}
+
+function getIqd(row){
+  var a=parseFloat(row.amount)||0;
+  var rate=parseFloat(row.rate)||fullData.usdRate||1310;
+  return row.cur==='USD'?a*rate:a;
+}
+function getCats(){return fullData.incomeCategories||[];}
+function getCatName(catId){var c=getCats().find(function(x){return x.id===catId;});return c?c.name:'';}
+
+function catOptions(sel){
+  var opts='<option value="">— No Category —</option>';
+  getCats().forEach(function(c){opts+='<option value="'+esc(c.id)+'"'+(c.id===sel?' selected':'')+'>'+esc(c.name)+'</option>';});
+  return opts;
+}
+
+function setSaveIndicator(state){
+  var el=document.getElementById('save-indicator');if(!el)return;
+  if(state==='dirty'){el.textContent='● Unsaved';el.style.color='#b54708';}
+  else if(state==='saved'){el.textContent='✓ Saved';el.style.color='#027a48';setTimeout(function(){if(!_pendingSave)el.textContent='';},3000);}
+  else el.textContent='';
+}
+
+// ── FILTER / SORT ─────────────────────────────────────────────────────────────
+function applyFilter(){
+  var q=(document.getElementById('q').value||'').toLowerCase();
+  var cat=(document.getElementById('cat-filter')||{value:''}).value;
+  var from=(document.getElementById('from-date').value||'');
+  var to=(document.getElementById('to-date').value||'');
+  var fromISO=from.length===10?dispToISO(from):'';
+  var toISO=to.length===10?dispToISO(to):'';
+
+  filteredRows=allRows.filter(function(r){
+    if(q){
+      var match=(r.desc||'').toLowerCase().indexOf(q)>=0||
+               getCatName(r.cat||'').toLowerCase().indexOf(q)>=0||
+               String(Math.round(getIqd(r))).indexOf(q)>=0;
+      if(!match)return false;
+    }
+    if(cat&&r.cat!==cat)return false;
+    if(fromISO&&r.date&&r.date<fromISO)return false;
+    if(toISO&&r.date&&r.date>toISO)return false;
+    return true;
+  });
+
+  doSort();
+  page=1;
+  render();
+  renderSummary();
+}
+
+function doSort(){
+  filteredRows.sort(function(a,b){
+    var va,vb;
+    if(sortCol==='desc'){va=(a.desc||'').toLowerCase();vb=(b.desc||'').toLowerCase();}
+    else if(sortCol==='cat'){va=getCatName(a.cat||'').toLowerCase();vb=getCatName(b.cat||'').toLowerCase();}
+    else if(sortCol==='date'){va=a.date||'';vb=b.date||'';}
+    else if(sortCol==='amount'){va=getIqd(a);vb=getIqd(b);}
+    else{va=a.date||'';vb=b.date||'';}
+    if(va<vb)return sortAsc?-1:1;
+    if(va>vb)return sortAsc?1:-1;
+    return 0;
+  });
+}
+
+function setSort(col){
+  if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=col!=='date'&&col!=='amount';}
+  ['desc','cat','date','amount'].forEach(function(c){
+    var el=document.getElementById('arr-'+c);
+    var th=document.getElementById('th-'+c);
+    if(el)el.textContent=c===sortCol?(sortAsc?'▲':'▼'):'';
+    if(th)th.classList.toggle('sort-active',c===sortCol);
+  });
+  doSort();render();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render(){
+  var tbody=document.getElementById('tbody');
+  var visible=showAll?filteredRows:filteredRows.slice((page-1)*perPage,page*perPage);
+  var info=document.getElementById('results-info');
+  if(info)info.textContent=filteredRows.length+' entr'+(filteredRows.length===1?'y':'ies')+(filteredRows.length!==allRows.length?' (filtered from '+allRows.length+')':'');
+
+  if(!visible.length){
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted2)">No entries'+(allRows.length?' matching filters':' yet — click "+ Add Income Entry" to add one')+'</td></tr>';
+    renderPagination();return;
+  }
+
+  tbody.innerHTML=visible.map(function(row){
+    var gi=allRows.indexOf(row);
+    var iqd=getIqd(row);
+    var fi=filteredRows.indexOf(row);
+    var isUsd=row.cur==='USD';
+    return '<tr data-gi="'+gi+'">'+
+      '<td class="row-num">'+(fi+1)+'</td>'+
+      '<td><input class="cell-in" value="'+esc(row.desc||'')+'" placeholder="Description…" oninput="updateRow('+gi+',\'desc\',this.value)"/></td>'+
+      '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'cat\',this.value)">'+catOptions(row.cat||'')+'</select></td>'+
+      '<td><input class="cell-in" type="text" maxlength="10" placeholder="DD/MM/YYYY" value="'+isoToDisp(row.date||'')+'" oninput="autoFmt(this)" onchange="updateRow('+gi+',\'date\',dispToISO(this.value)||this.value)" style="text-align:center;font-size:12px"/></td>'+
+      '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'cur\',this.value);updateRowState('+gi+')">'+
+        '<option value="IQD"'+(isUsd?'':' selected')+'>IQD</option>'+
+        '<option value="USD"'+(isUsd?' selected':'')+'>USD $</option>'+
+      '</select></td>'+
+      '<td><input class="cell-in num" type="number" min="0" value="'+esc(row.amount||'')+'" placeholder="0" oninput="updateRow('+gi+',\'amount\',this.value);updateRowIqd('+gi+')" /></td>'+
+      '<td><input id="rate-'+gi+'" class="cell-in num" type="number" min="0" value="'+esc(row.rate||'')+'" placeholder="'+fmt(fullData.usdRate||1310)+'" style="'+(isUsd?'':'opacity:.3;pointer-events:none')+'" oninput="updateRow('+gi+',\'rate\',this.value);updateRowIqd('+gi+')" /></td>'+
+      '<td id="iqd-'+gi+'" style="text-align:right;padding:8px 11px;font-family:monospace;font-weight:600;color:var(--accent)">'+fmt(iqd)+' IQD</td>'+
+      '<td class="del-cell"><button class="del-btn" onclick="deleteRow('+gi+')" title="Delete">✕</button></td>'+
+      '</tr>';
+  }).join('');
+
+  renderPagination();
+}
+
+function renderPagination(){
+  var pag=document.getElementById('pagination');
+  var sab=document.getElementById('show-all-btn');
+  if(sab)sab.textContent=showAll?'Paginate':'Show All';
+  if(!pag)return;
+  if(showAll||filteredRows.length<=perPage){pag.innerHTML='';return;}
+  var total=Math.ceil(filteredRows.length/perPage);
+  var html='<button onclick="goPage('+(page-1)+')" '+(page<=1?'disabled':'')+'>← Prev</button>';
+  var s=Math.max(1,Math.min(page-2,total-4)),e=Math.min(total,s+4);
+  for(var p=s;p<=e;p++)html+='<button onclick="goPage('+p+')"'+(p===page?' class="active"':'')+'>'+p+'</button>';
+  html+='<button onclick="goPage('+(page+1)+')" '+(page>=total?'disabled':'')+'>Next →</button>';
+  pag.innerHTML=html;
+}
+
+function renderSummary(){
+  var el=document.getElementById('cat-summary');if(!el)return;
+  if(!filteredRows.length){el.innerHTML='<span style="color:var(--muted2);font-size:12px">No data</span>';return;}
+  var byCat={};
+  filteredRows.forEach(function(r){var k=r.cat||'_none';byCat[k]=(byCat[k]||0)+getIqd(r);});
+  var total=filteredRows.reduce(function(s,r){return s+getIqd(r);},0);
+  var rows='';
+  getCats().forEach(function(cat){
+    if(byCat[cat.id])rows+='<tr><td>'+esc(cat.name)+'</td><td class="num" style="color:var(--success)">+'+fmt(byCat[cat.id])+' IQD</td></tr>';
+  });
+  if(byCat['_none'])rows+='<tr><td style="color:var(--muted)">Uncategorised</td><td class="num">+'+fmt(byCat['_none'])+' IQD</td></tr>';
+  rows+='<tr><td><b>Total</b></td><td class="num"><b style="color:var(--success)">+'+fmt(total)+' IQD</b></td></tr>';
+  el.innerHTML='<table class="sum-table">'+rows+'</table>';
+}
+
+function rebuildCatFilter(){
+  var sel=document.getElementById('cat-filter');if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">All Categories</option>';
+  getCats().forEach(function(c){var o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(c.id===cur)o.selected=true;sel.appendChild(o);});
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────────────────
+function updateRow(gi,field,val){
+  if(!allRows[gi])return;
+  if(field==='date'){val=dispToISO(val)||val;}
+  allRows[gi][field]=val;
+  scheduleSave();
+}
+
+function updateRowIqd(gi){
+  var el=document.getElementById('iqd-'+gi);
+  if(el&&allRows[gi])el.textContent=fmt(getIqd(allRows[gi]))+' IQD';
+}
+
+function updateRowState(gi){
+  var row=allRows[gi];if(!row)return;
+  var rateEl=document.getElementById('rate-'+gi);
+  if(rateEl){
+    var isUsd=row.cur==='USD';
+    rateEl.style.opacity=isUsd?'1':'0.3';
+    rateEl.style.pointerEvents=isUsd?'auto':'none';
+  }
+  updateRowIqd(gi);
+}
+
+function addEntry(){
+  var newRow={desc:'',cat:'',date:new Date().toISOString().split('T')[0],cur:'IQD',amount:'',rate:''};
+  allRows.unshift(newRow);
+  // Clear filters to show new row
+  document.getElementById('q').value='';
+  document.getElementById('from-date').value='';
+  document.getElementById('to-date').value='';
+  if(document.getElementById('cat-filter'))document.getElementById('cat-filter').value='';
+  showAll=false;page=1;
+  applyFilter();
+  // Focus first input
+  var firstInput=document.querySelector('#tbody input');
+  if(firstInput)setTimeout(function(){firstInput.focus();},50);
+  scheduleSave();
+}
+
+function deleteRow(gi){
+  if(!allRows[gi])return;
+  var desc=allRows[gi].desc||'this entry';
+  if(!confirm('Delete "'+desc+'"?'))return;
+  allRows.splice(gi,1);
+  applyFilter();
+  scheduleSave();
+}
+
+function goPage(p){
+  var total=Math.ceil(filteredRows.length/perPage);
+  page=Math.max(1,Math.min(p,total));
+  render();
+}
+
+function toggleShowAll(){showAll=!showAll;page=1;render();}
+
+function clearDates(){
+  document.getElementById('from-date').value='';
+  document.getElementById('to-date').value='';
+  applyFilter();
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+function scheduleSave(){
+  if(!PROJECT_ID)return;
+  _pendingSave=true;
+  setSaveIndicator('dirty');
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(doSave,800);
+}
+
+function doSave(){
+  _saveTimer=null;
+  var payload={
+    income:allRows,
+    expenses:fullData.expenses||[],
+    incomeCategories:fullData.incomeCategories||[],
+    expenseCategories:(fullData.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};}),
+    usdRate:fullData.usdRate||1310
+  };
+  fetch('/api/v1/projects/'+PROJECT_ID+'/financial/income',{
+    method:'PUT',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+(BINNA.getToken()||'')},
+    body:JSON.stringify(payload)
+  }).then(function(r){
+    if(!r.ok)throw r;
+    _pendingSave=false;
+    setSaveIndicator('saved');
+  }).catch(function(e){
+    BINNA.toast('Save failed','error');
+  });
+}
+
+window.addEventListener('beforeunload',function(){
+  if(!_pendingSave||!PROJECT_ID)return;
+  clearTimeout(_saveTimer);
+  var payload={income:allRows,expenses:fullData.expenses||[],incomeCategories:fullData.incomeCategories||[],expenseCategories:(fullData.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};}),usdRate:fullData.usdRate||1310};
+  var xhr=new XMLHttpRequest();xhr.open('PUT','/api/v1/projects/'+PROJECT_ID+'/financial/income',false);
+  xhr.setRequestHeader('Content-Type','application/json');xhr.setRequestHeader('Authorization','Bearer '+(BINNA.getToken()||''));
+  try{xhr.send(JSON.stringify(payload));}catch(e){}
+});
+
+function toggleSidebar(){_sidebarOpen=!_sidebarOpen;var sb=document.getElementById('sidebar');if(sb){if(_sidebarOpen)sb.classList.remove('collapsed');else sb.classList.add('collapsed');}}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded',async function(){
+  BINNA.injectProjectBadge();
+  if(!PROJECT_ID){BINNA.toast('No project selected','error');return;}
+  try{
+    var resp=await BINNA.fetchFinancial(PROJECT_ID);
+    if(resp.data){
+      fullData=resp.data;
+      if(!Array.isArray(fullData.income))fullData.income=[];
+      if(!Array.isArray(fullData.expenses))fullData.expenses=[];
+      if(!fullData.incomeCategories)fullData.incomeCategories=[];
+      fullData.expenseCategories=(fullData.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};});
+      // Migrate old expense format
+      if(fullData.expenseCategories.some(function(c){return c.rows&&c.rows.length;})){
+        if(!fullData.expenses||!fullData.expenses.length){
+          fullData.expenses=[];
+          fullData.expenseCategories.forEach(function(cat){
+            if(cat.rows)cat.rows.forEach(function(r){fullData.expenses.push(Object.assign({},r,{cat:cat.id}));});
+          });
+        }
+        fullData.expenseCategories=fullData.expenseCategories.map(function(c){return{id:c.id,name:c.name};});
+      }
+    }
+  }catch(err){BINNA.toast('Could not load data: '+(err.error||'error'),'error');}
+
+  allRows=fullData.income;
+  rebuildCatFilter();
+  setSort('date'); // default sort: date descending
+  applyFilter();
+  var sub=document.getElementById('page-sub');
+  if(sub&&fullData.incomeCategories.length)sub.textContent=allRows.length+' entr'+(allRows.length===1?'y':'ies')+' — '+fullData.incomeCategories.length+' categories';
+});
+</script>
+</body>
+</html>

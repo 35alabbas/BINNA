@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Not Found</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#0d0f14;color:#eef0f6;font-family:'DM Sans',sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(#252a3a 1px,transparent 1px),linear-gradient(90deg,#252a3a 1px,transparent 1px);
+  background-size:40px 40px;opacity:.3;pointer-events:none;
+}
+.box{text-align:center;position:relative}
+.code{font-family:'Syne',sans-serif;font-size:120px;font-weight:800;color:#e8a030;
+  line-height:1;letter-spacing:-4px;opacity:.15;margin-bottom:-20px}
+.logo{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e8a030;margin-bottom:8px}
+.msg{font-size:16px;color:#7a8099;margin-bottom:32px}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:12px 22px;
+  background:#e8a030;color:#000;border-radius:10px;font-size:14px;font-weight:600;
+  text-decoration:none;font-family:'DM Sans',sans-serif;transition:all .15s;
+}
+.btn:hover{background:#f0b84a;transform:translateY(-1px)}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="code">404</div>
+  <div class="logo">BINNA</div>
+  <div class="msg">Page not found. It may have moved or never existed.</div>
+  <a href="/dashboard" class="btn">← Back to Dashboard</a>
+</div>
+</body>
+</html>

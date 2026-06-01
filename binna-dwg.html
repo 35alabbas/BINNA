@@ -1,0 +1,858 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Drawings</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/static/js/binna-api.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
+  --border:#d0d5dd;--border2:#e4e7ec;
+  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
+  --accent:#1a56db;--accent-light:#eff4ff;
+  --pending-c:#b54708;--pending-bg:#fffaeb;--pending-br:#fec84b;
+  --approved-c:#027a48;--approved-bg:#ecfdf3;--approved-br:#6ce9a6;
+  --notes-c:#1a56db;--notes-bg:#eff4ff;--notes-br:#c7d7fd;
+  --rejected-c:#b42318;--rejected-bg:#fff1f0;--rejected-br:#fecdca;
+  --corrections-c:#6941c6;--corrections-bg:#f9f5ff;--corrections-br:#d6bbfb;
+  --radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-.3px;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center}
+.logo:hover{color:#1648c0}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:7px}
+#sidebar-toggle-btn{background:transparent;border:1px solid transparent;border-radius:5px;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0}
+#sidebar-toggle-btn:hover{background:var(--surface);border-color:var(--border)}
+.proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
+.proj-badge b{color:var(--accent);margin-right:4px}
+.module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-chip{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500;color:var(--text2)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surface)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#1648c0}
+.btn-red{color:#b42318;border-color:#fecdca}
+.btn-red:hover{background:#fff1f0}
+.btn-sm{padding:5px 11px;font-size:12px}
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;transition:width .22s ease,min-width .22s ease,padding .22s ease,border .22s ease;overflow:hidden;min-width:0}
+.sidebar.collapsed{width:0;padding:0;border-right:none}
+.sidebar-section{padding:6px 20px 4px;font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--muted2);text-transform:uppercase;margin-top:8px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:2px solid transparent;font-weight:400;text-decoration:none}
+.sidebar-item:hover{background:var(--surface);color:var(--text)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);border-left:2px solid var(--accent)}
+.sidebar-item .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+.main{flex:1;overflow-y:auto;padding:24px 28px}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.stat-val{font-size:26px;font-weight:700;color:var(--text);line-height:1}
+.stats-toggle{display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px}
+.stats-toggle-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s}
+.stats-toggle-btn:hover{background:var(--surface);color:var(--text)}
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.search{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:240px;transition:border-color .12s}
+.search:focus{outline:none;border-color:var(--accent)}
+.search::placeholder{color:var(--muted2)}
+.filter-sel{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;cursor:pointer}
+.filter-sel:focus{outline:none}
+.rec-count{margin-left:auto;font-size:12px;color:var(--muted)}
+.table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+td{padding:11px 14px;font-size:12.5px;border-bottom:1px solid var(--border2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface)}
+tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--accent);outline-offset:-1px}
+.code-cell{font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
+.title-cell{font-weight:500;white-space:normal;word-break:break-word;overflow-wrap:break-word}
+.muted-cell{color:var(--muted);font-size:12px}
+.attach-pill{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border2);color:var(--muted);background:var(--surface)}
+.attach-pill.has{color:var(--accent);border-color:#c7d7fd;background:var(--accent-light)}
+.action-btns{display:flex;gap:5px}
+.icon-btn{background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;color:var(--muted);font-size:12px;transition:all .12s;font-family:'Inter',sans-serif}
+.icon-btn:hover{background:var(--surface);color:var(--text)}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty .icon{font-size:40px;opacity:.15;margin-bottom:10px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-pending{background:var(--pending-bg);color:var(--pending-c);border:1px solid var(--pending-br)}
+.badge-approved{background:var(--approved-bg);color:var(--approved-c);border:1px solid var(--approved-br)}
+.badge-notes{background:var(--notes-bg);color:var(--notes-c);border:1px solid var(--notes-br)}
+.badge-rejected{background:var(--rejected-bg);color:var(--rejected-c);border:1px solid var(--rejected-br)}
+.badge-corrections{background:var(--corrections-bg);color:var(--corrections-c);border:1px solid var(--corrections-br)}
+.badge.clickable{cursor:pointer;transition:filter .12s}
+.badge.clickable:hover{filter:brightness(.92);text-decoration:underline}
+.overlay{position:fixed;inset:0;background:#00000077;z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border:1px solid var(--border);border-radius:12px;width:600px;max-height:92vh;overflow-y:auto;transform:translateY(14px);transition:transform .18s;box-shadow:0 24px 48px rgba(0,0,0,.12)}
+.overlay.open .modal{transform:translateY(0)}
+.mhead{padding:20px 22px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;justify-content:space-between}
+.mtitle{font-size:16px;font-weight:700;color:var(--text)}
+.msubtitle{font-size:12px;color:var(--muted);margin-top:2px}
+.mbody{padding:22px}
+.mfoot{padding:14px 22px;border-top:1px solid var(--border2);display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.closex{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.closex:hover{color:var(--text);background:var(--surface)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.frow.full{grid-template-columns:1fr}
+.frow.tri{grid-template-columns:1fr 1fr 1fr}
+.fgrp{display:flex;flex-direction:column;gap:5px}
+.flbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text2)}
+.req{color:#b42318}
+.fi,.fs,.ft{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:100%;transition:border-color .12s}
+.fi:focus,.fs:focus,.ft:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
+.fhint{font-size:10.5px;color:var(--muted2);margin-top:2px}
+.sd-wrap{position:relative;display:flex;align-items:center}
+.sd-input{flex:1;background:var(--white);border:1px solid var(--border);border-radius:7px;padding:8px 32px 8px 11px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:100%;transition:border-color .12s}
+.sd-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
+.sd-input::placeholder{color:var(--muted2)}
+.sd-cal{position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0;line-height:1}
+.sd-hidden{position:absolute;right:0;top:0;bottom:0;width:30px;opacity:0;cursor:pointer}
+.file-section{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.file-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.file-drop{border:2px dashed var(--border);border-radius:7px;padding:16px;text-align:center;cursor:pointer;position:relative;transition:all .14s;background:var(--white)}
+.file-drop:hover{border-color:var(--accent);background:var(--accent-light)}
+.file-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-drop p{font-size:12px;color:var(--muted)}
+.file-attached{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--accent-light);border:1px solid #c7d7fd;border-radius:7px;font-size:12px;color:var(--accent);margin-top:8px}
+.file-attached .fname{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.divider{height:1px;background:var(--border2);margin:16px 0}
+.detail-section{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.detail-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px}
+.drow{display:flex;gap:10px;margin-bottom:8px;align-items:flex-start}
+.dkey{font-size:11px;color:var(--muted);width:140px;flex-shrink:0;padding-top:1px;text-transform:uppercase;letter-spacing:.4px}
+.dval{font-size:13px;color:var(--text);flex:1;word-break:break-word}
+.timeline{display:flex;align-items:flex-start;gap:0;margin:8px 0 4px;position:relative}
+.timeline::before{content:'';position:absolute;top:14px;left:14px;right:14px;height:2px;background:var(--border2);z-index:0}
+.tl-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;z-index:1}
+.tl-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .2s;font-family:'Inter',sans-serif}
+.tl-dot.done{background:var(--approved-c);border-color:var(--approved-c);color:#fff}
+.tl-dot.active{background:var(--pending-c);border-color:var(--pending-c);color:#fff}
+.tl-dot.rejected{background:var(--rejected-c);border-color:var(--rejected-c);color:#fff}
+.tl-dot.notes{background:var(--notes-c);border-color:var(--notes-c);color:#fff}
+.tl-lbl{font-size:10px;color:var(--muted);margin-top:5px;text-align:center;font-weight:500}
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  body{background:#fff}
+  .topbar,.toolbar,.action-btns,.btn,.overlay{display:none!important}
+  .table-wrap{border:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
+    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
+    <div class="proj-badge"><b id="proj-code">—</b><span id="proj-name"></span></div>
+  </div>
+  <div class="topbar-right">
+    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
+    <div class="module-tag">DWG — Drawings</div>
+    <span class="user-chip" id="user-chip"></span>
+    <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>
+    <button class="btn btn-sm" type="button" onclick="BINNA.logout()">Logout</button>
+    <button class="btn btn-primary" type="button" onclick="openAdd()">+ New Drawing Submission</button>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">Project</div>
+  <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
+  <a class="sidebar-item" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
+  <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
+  <a class="sidebar-item" href="/legacy/financial"><span class="dot"></span> Financial</a>
+  <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
+  <a class="sidebar-item" href="/legacy/sub"><span class="dot"></span> Subcontractor Mgmt</a>
+  <div class="sidebar-section">Consultant</div>
+  <a class="sidebar-item active" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
+  <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
+  <a class="sidebar-item" href="/legacy/mir"><span class="dot"></span> MIR</a>
+  <a class="sidebar-item" href="/legacy/ms"><span class="dot"></span> Method Statements</a>
+  <a class="sidebar-item" href="/legacy/rfi"><span class="dot"></span> RFI</a>
+  <a class="sidebar-item" href="/legacy/lbt"><span class="dot"></span> Lab Tests</a>
+  <div style="margin-top:auto">
+    <div id="sidebar-team-legend" style="padding:10px 16px 4px;display:none">
+      <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:var(--muted2);text-transform:uppercase;margin-bottom:6px">Team</div>
+      <div id="sidebar-team-items"></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted2)">BINNA v2.0</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="stats-toggle">
+    <button class="stats-toggle-btn" id="stats-toggle-btn" onclick="toggleStats()">▲ Hide Dashboard</button>
+  </div>
+  <div id="stats-section">
+  <div class="stats">
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-val" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-val" style="color:var(--pending-c)" id="s-pending">—</div></div>
+    <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-val" style="color:var(--approved-c)" id="s-approved">—</div></div>
+    <div class="stat-card"><div class="stat-label">Approved w/ Notes</div><div class="stat-val" style="color:var(--notes-c)" id="s-notes">—</div></div>
+    <div class="stat-card"><div class="stat-label">Not Approved</div><div class="stat-val" style="color:var(--rejected-c)" id="s-rejected">—</div></div>
+    <div class="stat-card"><div class="stat-label">Make Corrections</div><div class="stat-val" style="color:#6941c6" id="s-corrections">—</div></div>
+  </div>
+  </div><!-- /stats-section -->
+  <div class="toolbar">
+    <input class="search" type="text" id="search" placeholder="Search by code, title or area..." oninput="renderTable()"/>
+    <select class="filter-sel" id="filter-status" onchange="renderTable()">
+      <option value="">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="notes">Approved with Notes</option>
+      <option value="rejected">Not Approved</option>
+      <option value="corrections">Make Corrections</option>
+    </select>
+    <span class="rec-count" id="rec-count"></span>
+    <button class="btn btn-primary" type="button" onclick="openAdd()">+ New Drawing Submission</button>
+  </div>
+  <div class="table-wrap"><div id="table-body"></div></div>
+</div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="overlay" id="modal-add">
+  <div class="modal" style="width:640px">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="modal-title">New Drawing Submission</div>
+        <div class="msubtitle" id="modal-code-preview">Code will be assigned automatically</div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-add')">&#x2715;</button>
+    </div>
+    <div class="mbody">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border2)">Required Information</div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Submittal Date <span class="req">*</span></label>
+          <div class="sd-wrap">
+            <input class="sd-input" id="f-date" placeholder="DD/MM/YYYY" maxlength="10" oninput="onDateType(this)"/>
+            <button class="sd-cal" type="button" onclick="document.getElementById('f-date-h').showPicker?document.getElementById('f-date-h').showPicker():document.getElementById('f-date-h').click()">&#128197;</button>
+            <input type="date" class="sd-hidden" id="f-date-h" onchange="fromCal(this,'f-date')"/>
+          </div>
+        </div>
+        <div class="fgrp" style="justify-content:flex-end;padding-top:22px">
+          <div style="background:var(--accent-light);border:1px solid #c7d7fd;border-radius:7px;padding:8px 14px;font-family:monospace;font-size:14px;font-weight:700;color:var(--accent)" id="code-preview-box">—</div>
+          <div style="font-size:10.5px;color:var(--muted2);margin-top:4px">Auto-generated reference code</div>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Document Number <span class="req">*</span></label>
+          <input class="fi" type="number" id="f-docnum" min="1" placeholder="e.g. 1" oninput="updateCodePreview()"/>
+          <div class="fhint">Will format as DWG-001, DWG-002&hellip;</div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Revision <span class="req">*</span></label>
+          <select class="fs" id="f-revision" onchange="updateCodePreview()">
+            <option value="A">Rev. A &mdash; First submission</option>
+            <option value="B">Rev. B</option>
+            <option value="C">Rev. C</option>
+            <option value="D">Rev. D</option>
+            <option value="E">Rev. E</option>
+            <option value="F">Rev. F</option>
+          </select>
+          <div class="fhint">Same number, next letter = resubmission</div>
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Drawing Title <span class="req">*</span></label>
+          <input class="fi" type="text" id="f-title" placeholder="e.g. Road Layout Plan — Level 1"/>
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Drawing Description <span class="req">*</span></label>
+          <textarea class="ft" id="f-description" rows="3" placeholder="e.g. Shop drawings for reinforced concrete columns, Level 1..."></textarea>
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border2)">Optional Information</div>
+      <div class="frow tri">
+        <div class="fgrp">
+          <label class="flbl">Location / Area</label>
+          <input class="fi" type="text" id="f-location" placeholder="e.g. Grid A-B / Zone 1"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Responsible Engineer</label>
+          <input class="fi" type="text" id="f-engineer" placeholder="Engineer name"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Related Drawings / Refs</label>
+          <input class="fi" type="text" id="f-drawings" placeholder="DWG-001, RFI-002"/>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Submitted To (Consultant)</label>
+          <input class="fi" type="text" id="f-submitted-to" placeholder="Consultant company or engineer name"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">CC (Client)</label>
+          <input class="fi" type="text" id="f-cc" placeholder="Client name &mdash; receives copy only"/>
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Notes</label>
+          <textarea class="ft" id="f-notes" rows="2" placeholder="Any additional notes..."></textarea>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="file-section">
+        <div class="file-section-title">&#128196; Submitted DWG File <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(drawing files, PDFs, DWG)</span></div>
+        <div class="file-drop">
+          <input type="file" accept=".pdf,.doc,.docx,.dwg" id="f-submit-file" onchange="handleFile(this,'submit')"/>
+          <div style="font-size:22px;opacity:.2;margin-bottom:6px">&#128206;</div>
+          <p>Click to attach or drag &amp; drop<br><span style="font-size:10.5px;color:var(--muted2)">PDF, Word, DWG</span></p>
+        </div>
+        <div id="submit-file-info" style="display:none"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-red btn-sm" type="button" id="btn-delete" style="margin-right:auto;display:none" onclick="deleteRecord()">&#128465; Delete</button>
+      <button class="btn" type="button" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveRecord()">Submit Drawing Submission</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESPONSE MODAL -->
+<div class="overlay" id="modal-response">
+  <div class="modal" style="width:560px">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="resp-title">Record Response</div>
+        <div class="msubtitle" id="resp-code"></div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-response')">&#x2715;</button>
+    </div>
+    <div class="mbody">
+      <div style="margin-bottom:18px">
+        <div class="flbl" style="margin-bottom:10px">Current Status</div>
+        <div class="timeline">
+          <div class="tl-step"><div class="tl-dot done" id="tl-submitted">&#10003;</div><div class="tl-lbl">Submitted</div></div>
+          <div class="tl-step"><div class="tl-dot active" id="tl-pending">&#9203;</div><div class="tl-lbl">Pending</div></div>
+          <div class="tl-step"><div class="tl-dot" id="tl-result">&mdash;</div><div class="tl-lbl">Result</div></div>
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Outcome <span class="req">*</span></label>
+          <select class="fs" id="r-status">
+            <option value="pending">Still Pending &mdash; no response yet</option>
+            <option value="approved">Approved &#10003;</option>
+            <option value="notes">Approved with Notes &#128221;</option>
+            <option value="rejected">Not Approved &#10007;</option>
+            <option value="corrections">Make Required Corrections &#9998;</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Response Date</label>
+          <div class="sd-wrap">
+            <input class="sd-input" id="r-date" placeholder="DD/MM/YYYY" maxlength="10" oninput="onDateType(this)"/>
+            <button class="sd-cal" type="button" onclick="document.getElementById('r-date-h').showPicker?document.getElementById('r-date-h').showPicker():document.getElementById('r-date-h').click()">&#128197;</button>
+            <input type="date" class="sd-hidden" id="r-date-h" onchange="fromCal(this,'r-date')"/>
+          </div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Responded By</label>
+          <input class="fi" type="text" id="r-by" placeholder="Consultant / Client name"/>
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Response Notes / Comments</label>
+          <textarea class="ft" id="r-notes" rows="3" placeholder="Comments, conditions, or reasons for rejection..."></textarea>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Location / Area</label>
+          <input class="fi" type="text" id="r-location" placeholder="e.g. Zone 1 / Grid A-B"/>
+        </div>
+        <div class="fgrp"></div>
+      </div>
+      <div class="file-section">
+        <div class="file-section-title">&#128203; Response File <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(stamped or annotated document returned by consultant)</span></div>
+        <div class="file-drop">
+          <input type="file" accept=".pdf,.doc,.docx" id="r-file" onchange="handleFile(this,'response')"/>
+          <div style="font-size:22px;opacity:.2;margin-bottom:6px">&#128206;</div>
+          <p>Click to attach the returned document<br><span style="font-size:10.5px;color:var(--muted2)">PDF, Word</span></p>
+        </div>
+        <div id="resp-file-info" style="display:none"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn" type="button" onclick="closeModal('modal-response')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveResponse()">Save Response</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="overlay" id="modal-view">
+  <div class="modal" style="width:580px">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="view-title"></div>
+        <div class="msubtitle" id="view-code-sub"></div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-view')">&#x2715;</button>
+    </div>
+    <div class="mbody" id="view-body"></div>
+    <div class="mfoot">
+      <button class="btn btn-sm" type="button" id="view-edit-btn">&#9999; Edit</button>
+      <button class="btn btn-primary btn-sm" type="button" id="view-resp-btn">&#128203; Record Response</button>
+      <button class="btn" type="button" onclick="closeModal('modal-view')">Close</button>
+    </div>
+  </div>
+</div>
+</div><!-- /layout -->
+
+<script>
+'use strict';
+// ── MODULE CONFIG ─────────────────────────────────────────────────────────────
+const M = {
+  type: 'dwg', code: 'DWG',
+  name: 'Drawings', singular: 'Drawing',
+  titleLabel: 'Drawing Title',
+  titlePlaceholder: 'e.g. Road Layout Plan — Level 1',
+  descLabel: 'Drawing Description',
+  descPlaceholder: 'e.g. Shop drawings for reinforced concrete columns, Level 1...',
+};
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let PROJECT = null, PROJECT_ID = null;
+let allRecords = [];
+let editId = null, respEditId = null;
+let _selId = null;
+let submitFileAttached = null, responseFileAttached = null;
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+function selectRow(id) {
+  _selId = id;
+  document.querySelectorAll('#table-body tr.row-sel').forEach(r => r.classList.remove('row-sel'));
+  const tr = document.querySelector(`#table-body tr[data-id="${id}"]`);
+  if (tr) tr.classList.add('row-sel');
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  if (!BINNA.requireProject()) return;
+  PROJECT    = BINNA.getProject();
+  PROJECT_ID = PROJECT.id;
+  const user = BINNA.getUser();
+  if (user) document.getElementById('user-chip').textContent = user.username;
+  document.getElementById('proj-code').textContent = PROJECT.code;
+  document.getElementById('proj-name').textContent = PROJECT.name;
+  document.getElementById('back-link').href = `/project/${PROJECT_ID}`;
+  await loadRecords();
+  BINNA.registerDeleteSelected(function() { if (_selId) { editId = _selId; deleteRecord(); } });
+});
+
+// ── LOAD ──────────────────────────────────────────────────────────────────────
+async function loadRecords() {
+  try {
+    const data = await BINNA.get(`/projects/${PROJECT_ID}/submittals/${M.type}`);
+    allRecords = data.items || [];
+    renderTable();
+    updateStats();
+  } catch(e) {
+    BINNA.toast(e.error || 'Failed to load records', 'error');
+  }
+}
+
+// ── CODE PREVIEW ──────────────────────────────────────────────────────────────
+function buildCode(docnum, rev) {
+  return PROJECT.code + '-' + M.code + '-' + String(parseInt(docnum)||1).padStart(3,'0') + '-' + (rev||'A');
+}
+function updateCodePreview() {
+  const num = document.getElementById('f-docnum').value || '1';
+  const rev = document.getElementById('f-revision').value || 'A';
+  document.getElementById('code-preview-box').textContent = buildCode(num, rev);
+}
+function nextDocNum() {
+  if (!allRecords.length) return 1;
+  return Math.max(...allRecords.map(r => r.doc_number || 1)) + 1;
+}
+
+// ── OPEN ADD MODAL ────────────────────────────────────────────────────────────
+function openAdd(id) {
+  editId = id || null;
+  submitFileAttached = null;
+  const r = id ? allRecords.find(x => x.id === id) : null;
+  document.getElementById('modal-title').textContent = r ? 'Edit ' + M.singular : 'New ' + M.singular;
+  document.getElementById('modal-code-preview').textContent = r ? 'Reference: ' + r.code : 'Code will be assigned automatically';
+  document.getElementById('btn-delete').style.display = r ? 'inline-flex' : 'none';
+  document.getElementById('f-docnum').value  = r ? (r.doc_number || 1) : nextDocNum();
+  document.getElementById('f-revision').value = r ? (r.revision || 'A') : 'A';
+  document.getElementById('f-title').value   = r ? r.title : '';
+  document.getElementById('f-description').value = r ? (r.description || '') : '';
+  setDateField('f-date', r ? r.submittal_date : isoToday());
+  document.getElementById('f-location').value    = r ? (r.location || '') : '';
+  document.getElementById('f-engineer').value    = r ? (r.engineer || '') : '';
+  document.getElementById('f-drawings').value    = r ? (r.related_refs || '') : '';
+  document.getElementById('f-submitted-to').value = r ? (r.submitted_to || '') : '';
+  document.getElementById('f-cc').value          = r ? (r.cc_party || '') : '';
+  document.getElementById('f-notes').value       = r ? (r.notes || '') : '';
+  updateCodePreview();
+  const sfi = document.getElementById('submit-file-info');
+  if (r && r.file_name) { sfi.style.display='flex'; sfi.innerHTML=fileTag(r.file_name); }
+  else { sfi.style.display='none'; sfi.innerHTML=''; }
+  document.getElementById('f-submit-file').value = '';
+  openModal('modal-add');
+}
+
+// ── SAVE RECORD ───────────────────────────────────────────────────────────────
+async function saveRecord() {
+  const docnum = document.getElementById('f-docnum').value.trim();
+  if (!docnum || isNaN(parseInt(docnum))) { alert('Document Number is required.'); document.getElementById('f-docnum').focus(); return; }
+  const submittal_date = getISO('f-date');
+  if (!submittal_date) { alert('Submittal Date is required (DD/MM/YYYY).'); return; }
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { alert('Title is required.'); document.getElementById('f-title').focus(); return; }
+  const description = document.getElementById('f-description').value.trim();
+  if (!description) { alert('Description is required.'); document.getElementById('f-description').focus(); return; }
+  const payload = {
+    doc_number:    parseInt(docnum),
+    revision:      document.getElementById('f-revision').value || 'A',
+    title,
+    description,
+    submittal_date,
+    location:      document.getElementById('f-location').value.trim(),
+    engineer:      document.getElementById('f-engineer').value.trim(),
+    related_refs:  document.getElementById('f-drawings').value.trim(),
+    submitted_to:  document.getElementById('f-submitted-to').value.trim(),
+    cc_party:      document.getElementById('f-cc').value.trim(),
+    notes:         document.getElementById('f-notes').value.trim(),
+    file_name:     submitFileAttached ? submitFileAttached.name : (editId ? (allRecords.find(x=>x.id===editId)||{}).file_name||'' : ''),
+  };
+  try {
+    let result;
+    if (editId) {
+      const oldRec = JSON.parse(JSON.stringify(allRecords.find(x => x.id === editId) || {}));
+      const eid = editId;
+      result = await BINNA.put(`/projects/${PROJECT_ID}/submittals/${M.type}/${editId}`, payload);
+      const idx = allRecords.findIndex(x => x.id === editId);
+      if (idx >= 0) allRecords[idx] = result.item;
+      BINNA.undo.push(async function() {
+        try {
+          const r = await BINNA.put(`/projects/${PROJECT_ID}/submittals/${M.type}/${eid}`, oldRec);
+          const i = allRecords.findIndex(x => x.id === eid);
+          if (i >= 0) allRecords[i] = r.item;
+          renderTable(); updateStats();
+          BINNA.toast('Undone', 'info', 1500);
+        } catch(e) { BINNA.toast('Undo failed: '+(e.error||e), 'error'); }
+      });
+    } else {
+      result = await BINNA.post(`/projects/${PROJECT_ID}/submittals/${M.type}`, payload);
+      allRecords.unshift(result.item);
+      const newId = result.item.id;
+      BINNA.undo.push(async function() {
+        try {
+          await BINNA.del(`/projects/${PROJECT_ID}/submittals/${M.type}/${newId}`);
+          allRecords = allRecords.filter(x => x.id !== newId);
+          renderTable(); updateStats();
+          BINNA.toast('Undone', 'info', 1500);
+        } catch(e) { BINNA.toast('Undo failed: '+(e.error||e), 'error'); }
+      });
+    }
+    closeModal('modal-add');
+    renderTable(); updateStats();
+    BINNA.toast(editId ? 'Updated successfully' : 'Created successfully', 'success');
+  } catch(e) { BINNA.toast(e.error || 'Failed to save', 'error'); }
+}
+
+// ── OPEN RESPONSE ─────────────────────────────────────────────────────────────
+function openResponse(id) {
+  const r = allRecords.find(x => x.id === id);
+  if (!r) return;
+  respEditId = id; responseFileAttached = null;
+  document.getElementById('resp-title').textContent = r.title;
+  document.getElementById('resp-code').textContent  = r.code;
+  document.getElementById('r-status').value   = r.response_status || 'pending';
+  setDateField('r-date', r.response_date || '');
+  document.getElementById('r-by').value        = r.response_by       || '';
+  document.getElementById('r-location').value  = r.response_location || '';
+  document.getElementById('r-notes').value     = r.response_notes    || '';
+  const rfi = document.getElementById('resp-file-info');
+  if (r.response_file) { rfi.style.display='flex'; rfi.innerHTML=fileTag(r.response_file); }
+  else { rfi.style.display='none'; rfi.innerHTML=''; }
+  document.getElementById('r-file').value = '';
+  updateTimeline(r.response_status || 'pending');
+  closeModal('modal-view'); openModal('modal-response');
+}
+
+// ── SAVE RESPONSE ─────────────────────────────────────────────────────────────
+async function saveResponse() {
+  const status = document.getElementById('r-status').value;
+  const payload = {
+    response_status:   status,
+    response_date:     getISO('r-date') || '',
+    response_by:       document.getElementById('r-by').value.trim(),
+    response_location: document.getElementById('r-location').value.trim(),
+    response_notes:    document.getElementById('r-notes').value.trim(),
+    response_file:     responseFileAttached ? responseFileAttached.name
+                       : (allRecords.find(x=>x.id===respEditId)||{}).response_file || '',
+  };
+  try {
+    const oldRec = JSON.parse(JSON.stringify(allRecords.find(x => x.id === respEditId) || {}));
+    const rid = respEditId;
+    const result = await BINNA.put(`/projects/${PROJECT_ID}/submittals/${M.type}/${respEditId}`, payload);
+    const idx = allRecords.findIndex(x => x.id === respEditId);
+    if (idx >= 0) allRecords[idx] = result.item;
+    closeModal('modal-response'); renderTable(); updateStats();
+    BINNA.toast('Response saved', 'success');
+    BINNA.undo.push(async function() {
+      try {
+        const r = await BINNA.put(`/projects/${PROJECT_ID}/submittals/${M.type}/${rid}`, oldRec);
+        const i = allRecords.findIndex(x => x.id === rid);
+        if (i >= 0) allRecords[i] = r.item;
+        renderTable(); updateStats();
+        BINNA.toast('Undone', 'info', 1500);
+      } catch(e) { BINNA.toast('Undo failed: '+(e.error||e), 'error'); }
+    });
+  } catch(e) { BINNA.toast(e.error || 'Failed to save response', 'error'); }
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+async function deleteRecord() {
+  const r = editId ? allRecords.find(x => x.id === editId) : null;
+  if (!confirm('Delete "' + (r ? r.title : 'this record') + '"?')) return;
+  const snap = JSON.parse(JSON.stringify(r || {}));
+  const delId = editId;
+  try {
+    await BINNA.del(`/projects/${PROJECT_ID}/submittals/${M.type}/${editId}`);
+    allRecords = allRecords.filter(x => x.id !== editId);
+    if (_selId === delId) _selId = null;
+    closeModal('modal-add'); renderTable(); updateStats();
+    BINNA.toast('Deleted', 'info');
+    BINNA.undo.push(async function() {
+      try {
+        const data = await BINNA.post(`/projects/${PROJECT_ID}/submittals/${M.type}`, snap);
+        allRecords.unshift(data.item);
+        renderTable(); updateStats();
+        BINNA.toast('Undone (re-created with new code)', 'info', 2500);
+      } catch(e) { BINNA.toast('Undo failed: '+(e.error||e), 'error'); }
+    });
+  } catch(e) { BINNA.toast(e.error || 'Failed to delete', 'error'); }
+}
+
+// ── VIEW MODAL ────────────────────────────────────────────────────────────────
+function viewRecord(id) {
+  const r = allRecords.find(x => x.id === id); if (!r) return;
+  document.getElementById('view-title').textContent    = r.title;
+  document.getElementById('view-code-sub').textContent = r.code + ' — Submitted ' + BINNA.fmtDate(r.submittal_date);
+  const statusHTML   = badgeHTML(r.status);
+  const submitFileHTML = r.file_name
+    ? '<span class="attach-pill has">&#128206; ' + BINNA.esc(r.file_name) + '</span>'
+    : '<span style="color:var(--muted2);font-size:12px">No file attached</span>';
+  const respFileHTML = r.response_file
+    ? '<span class="attach-pill has">&#128203; ' + BINNA.esc(r.response_file) + '</span>'
+    : '<span style="color:var(--muted2);font-size:12px">No response file yet</span>';
+  const row = (k, v) => v ? '<div class="drow"><div class="dkey">' + k + '</div><div class="dval">' + v + '</div></div>' : '';
+  document.getElementById('view-body').innerHTML =
+    '<div class="detail-section"><div class="detail-section-title">Submission Details</div>'
+    + row('Code', '<span style="font-family:monospace;color:var(--accent)">' + BINNA.esc(r.code) + '</span>')
+    + row('Revision', r.revision ? '<span style="background:var(--accent-light);color:var(--accent);border:1px solid #c7d7fd;border-radius:4px;padding:2px 10px;font-weight:700;font-family:monospace">Rev. ' + BINNA.esc(r.revision) + '</span>' : '')
+    + row('Title', '<span style="font-weight:600">' + BINNA.esc(r.title) + '</span>')
+    + row('Description', r.description ? '<span style="white-space:pre-wrap;color:var(--muted2)">' + BINNA.esc(r.description) + '</span>' : '')
+    + row('Date Submitted', BINNA.fmtDate(r.submittal_date))
+    + row('Location / Area', BINNA.esc(r.location))
+    + row('Engineer', BINNA.esc(r.engineer))
+    + row('Submitted To', BINNA.esc(r.submitted_to))
+    + row('CC', r.cc_party ? BINNA.esc(r.cc_party) + ' <span style="font-size:10px">(copy only)</span>' : '')
+    + row('Related Refs', BINNA.esc(r.related_refs))
+    + row('Notes', r.notes ? '<span style="color:var(--muted)">' + BINNA.esc(r.notes) + '</span>' : '')
+    + '<div class="drow"><div class="dkey">Submitted File</div><div class="dval">' + submitFileHTML + '</div></div>'
+    + '</div>'
+    + '<div class="detail-section"><div class="detail-section-title">Response / Approval</div>'
+    + row('Status', statusHTML)
+    + row('Response Date', BINNA.fmtDate(r.response_date))
+    + row('Responded By', BINNA.esc(r.response_by))
+    + row('Location', BINNA.esc(r.response_location))
+    + row('Comments', r.response_notes ? '<span style="color:var(--muted)">' + BINNA.esc(r.response_notes) + '</span>' : '')
+    + '<div class="drow"><div class="dkey">Response File</div><div class="dval">' + respFileHTML + '</div></div>'
+    + '</div>';
+  document.getElementById('view-edit-btn').onclick = () => { closeModal('modal-view'); openAdd(id); };
+  document.getElementById('view-resp-btn').onclick = () => openResponse(id);
+  openModal('modal-view');
+}
+
+// ── TABLE ─────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const search  = document.getElementById('search').value.toLowerCase();
+  const statusF = document.getElementById('filter-status').value;
+  let filtered  = allRecords.filter(r => {
+    if (statusF && r.status !== statusF) return false;
+    if (search && !(
+      r.code.toLowerCase().includes(search) ||
+      r.title.toLowerCase().includes(search) ||
+      (r.location||'').toLowerCase().includes(search)
+    )) return false;
+    return true;
+  });
+  filtered.sort((a,b) => {
+    if (a.doc_number !== b.doc_number) return a.doc_number - b.doc_number;
+    return (a.revision||'A').localeCompare(b.revision||'A');
+  });
+  document.getElementById('rec-count').textContent = filtered.length + ' record' + (filtered.length!==1?'s':'');
+  if (!filtered.length) {
+    document.getElementById('table-body').innerHTML = '<div class="empty"><div class="icon">&#128203;</div><p>'
+      + (allRecords.length ? 'No results match your filters.' : 'No ' + M.name + ' yet. Click <b>+ New ' + M.singular + '</b> to begin.')
+      + '</p></div>';
+    return;
+  }
+  let html = '<table><thead><tr>'
+    + '<th>Code</th><th>Title</th><th>Date</th><th>Location</th><th>Submitted To</th>'
+    + '<th>Status</th><th>Submit File</th><th>Response File</th><th></th>'
+    + '</tr></thead><tbody>';
+  filtered.forEach(r => {
+    html += '<tr data-id="' + r.id + '" onclick="selectRow(' + r.id + ')">'
+      + '<td><span class="code-cell">' + BINNA.esc(r.code) + '</span></td>'
+      + '<td><span class="title-cell" title="' + BINNA.esc(r.title) + '">' + BINNA.esc(r.title) + '</span></td>'
+      + '<td class="muted-cell">' + BINNA.fmtDate(r.submittal_date) + '</td>'
+      + '<td class="muted-cell">' + BINNA.esc(r.location||'—') + '</td>'
+      + '<td class="muted-cell">' + BINNA.esc(r.submitted_to||'—') + '</td>'
+      + '<td>' + badgeHTML(r.status, r.id) + '</td>'
+      + '<td><span class="attach-pill' + (r.file_name?' has':'') + '">&#128206; ' + BINNA.esc(r.file_name||'None') + '</span></td>'
+      + '<td><span class="attach-pill' + (r.response_file?' has':'') + '">&#128203; ' + BINNA.esc(r.response_file||'None') + '</span></td>'
+      + '<td><div class="action-btns">'
+      + '<button class="icon-btn" type="button" onclick="viewRecord(' + r.id + ')" title="View">&#128065;</button>'
+      + '<button class="icon-btn" type="button" onclick="openAdd(' + r.id + ')" title="Edit">&#9999;</button>'
+      + '<button class="btn btn-primary btn-sm" type="button" onclick="openResponse(' + r.id + ')" style="padding:4px 10px;font-size:11px;border-radius:5px">&#128203; Status</button>'
+      + '</div></td>'
+      + '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('table-body').innerHTML = html;
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('s-total').textContent      = allRecords.length;
+  document.getElementById('s-pending').textContent    = allRecords.filter(r=>r.status==='pending').length;
+  document.getElementById('s-approved').textContent   = allRecords.filter(r=>r.status==='approved').length;
+  document.getElementById('s-notes').textContent      = allRecords.filter(r=>r.status==='notes').length;
+  document.getElementById('s-rejected').textContent   = allRecords.filter(r=>r.status==='rejected').length;
+  document.getElementById('s-corrections').textContent= allRecords.filter(r=>r.status==='corrections').length;
+}
+
+let statsVisible = true;
+function toggleStats() {
+  statsVisible = !statsVisible;
+  document.getElementById('stats-section').style.display = statsVisible ? '' : 'none';
+  document.getElementById('stats-toggle-btn').textContent = statsVisible ? '▲ Hide Dashboard' : '▼ Show Dashboard';
+}
+
+// ── BADGE ─────────────────────────────────────────────────────────────────────
+function badgeHTML(status, id) {
+  const map = {
+    pending:     ['badge-pending',     id ? '⏳ Pending — click to update' : 'Pending'],
+    approved:    ['badge-approved',    'Approved ✓'],
+    notes:       ['badge-notes',       'Approved w/ Notes'],
+    rejected:    ['badge-rejected',    'Not Approved ✗'],
+    corrections: ['badge-corrections', id ? '✎ Make Corrections — click' : 'Make Corrections ✎'],
+  };
+  const info = map[status] || ['badge-pending', status];
+  if (id) return '<span class="badge ' + info[0] + ' clickable" onclick="openResponse(' + id + ')" title="Click to change status">' + info[1] + '</span>';
+  return '<span class="badge ' + info[0] + '">' + info[1] + '</span>';
+}
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────────────
+function handleFile(input, type) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  if (type === 'submit') {
+    submitFileAttached = file;
+    const el = document.getElementById('submit-file-info');
+    el.style.display='flex'; el.innerHTML=fileTag(file.name);
+  } else {
+    responseFileAttached = file;
+    const el2 = document.getElementById('resp-file-info');
+    el2.style.display='flex'; el2.innerHTML=fileTag(file.name);
+  }
+}
+function fileTag(name) {
+  return '<div class="file-attached"><span style="font-size:16px">&#128206;</span><span class="fname">' + BINNA.esc(name) + '</span></div>';
+}
+
+// ── TIMELINE ─────────────────────────────────────────────────────────────────
+function updateTimeline(status) {
+  const dot = document.getElementById('tl-result');
+  dot.className = 'tl-dot'; dot.textContent = '—';
+  if (status==='approved') { dot.classList.add('done'); dot.textContent='✓'; }
+  else if (status==='rejected') { dot.classList.add('rejected'); dot.textContent='✗'; }
+  else if (status==='notes') { dot.classList.add('notes'); dot.textContent='📝'; }
+  const pend = document.getElementById('tl-pending');
+  pend.className = 'tl-dot ' + (status==='pending' ? 'active' : 'done');
+  pend.textContent = status==='pending' ? '⏳' : '✓';
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// ── DATE HELPERS ──────────────────────────────────────────────────────────────
+function isoToday() { return new Date().toISOString().split('T')[0]; }
+function setDateField(fieldId, iso) {
+  const el = document.getElementById(fieldId);
+  if (!iso) { el.value=''; return; }
+  const d = new Date(iso.includes('T') ? iso : iso + 'T00:00:00');
+  el.value = String(d.getDate()).padStart(2,'0') + '/'
+           + String(d.getMonth()+1).padStart(2,'0') + '/'
+           + d.getFullYear();
+}
+function getISO(fieldId) {
+  const v = document.getElementById(fieldId).value;
+  const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? m[3]+'-'+m[2]+'-'+m[1] : null;
+}
+function onDateType(el) {
+  let v = el.value.replace(/[^0-9]/g,'');
+  if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
+  if(v.length>5) v=v.slice(0,5)+'/'+v.slice(5);
+  if(v.length>10) v=v.slice(0,10);
+  el.value=v;
+}
+function fromCal(natEl, fieldId) {
+  if(!natEl.value) return;
+  const p=natEl.value.split('-');
+  document.getElementById(fieldId).value=p[2]+'/'+p[1]+'/'+p[0];
+}
+
+// ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────────
+var _sidebarOpen = true;
+function toggleSidebar() {
+  _sidebarOpen = !_sidebarOpen;
+  var sb  = document.getElementById('sidebar');
+  var btn = document.getElementById('sidebar-toggle-btn');
+  if (_sidebarOpen) {
+    sb.classList.remove('collapsed');
+    btn.textContent = '☰';
+    btn.title = 'Hide Sidebar';
+  } else {
+    sb.classList.add('collapsed');
+    btn.textContent = '▶';
+    btn.title = 'Show Sidebar';
+  }
+}
+BINNA.renderSidebarTeam();
+</script>
+</body>
+</html>
+

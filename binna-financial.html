@@ -1,0 +1,882 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Financial</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
+  --border:#d0d5dd;--border2:#e4e7ec;
+  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
+  --accent:#1a56db;--accent-light:#eff4ff;
+  --success:#027a48;--success-bg:#ecfdf3;
+  --danger:#b42318;--danger-bg:#fff1f0;
+  --warning:#b54708;--warning-bg:#fffaeb;
+  --radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-.3px;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center}
+.logo:hover{color:#1648c0}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:7px}
+#sidebar-toggle-btn{background:transparent;border:1px solid transparent;border-radius:5px;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0}
+#sidebar-toggle-btn:hover{background:var(--surface);border-color:var(--border)}
+.proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
+.proj-badge b{color:var(--accent);margin-right:4px}
+.module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
+.btn:hover{background:var(--surface)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#1648c0}
+.btn-sm{padding:5px 11px;font-size:12px}
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;transition:width .22s ease,min-width .22s ease,padding .22s ease,border .22s ease;overflow:hidden;min-width:0}
+.sidebar.collapsed{width:0;padding:0;border-right:none}
+.sidebar-section{padding:6px 20px 4px;font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--muted2);text-transform:uppercase;margin-top:8px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:2px solid transparent;font-weight:400;text-decoration:none}
+.sidebar-item:hover{background:var(--surface);color:var(--text)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);border-left:2px solid var(--accent)}
+.sidebar-item .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+.btn-danger{color:var(--danger);border-color:#fecdca}
+.btn-danger:hover{background:var(--danger-bg)}
+
+/* TABS */
+.tabs-bar{display:flex;background:var(--white);border-bottom:1px solid var(--border);padding:0 20px;gap:0;flex-shrink:0}
+.main-tab{padding:14px 20px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap;border:none;background:transparent;font-family:'Inter',sans-serif}
+.main-tab:hover{color:var(--text2)}
+.main-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+/* MAIN */
+.main{flex:1;padding:24px 28px;overflow-y:auto}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* SECTION HEADER */
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sec-title{font-size:16px;font-weight:700;color:var(--text)}
+.sec-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* CURRENCY TOGGLE */
+.currency-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
+.currency-row label{font-size:12px;font-weight:500;color:var(--text2)}
+.cur-sel{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;cursor:pointer}
+.rate-input{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;width:130px}
+.rate-input:focus{outline:none;border-color:var(--accent)}
+
+/* SPREADSHEET */
+.sheet-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.sheet-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.sheet-table th{background:var(--surface);border:1px solid var(--border2);padding:8px 10px;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap}
+.sheet-table th.num-h{text-align:right}
+.sheet-table td{border:1px solid var(--border2);padding:0;vertical-align:middle;overflow:hidden;word-break:break-word;overflow-wrap:break-word}
+.sheet-table td.row-num{font-size:10.5px;color:var(--muted2);text-align:center;background:var(--surface);width:36px;padding:6px 4px;user-select:none}
+/* Flex containers inside table cells must not force overflow */
+.sheet-table td > div{min-width:0}
+.sheet-table td > div input,.sheet-table td > div select{min-width:0}
+.sheet-table tr.total-row td{background:#f0f4ff;border-top:2px solid var(--accent);font-weight:700}
+.sheet-table tr.subtotal-row td{background:#f7f8fa;border-top:1px solid var(--border);font-weight:600}
+.sheet-table tr.section-row td{background:#e8f0fe;font-weight:700;font-size:12px;color:var(--accent);padding:7px 10px;border-top:2px solid var(--accent)}
+.sheet-table tr.highlight-row td{background:#fffbf0}
+
+/* CELL INPUT */
+.cell-in{width:100%;border:none;outline:none;background:transparent;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);padding:7px 10px;cursor:text}
+.cell-in:focus{background:#fffde7;outline:2px solid var(--accent);outline-offset:-2px;border-radius:0}
+.cell-in.num{text-align:right}
+.cell-in.bold{font-weight:700}
+.cell-in[readonly]{color:var(--accent);font-weight:600;background:var(--accent-light);text-align:right;cursor:default}
+.cell-in.neg[readonly]{color:var(--danger);background:var(--danger-bg)}
+.cell-in.pos[readonly]{color:var(--success);background:var(--success-bg)}
+.cell-in.label[readonly]{color:var(--text2);font-weight:600;background:var(--surface);text-align:left;cursor:default}
+.cell-in.warn[readonly]{color:var(--warning);background:var(--warning-bg)}
+/* Description textarea — wraps text */
+.cell-in.desc-ta{resize:none;overflow:hidden;min-height:34px;line-height:1.45;white-space:pre-wrap;word-break:break-word;display:block;height:auto}
+.sheet-table td.desc-cell{vertical-align:top;padding:0}
+.add-row-btn{width:100%;padding:8px;background:var(--surface);border:none;border-top:1px solid var(--border2);font-size:12px;color:var(--accent);cursor:pointer;font-family:'Inter',sans-serif;font-weight:500;text-align:left;padding-left:14px}
+.add-row-btn:hover{background:var(--accent-light)}
+.del-cell{width:28px;text-align:center;cursor:pointer;color:var(--muted2);font-size:13px;user-select:none;border:none;background:transparent;font-family:'Inter',sans-serif}
+.del-cell:hover{color:var(--danger)}
+
+/* SUMMARY BOX */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.summary-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.summary-card.full{grid-column:1/-1}
+.sum-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px}
+.sum-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border2);font-size:13px}
+.sum-row:last-child{border-bottom:none}
+.sum-row.total{font-weight:700;font-size:14px;border-top:2px solid var(--border);padding-top:8px;margin-top:4px}
+.sum-row.total .sum-val{color:var(--accent)}
+.sum-row.danger .sum-val{color:var(--danger)}
+.sum-row.success .sum-val{color:var(--success)}
+.sum-key{color:var(--text2)}
+.sum-val{font-weight:600;font-family:monospace;font-size:12.5px}
+.usd-note{font-size:10px;color:var(--muted2);margin-left:4px}
+
+/* STAT STRIP */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:14px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.stat-val{font-size:26px;font-weight:700;color:var(--text);line-height:1}
+/* COLLAPSIBLE STATS */
+.stats-toggle{display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px}
+.stats-toggle-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s}
+.stats-toggle-btn:hover{background:var(--surface);color:var(--text)}
+
+/* MODAL OVERLAY */
+.overlay{position:fixed;inset:0;background:#00000066;z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border:1px solid var(--border);border-radius:10px;max-height:90vh;overflow:hidden;transform:translateY(12px);transition:transform .18s;box-shadow:0 20px 40px rgba(0,0,0,.14);display:flex;flex-direction:column}
+.overlay.open .modal{transform:translateY(0)}
+.mhead{padding:16px 20px 12px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0}
+.mtitle{font-size:15px;font-weight:700;color:var(--text)}
+.msubtitle{font-size:11.5px;color:var(--muted);margin-top:3px}
+.mbody{padding:20px;overflow-y:auto;flex:1}
+.mfoot{padding:12px 20px;border-top:1px solid var(--border2);display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-shrink:0;background:var(--surface)}
+.closex{background:none;border:none;font-size:17px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1;flex-shrink:0}
+.closex:hover{color:var(--text);background:var(--surface)}
+
+@media print{
+  @page{size:A4 landscape;margin:12mm}
+  body{background:#fff}
+  .topbar,.tabs-bar,.btn,.add-row-btn,.del-cell,.overlay{display:none!important}
+  .main{padding:0}
+  .tab-content{display:block!important}
+}
+</style>
+<script src="/static/js/binna-api.js?v=3"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
+    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
+    <div class="proj-badge"><b id="proj-code">APS</b><span id="proj-name">Auxiliary Pump Station</span></div>
+  </div>
+  <div class="topbar-right">
+    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
+    <div class="module-tag">&#128200; Financial</div>
+    <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>
+    <button class="btn btn-sm" type="button" onclick="saveAll()">&#128190; Save</button>
+    <span id="save-indicator" style="font-size:11px;font-weight:600;padding:0 4px"></span>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">Project</div>
+  <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
+  <a class="sidebar-item" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
+  <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
+  <a class="sidebar-item active" href="/legacy/financial"><span class="dot"></span> Financial</a>
+  <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
+  <a class="sidebar-item" href="/legacy/sub"><span class="dot"></span> Subcontractor Mgmt</a>
+  <div class="sidebar-section">Consultant</div>
+  <a class="sidebar-item" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
+  <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
+  <a class="sidebar-item" href="/legacy/mir"><span class="dot"></span> MIR</a>
+  <a class="sidebar-item" href="/legacy/ms"><span class="dot"></span> Method Statements</a>
+  <a class="sidebar-item" href="/legacy/rfi"><span class="dot"></span> RFI</a>
+  <a class="sidebar-item" href="/legacy/lbt"><span class="dot"></span> Lab Tests</a>
+  <div style="margin-top:auto">
+    <div id="sidebar-team-legend" style="padding:10px 16px 4px;display:none">
+      <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:var(--muted2);text-transform:uppercase;margin-bottom:6px">Team</div>
+      <div id="sidebar-team-items"></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted2)">BINNA v2.0</div>
+    </div>
+  </div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;overflow-y:auto">
+
+<!-- FINANCIAL STATS DASHBOARD -->
+<div style="background:var(--bg);border-bottom:1px solid var(--border);padding:0 28px 0">
+  <div class="stats-toggle" style="padding-top:14px">
+    <button class="stats-toggle-btn" id="stats-toggle-btn" onclick="toggleStats()">▲ Hide Dashboard</button>
+  </div>
+  <div id="stats-section">
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Total Income</div>
+      <div class="stat-val" style="color:var(--success);font-size:20px" id="dash-income">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Expenses</div>
+      <div class="stat-val" style="color:var(--danger);font-size:20px" id="dash-expenses">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Net Balance</div>
+      <div class="stat-val" style="font-size:20px" id="dash-balance">—</div>
+    </div>
+  </div>
+  </div><!-- /stats-section -->
+</div>
+
+<div class="main">
+
+<!-- Contract Details, BOQ, VO, Payments managed by Contract & Payment module (/legacy/contract) -->
+<div class="tab-content" id="tab-boq" style="display:none">
+  <div class="sec-header">
+    <div>
+      <div class="sec-title">Bill of Quantities — Contract</div>
+      <div class="sec-sub">Work items, quantities, unit prices and totals</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" type="button" onclick="addBoqRow()">+ Add Item</button>
+      <button class="btn btn-sm" type="button" onclick="addBoqSection()" style="background:#e8f0fe;color:var(--accent);border-color:#c7d7fd">+ Section Header</button>
+      <button class="btn btn-sm" type="button" onclick="addBoqSubItem()" style="background:#f9f5ff;color:#6941c6;border-color:#d6bbfb">+ Sub-Item</button>
+    </div>
+  </div>
+
+  <!-- Contract Details -->
+  <div class="sheet-wrap" style="margin-bottom:14px">
+    <table class="sheet-table">
+      <thead><tr>
+        <th style="width:36px"></th>
+        <th>Contract Detail</th>
+        <th class="num-h" style="width:55%">Value / Notes</th>
+      </tr></thead>
+      <tbody id="contract-details-body">
+        <tr><td class="row-num">1</td><td><input class="cell-in label" readonly value="Contractor"/></td><td><input class="cell-in" id="cd-contractor" placeholder="Company name"/></td></tr>
+        <tr><td class="row-num">2</td><td><input class="cell-in label" readonly value="Client / Employer"/></td><td><input class="cell-in" id="cd-client" placeholder="Client name"/></td></tr>
+        <tr><td class="row-num">3</td><td><input class="cell-in label" readonly value="Project Name"/></td><td><input class="cell-in" id="cd-project" placeholder="Project name"/></td></tr>
+        <tr><td class="row-num">4</td><td><input class="cell-in label" readonly value="Contract Number"/></td><td><input class="cell-in" id="cd-contract-no" placeholder="Contract reference no."/></td></tr>
+
+        <tr><td class="row-num">5</td><td><input class="cell-in label" readonly value="Contract Value / قيمة العقد الأصلية"/></td>
+          <td><div style="display:flex;gap:5px;align-items:center">
+            <input class="cell-in" id="cd-contract-value" type="number" min="0" step="1" readonly
+              placeholder="Auto from BOQ total" style="flex:1;background:var(--surface);color:var(--muted)"
+              oninput="data.contractDetails['contract-value']=this.value;updateContractTotals()"/>
+            <button type="button" id="cd-contract-value-btn" onclick="toggleCdMode('contract-value')"
+              title="Switch to manual entry"
+              style="border:1px solid var(--border);background:var(--surface);border-radius:4px;cursor:pointer;font-size:11px;padding:3px 8px;font-family:Inter,sans-serif;color:var(--muted);flex-shrink:0">✏</button>
+          </div></td></tr>
+
+        <tr><td class="row-num">6</td><td><input class="cell-in label" readonly value="Variation Orders Total / مجموع أوامر التغيير"/></td>
+          <td><div style="display:flex;gap:5px;align-items:center">
+            <input class="cell-in" id="cd-vo-total" type="number" step="1" readonly
+              placeholder="Auto from VO section" style="flex:1;background:var(--surface);color:var(--muted)"
+              oninput="data.contractDetails['vo-total']=this.value;updateContractTotals()"/>
+            <button type="button" id="cd-vo-total-btn" onclick="toggleCdMode('vo-total')"
+              title="Switch to manual entry"
+              style="border:1px solid var(--border);background:var(--surface);border-radius:4px;cursor:pointer;font-size:11px;padding:3px 8px;font-family:Inter,sans-serif;color:var(--muted);flex-shrink:0">✏</button>
+          </div></td></tr>
+
+        <tr><td class="row-num">7</td><td><input class="cell-in label" readonly value="Contract Total Final Value / القيمة الإجمالية النهائية"/></td>
+          <td><div style="display:flex;gap:5px;align-items:center">
+            <input class="cell-in" id="cd-contract-total" type="number" step="1" readonly
+              placeholder="Auto = Contract Value + VO" style="flex:1;background:var(--surface);color:var(--muted)"
+              oninput="data.contractDetails['contract-total']=this.value"/>
+            <button type="button" id="cd-contract-total-btn" onclick="toggleCdMode('contract-total')"
+              title="Switch to manual entry"
+              style="border:1px solid var(--border);background:var(--surface);border-radius:4px;cursor:pointer;font-size:11px;padding:3px 8px;font-family:Inter,sans-serif;color:var(--muted);flex-shrink:0">✏</button>
+          </div></td></tr>
+
+        <tr><td class="row-num">8</td><td><input class="cell-in label" readonly value="Contract Date / تاريخ العقد"/></td>
+          <td><div style="display:flex;align-items:center;min-width:0">
+            <input class="cell-in" id="cd-date" type="text" maxlength="10" placeholder="DD/MM/YYYY"
+              style="flex:1;min-width:0" oninput="autoFmtDate(this)"
+              onchange="var iso=dispToISO(this.value);if(iso){data.contractDetails['date']=iso;calcContractEnd();}"/>
+            <label style="position:relative;flex-shrink:0;cursor:pointer;padding:0 6px;color:var(--muted);line-height:1" title="Pick date">&#128197;<input type="date" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer"
+              onchange="document.getElementById('cd-date').value=isoToDisp(this.value);var iso=this.value;if(iso){data.contractDetails['date']=iso;calcContractEnd();}this.value=''"/></label>
+          </div></td></tr>
+
+        <tr><td class="row-num">9</td><td><input class="cell-in label" readonly value="Contract Period (days) / مدة العقد بالأيام"/></td>
+          <td><input class="cell-in" id="cd-period" type="number" min="1" step="1" placeholder="e.g. 540"
+            oninput="data.contractDetails['period']=this.value;calcContractEnd()"/></td></tr>
+
+        <tr><td class="row-num">10</td><td><input class="cell-in label" readonly value="Contract Extensions / فترات التمديد"/></td>
+          <td>
+            <div id="cd-extensions-container"></div>
+            <div id="cd-extensions-total" style="font-size:11px;color:var(--accent);font-weight:600;margin-top:2px"></div>
+            <button type="button" onclick="addContractExtension()"
+              style="margin-top:5px;border:1px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 9px;font-family:Inter,sans-serif;color:var(--text2)">+ Add Extension</button>
+          </td></tr>
+
+        <tr><td class="row-num">11</td><td><input class="cell-in label" readonly value="Contract End Date / تاريخ الانتهاء"/></td>
+          <td><input class="cell-in" id="cd-contract-end" type="text" readonly
+            title="Auto-calculated: Contract Date + Period (days) + all Extension days"
+            placeholder="— calculated"
+            style="background:var(--surface);color:var(--muted)"/></td></tr>
+
+        <tr><td class="row-num">12</td><td><input class="cell-in label" readonly value="Actual Finish Date / تاريخ الإنجاز الفعلي"/></td>
+          <td><div style="display:flex;align-items:center;min-width:0">
+            <input class="cell-in" id="cd-actual-finish" type="text" maxlength="10" placeholder="DD/MM/YYYY"
+              style="flex:1;min-width:0" oninput="autoFmtDate(this)"
+              onchange="var iso=dispToISO(this.value);if(iso){data.contractDetails['actual-finish']=iso;calcWarrantyEnd();}"/>
+            <label style="position:relative;flex-shrink:0;cursor:pointer;padding:0 6px;color:var(--muted);line-height:1" title="Pick date">&#128197;<input type="date" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer"
+              onchange="document.getElementById('cd-actual-finish').value=isoToDisp(this.value);var iso=this.value;if(iso){data.contractDetails['actual-finish']=iso;calcWarrantyEnd();}this.value=''"/></label>
+          </div></td></tr>
+
+        <tr><td class="row-num">13</td><td><input class="cell-in label" readonly value="Warranty Period / فترة الضمان"/></td>
+          <td><div style="display:flex;gap:8px;align-items:center">
+            <input class="cell-in" id="cd-warranty" type="number" min="0" step="1"
+              placeholder="days" style="width:76px;flex-shrink:0"
+              oninput="data.contractDetails['warranty']=this.value;calcWarrantyEnd()"/>
+            <span style="font-size:11px;color:var(--muted);flex-shrink:0;white-space:nowrap">days → Ends:</span>
+            <input class="cell-in" id="cd-warranty-end" type="text" readonly
+              title="Warranty End Date = Actual Finish Date + Warranty Period (days). Requires Actual Finish Date."
+              placeholder="— pending actual finish"
+              style="flex:1;background:var(--surface);color:var(--muted)"/>
+          </div></td></tr>
+
+        <tr><td class="row-num">14</td><td><input class="cell-in label" readonly value="Insurance / Guarantee %"/></td><td><input class="cell-in" id="cd-insurance" placeholder="e.g. 5%"/></td></tr>
+        <tr><td class="row-num">15</td><td><input class="cell-in label" readonly value="Tax Rate %"/></td><td><input class="cell-in" id="cd-tax" placeholder="e.g. 3%" value="3%"/></td></tr>
+        <tr><td class="row-num">16</td><td><input class="cell-in label" readonly value="Daily Penalty Rate % of contract"/></td><td><input class="cell-in" id="cd-penalty-rate" placeholder="e.g. 0.1 (means 0.1% per day)" oninput="data.contractDetails['penalty-rate']=this.value" onchange="renderPayRows()"/></td></tr>
+        <tr><td class="row-num">17</td><td><input class="cell-in label" readonly value="Contract Rules / Notes"/></td><td><input class="cell-in" id="cd-rules" placeholder="Any special contract rules..."/></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BOQ Items -->
+  <div class="sheet-wrap">
+    <table class="sheet-table" id="boq-table">
+      <thead><tr>
+        <th style="width:36px">#</th>
+        <th style="width:40%">Work Item Description</th>
+        <th style="width:80px">Unit</th>
+        <th class="num-h" style="width:100px">Quantity</th>
+        <th class="num-h" style="width:130px">Unit Price (IQD)</th>
+        <th class="num-h" style="width:150px">Amount (IQD)</th>
+        <th style="width:28px"></th>
+      </tr></thead>
+      <tbody id="boq-body"></tbody>
+    </table>
+    <button class="add-row-btn" type="button" onclick="addBoqRow()">+ Add Work Item</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="sum-title">BOQ Summary</div>
+      <div class="sum-row"><span class="sum-key">Total BOQ Value</span><span class="sum-val" id="boq-total">0 IQD</span></div>
+      <div class="sum-row"><span class="sum-key">VO Total</span><span class="sum-val" id="boq-vo-total">0 IQD</span></div>
+      <div class="sum-row total"><span class="sum-key">Contract Total (BOQ + VO)</span><span class="sum-val" id="boq-contract-total">0 IQD</span></div>
+    </div>
+    <div class="summary-card">
+      <div class="sum-title">Contract Notes</div>
+      <div class="sum-row"><span class="sum-key">Tax Rate</span><span class="sum-val" id="sum-tax-rate">3%</span></div>
+      <div class="sum-row"><span class="sum-key">Insurance / Guarantee</span><span class="sum-val" id="sum-insurance">5%</span></div>
+      <div class="sum-row"><span class="sum-key">Contract Period</span><span class="sum-val" id="sum-period">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-vo" style="display:none">
+  <div class="sec-header">
+    <div>
+      <div class="sec-title">Variation Orders</div>
+      <div class="sec-sub">Additional or reduced work items added to the original contract</div>
+    </div>
+    <button class="btn btn-sm" type="button" onclick="addVoRow()">+ Add VO Item</button>
+    <button class="btn btn-sm" type="button" onclick="addVoSection()" style="background:#e8f0fe;color:var(--accent);border-color:#c7d7fd">+ Section Header</button>
+    <button class="btn btn-sm" type="button" onclick="addVoSubItem()" style="background:#f9f5ff;color:#6941c6;border-color:#d6bbfb">+ Sub-Item</button>
+  </div>
+
+  <div class="sheet-wrap">
+    <table class="sheet-table" id="vo-table">
+      <thead><tr>
+        <th style="width:36px">#</th>
+        <th style="width:60px">VO No.</th>
+        <th style="width:100px">VO Date</th>
+        <th style="width:25%">Description</th>
+        <th style="width:70px">Unit</th>
+        <th class="num-h" style="width:90px">Quantity</th>
+        <th class="num-h" style="width:120px">Unit Price (IQD)</th>
+        <th class="num-h" style="width:140px">Amount (IQD)</th>
+        <th style="width:80px">Type</th>
+        <th style="width:80px">Extra Days</th>
+        <th style="width:28px"></th>
+      </tr></thead>
+      <tbody id="vo-body"></tbody>
+    </table>
+    <button class="add-row-btn" type="button" onclick="addVoRow()">+ Add VO Item</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="sum-title">VO Summary</div>
+      <div class="sum-row success"><span class="sum-key">Total Additions (+)</span><span class="sum-val" id="vo-add-total">0 IQD</span></div>
+      <div class="sum-row danger"><span class="sum-key">Total Deductions (−)</span><span class="sum-val" id="vo-ded-total">0 IQD</span></div>
+      <div class="sum-row total"><span class="sum-key">Net VO Value</span><span class="sum-val" id="vo-net">0 IQD</span></div>
+    </div>
+    <div class="summary-card">
+      <div class="sum-title">Updated Contract</div>
+      <div class="sum-row"><span class="sum-key">Original BOQ</span><span class="sum-val" id="vo-orig-boq">0 IQD</span></div>
+      <div class="sum-row"><span class="sum-key">Net VO</span><span class="sum-val" id="vo-net2">0 IQD</span></div>
+      <div class="sum-row total"><span class="sum-key">Updated Contract Value</span><span class="sum-val" id="vo-updated">0 IQD</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-payments" style="display:none">
+  <div class="sec-header">
+    <div>
+      <div class="sec-title">طلبات استحصال السلف — Payment Requests</div>
+      <div class="sec-sub">Each ذرعة is linked to BOQ quantities completed — cumulative Iraqi government rules applied automatically</div>
+    </div>
+    <button class="btn btn-sm btn-primary" type="button" onclick="addPayRow()">+ Add ذرعة</button>
+  </div>
+
+  <!-- Contract reference bar -->
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:11.5px">
+    <div>Contract (BOQ+VO): <b style="color:var(--accent)" id="pay-contract-ref">0 IQD</b></div>
+    <div>50% Threshold: <b style="color:#b54708" id="pay-threshold-ref">0 IQD</b></div>
+    <div>Insurance Required (5%): <b style="color:var(--danger)" id="pay-ins-required">0 IQD</b></div>
+    <div>Contract Period: <b id="pay-ref-period">—</b></div>
+    <div>Daily Penalty Rate: <b style="color:var(--danger)" id="pay-ref-penalty">—</b></div>
+    <div style="margin-left:auto;color:var(--muted2);font-size:11px">Rules auto-applied: 5% insurance · 3% tax · cumulative</div>
+  </div>
+
+  <div id="pay-rows-container"></div>
+  <button class="btn btn-sm btn-primary" type="button" onclick="addPayRow()" style="margin-bottom:16px">+ Add ذرعة / Payment Request</button>
+
+  <!-- SUMMARY -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="sum-title">إجمالي السلف</div>
+      <div class="sum-row"><span class="sum-key">Total Work Completed</span><span class="sum-val accent" id="pay-s-work">0 IQD</span></div>
+      <div class="sum-row danger"><span class="sum-key">Total Insurance Withheld</span><span class="sum-val" id="pay-s-ins">0 IQD</span></div>
+      <div class="sum-row danger"><span class="sum-key">Total Tax Withheld</span><span class="sum-val" id="pay-s-tax">0 IQD</span></div>
+      <div class="sum-row danger"><span class="sum-key">Total Penalty Withheld</span><span class="sum-val" id="pay-s-penalty">0 IQD</span></div>
+      <div class="sum-row danger"><span class="sum-key">Total Extra Deductions</span><span class="sum-val" id="pay-s-extra">0 IQD</span></div>
+      <div class="sum-row total"><span class="sum-key">Total Net to Contractor</span><span class="sum-val" id="pay-s-net">0 IQD</span></div>
+    </div>
+    <div class="summary-card">
+      <div class="sum-title">تأمينات حسن التنفيذ</div>
+      <div class="sum-row"><span class="sum-key">Required (5%)</span><span class="sum-val" id="pay-ins-req">0 IQD</span></div>
+      <div class="sum-row"><span class="sum-key">Withheld So Far</span><span class="sum-val" id="pay-ins-held">0 IQD</span></div>
+      <div class="sum-row success"><span class="sum-key">Released — Initial Handover</span><span class="sum-val" id="pay-ins-rel1">0 IQD</span></div>
+      <div class="sum-row success"><span class="sum-key">Released — Final Handover</span><span class="sum-val" id="pay-ins-rel2">0 IQD</span></div>
+      <div class="sum-row total danger"><span class="sum-key">Still Held</span><span class="sum-val" id="pay-ins-still">0 IQD</span></div>
+    </div>
+    <div class="summary-card">
+      <div class="sum-title">غرامات التأخير</div>
+      <div class="sum-row"><span class="sum-key">Contract End Date</span><span class="sum-val" id="pay-pen-end">—</span></div>
+      <div class="sum-row"><span class="sum-key">Days Delayed</span><span class="sum-val danger" id="pay-pen-days">0</span></div>
+      <div class="sum-row"><span class="sum-key">Penalty Applied</span><span class="sum-val danger" id="pay-pen-applied">0 IQD</span></div>
+      <div class="sum-row success"><span class="sum-key">Penalty Waived / Covered by VO</span><span class="sum-val" id="pay-pen-waived">0 IQD</span></div>
+      <div class="sum-row total"><span class="sum-key">Net Penalty Outstanding</span><span class="sum-val danger" id="pay-pen-net">0 IQD</span></div>
+    </div>
+    <div class="summary-card full">
+      <div class="sum-title">الموقف المالي النهائي</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px">
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Contract Value</div><div style="font-size:16px;font-weight:700;color:var(--accent)" id="pay-f-contract">0 IQD</div></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Total Work Done</div><div style="font-size:16px;font-weight:700" id="pay-f-work">0 IQD</div></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Total Deductions</div><div style="font-size:16px;font-weight:700;color:var(--danger)" id="pay-f-ded">0 IQD</div></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Net Paid</div><div style="font-size:16px;font-weight:700;color:var(--success)" id="pay-f-net">0 IQD</div></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Remaining Balance</div><div style="font-size:16px;font-weight:700" id="pay-f-remaining">0 IQD</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ INCOME & EXPENSES ═══════════════ -->
+<div class="tab-content active" id="tab-expenses">
+  <div class="sec-header">
+    <div>
+      <div class="sec-title">Income &amp; Expenses</div>
+      <div class="sec-sub">Track all cash in and out — IQD main currency, USD supported with exchange rate</div>
+    </div>
+  </div>
+
+
+<!-- USD Exchange Rate (compact) -->
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:8px 14px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);font-size:12px">
+  <span style="color:var(--muted);font-weight:500">USD Exchange Rate:</span>
+  <input type="number" id="usd-rate" value="1310" min="1" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:12px;font-family:Inter,sans-serif" oninput="renderPreviews()"/>
+  <span style="color:var(--muted2)">IQD per 1 USD</span>
+</div>
+
+<!-- Income Preview -->
+<div class="sec-header" style="margin-bottom:10px">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="sec-title" style="font-size:14px;color:var(--success)">&#8593; Income</div>
+    <span style="font-size:12px;color:var(--muted2)" id="inc-preview-count"></span>
+  </div>
+  <a href="/legacy/income" class="btn btn-sm" style="text-decoration:none;color:var(--accent)">View All Income &#8594;</a>
+</div>
+<div class="sheet-wrap" style="margin-bottom:6px">
+  <table class="sheet-table">
+    <thead><tr>
+      <th style="width:36px">#</th>
+      <th>Description / Source</th>
+      <th style="width:120px">Category</th>
+      <th style="width:100px">Date</th>
+      <th style="width:65px">Cur.</th>
+      <th class="num-h" style="width:100px">Amount</th>
+      <th class="num-h" style="width:75px">Rate</th>
+      <th class="num-h" style="width:130px">Amount (IQD)</th>
+    </tr></thead>
+    <tbody id="income-preview-body"></tbody>
+    <tbody id="inc-quick-section" style="display:none">
+      <tr style="background:#f0fff8;border-top:2px solid var(--success)">
+        <td class="row-num" style="color:var(--success);font-weight:700">+</td>
+        <td><input id="inc-q-desc" class="cell-in" placeholder="Description…"/></td>
+        <td><select id="inc-q-cat" class="cell-in" style="padding:5px 4px;font-size:12px"><option value="">— Category —</option></select></td>
+        <td><input id="inc-q-date" class="cell-in" maxlength="10" placeholder="DD/MM/YYYY" oninput="autoFmtQ(this)" style="text-align:center;font-size:12px"/></td>
+        <td><select id="inc-q-cur" class="cell-in" onchange="onQCur('inc')" style="padding:5px 4px;font-size:12px"><option value="IQD">IQD</option><option value="USD">USD $</option></select></td>
+        <td><input id="inc-q-amount" class="cell-in num" type="number" min="0" placeholder="0" oninput="calcQIqd('inc')"/></td>
+        <td><input id="inc-q-rate" class="cell-in num" type="number" min="0" placeholder="Rate" style="opacity:.3;pointer-events:none" oninput="calcQIqd('inc')"/></td>
+        <td style="padding:5px 8px;text-align:center">
+          <div style="font-family:monospace;font-weight:600;color:var(--success);font-size:11.5px;margin-bottom:4px" id="inc-q-iqd">0 IQD</div>
+          <div style="display:flex;gap:4px;justify-content:center">
+            <button onclick="saveQ('income')" style="border:none;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;color:#fff;background:var(--success)">Save</button>
+            <button onclick="cancelQ('income')" style="border:1px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 7px;font-family:Inter,sans-serif">✕</button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <button class="add-row-btn" type="button" onclick="showQ('income')">+ Add Income Entry</button>
+</div>
+<div style="display:flex;justify-content:flex-end;align-items:center;padding:4px 2px 18px;font-size:12px">
+  <span>Total Income: <b style="color:var(--success)" id="inc-preview-total">0 IQD</b></span>
+</div>
+
+<!-- Expense Preview -->
+<div class="sec-header" style="margin-bottom:10px">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="sec-title" style="font-size:14px;color:var(--danger)">&#8595; Expenses</div>
+    <span style="font-size:12px;color:var(--muted2)" id="exp-preview-count"></span>
+  </div>
+  <a href="/legacy/expense" class="btn btn-sm" style="text-decoration:none;color:var(--danger)">View All Expenses &#8594;</a>
+</div>
+<div class="sheet-wrap" style="margin-bottom:6px">
+  <table class="sheet-table">
+    <thead><tr>
+      <th style="width:36px">#</th>
+      <th>Description / Expense</th>
+      <th style="width:120px">Category</th>
+      <th style="width:100px">Date</th>
+      <th style="width:65px">Cur.</th>
+      <th class="num-h" style="width:100px">Amount</th>
+      <th class="num-h" style="width:75px">Rate</th>
+      <th class="num-h" style="width:130px">Amount (IQD)</th>
+    </tr></thead>
+    <tbody id="expense-preview-body"></tbody>
+    <tbody id="exp-quick-section" style="display:none">
+      <tr style="background:#fff0f0;border-top:2px solid var(--danger)">
+        <td class="row-num" style="color:var(--danger);font-weight:700">+</td>
+        <td><input id="exp-q-desc" class="cell-in" placeholder="Description…"/></td>
+        <td><select id="exp-q-cat" class="cell-in" style="padding:5px 4px;font-size:12px"><option value="">— Category —</option></select></td>
+        <td><input id="exp-q-date" class="cell-in" maxlength="10" placeholder="DD/MM/YYYY" oninput="autoFmtQ(this)" style="text-align:center;font-size:12px"/></td>
+        <td><select id="exp-q-cur" class="cell-in" onchange="onQCur('exp')" style="padding:5px 4px;font-size:12px"><option value="IQD">IQD</option><option value="USD">USD $</option></select></td>
+        <td><input id="exp-q-amount" class="cell-in num" type="number" min="0" placeholder="0" oninput="calcQIqd('exp')"/></td>
+        <td><input id="exp-q-rate" class="cell-in num" type="number" min="0" placeholder="Rate" style="opacity:.3;pointer-events:none" oninput="calcQIqd('exp')"/></td>
+        <td style="padding:5px 8px;text-align:center">
+          <div style="font-family:monospace;font-weight:600;color:var(--danger);font-size:11.5px;margin-bottom:4px" id="exp-q-iqd">0 IQD</div>
+          <div style="display:flex;gap:4px;justify-content:center">
+            <button onclick="saveQ('expense')" style="border:none;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;color:#fff;background:var(--danger)">Save</button>
+            <button onclick="cancelQ('expense')" style="border:1px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 7px;font-family:Inter,sans-serif">✕</button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <button class="add-row-btn" type="button" onclick="showQ('expense')">+ Add Expense Entry</button>
+</div>
+<div style="display:flex;justify-content:flex-end;align-items:center;padding:4px 2px 8px;font-size:12px">
+  <span>Total Expenses: <b style="color:var(--danger)" id="exp-preview-total">0 IQD</b></span>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px" id="exp-cat-chips"></div>
+
+<!-- Net Position -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:4px">
+  <div class="stat-card"><div class="stat-label">Total Income</div><div class="stat-val" style="color:var(--success);font-size:22px" id="net-income-display">0 IQD</div></div>
+  <div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-val" style="color:var(--danger);font-size:22px" id="net-expenses-display">0 IQD</div></div>
+  <div class="stat-card"><div class="stat-label">Net Balance</div><div class="stat-val" style="font-size:22px" id="net-result-display">0 IQD</div></div>
+</div>
+
+</div><!-- end .main -->
+</div><!-- /right-col -->
+</div><!-- /layout -->
+<script>
+if (!BINNA.requireProject()) { /* redirected */ }
+const PROJECT = BINNA.getProject();
+const PROJECT_ID = PROJECT ? PROJECT.id : null;
+
+(function(){
+  if(PROJECT){
+    var ce=document.getElementById('proj-code');if(ce)ce.textContent=PROJECT.code||'';
+    var ne=document.getElementById('proj-name');if(ne)ne.textContent=PROJECT.name||'';
+  }
+  var bl=document.getElementById('back-link');
+  if(bl&&PROJECT_ID)bl.href='/project/'+PROJECT_ID;
+})();
+
+var data={income:[],expenses:[],incomeCategories:[],expenseCategories:[],usdRate:1310};
+var _sidebarOpen=true,_statsVisible=true,_saveTimer=null,_pendingSave=false;
+
+function fmt(n){return Math.round(n).toLocaleString('en-US');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function isoToDisp(s){if(!s)return'—';var p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'—';}
+function dispToISO(s){if(!s||s.length!==10)return'';var p=s.split('/');return(p.length===3&&p[2].length===4)?p[2]+'-'+p[1]+'-'+p[0]:'';}
+function pad(n){return('0'+n).slice(-2);}
+function autoFmtQ(el){var v=el.value.replace(/\D/g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);el.value=v.slice(0,10);}
+
+function setSaveIndicator(state){
+  var el=document.getElementById('save-indicator');if(!el)return;
+  if(state==='dirty'){el.textContent='● Unsaved';el.style.color='#b54708';}
+  else if(state==='saved'){el.textContent='✓ Saved';el.style.color='#027a48';setTimeout(function(){if(!_pendingSave)el.textContent='';},3000);}
+  else el.textContent='';
+}
+
+function scheduleSave(){
+  if(!PROJECT_ID)return;
+  _pendingSave=true;setSaveIndicator('dirty');
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(function(){
+    _saveTimer=null;
+    var payload={income:data.income||[],expenses:data.expenses||[],
+      incomeCategories:data.incomeCategories||[],
+      expenseCategories:(data.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};}),
+      usdRate:data.usdRate||1310};
+    fetch('/api/v1/projects/'+PROJECT_ID+'/financial/income',{
+      method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(BINNA.getToken()||'')},
+      body:JSON.stringify(payload)
+    }).then(function(){_pendingSave=false;setSaveIndicator('saved');}).catch(function(){BINNA.toast('Save failed','error');});
+  },800);
+}
+
+function saveAll(){scheduleSave();}
+
+// ── QUICK ENTRY FUNCTIONS ─────────────────────────────────────────────────────
+function showQ(type){
+  var p=type==='income'?'inc':'exp';
+  var sec=document.getElementById(p+'-quick-section');if(sec)sec.style.display='';
+  // Populate cat select
+  var catSel=document.getElementById(p+'-q-cat');
+  if(catSel){
+    var cats=type==='income'?(data.incomeCategories||[]):(data.expenseCategories||[]);
+    catSel.innerHTML='<option value="">— Category —</option>'+cats.map(function(c){return'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>';}).join('');
+  }
+  // Set today's date
+  var d=document.getElementById(p+'-q-date');
+  if(d&&!d.value){var t=new Date();d.value=pad(t.getDate())+'/'+pad(t.getMonth()+1)+'/'+t.getFullYear();}
+  // Focus desc
+  var desc=document.getElementById(p+'-q-desc');
+  if(desc)setTimeout(function(){desc.focus();},50);
+}
+
+function cancelQ(type){
+  var p=type==='income'?'inc':'exp';
+  var sec=document.getElementById(p+'-quick-section');if(sec)sec.style.display='none';
+  ['desc','date','amount','rate'].forEach(function(f){var el=document.getElementById(p+'-q-'+f);if(el)el.value='';});
+  var cur=document.getElementById(p+'-q-cur');if(cur)cur.value='IQD';
+  var rateEl=document.getElementById(p+'-q-rate');if(rateEl){rateEl.style.opacity='.3';rateEl.style.pointerEvents='none';}
+  var iqdEl=document.getElementById(p+'-q-iqd');if(iqdEl)iqdEl.textContent='0 IQD';
+}
+
+function onQCur(p){
+  var cur=(document.getElementById(p+'-q-cur')||{value:'IQD'}).value;
+  var rateEl=document.getElementById(p+'-q-rate');
+  if(rateEl){
+    rateEl.style.opacity=cur==='USD'?'1':'0.3';
+    rateEl.style.pointerEvents=cur==='USD'?'auto':'none';
+    if(cur==='USD'&&!rateEl.value)rateEl.value=data.usdRate||1310;
+  }
+  calcQIqd(p);
+}
+
+function calcQIqd(p){
+  var cur=(document.getElementById(p+'-q-cur')||{value:'IQD'}).value;
+  var amt=parseFloat((document.getElementById(p+'-q-amount')||{}).value)||0;
+  var rate=parseFloat((document.getElementById(p+'-q-rate')||{}).value)||data.usdRate||1310;
+  var iqd=cur==='USD'?amt*rate:amt;
+  var el=document.getElementById(p+'-q-iqd');if(el)el.textContent=fmt(iqd)+' IQD';
+}
+
+function saveQ(type){
+  var p=type==='income'?'inc':'exp';
+  var desc=(document.getElementById(p+'-q-desc')||{}).value||'';
+  var cat=(document.getElementById(p+'-q-cat')||{}).value||'';
+  var date=dispToISO((document.getElementById(p+'-q-date')||{}).value||'');
+  var cur=(document.getElementById(p+'-q-cur')||{value:'IQD'}).value;
+  var amount=(document.getElementById(p+'-q-amount')||{}).value||'';
+  var rate=(document.getElementById(p+'-q-rate')||{}).value||'';
+  if(!desc&&!amount){BINNA.toast('Enter a description or amount','info',2000);return;}
+  var row={desc:desc,cat:cat,date:date,cur:cur,amount:amount,rate:rate};
+  if(type==='income')data.income.push(row);
+  else data.expenses.push(row);
+  cancelQ(type);
+  renderPreviews();
+  scheduleSave();
+}
+
+function getIqd(row){
+  var a=parseFloat(row.amount)||0;
+  var ur=document.getElementById('usd-rate');
+  var rate=parseFloat(row.rate)||(ur?parseFloat(ur.value):0)||data.usdRate||1310;
+  return row.cur==='USD'?a*rate:a;
+}
+function getCatName(catId,cats){
+  var c=(cats||[]).find(function(x){return x.id===catId;});
+  return c?c.name:'';
+}
+function setEl(id,text,color){
+  var el=document.getElementById(id);
+  if(el){el.textContent=text;if(color!==undefined)el.style.color=color;}
+}
+
+// ── PREVIEW INLINE EDIT HELPERS ───────────────────────────────────────────────
+// Update a field in data.income or data.expenses directly (no DOM re-render)
+function upP(type,gi,field,val){
+  var arr=type==='income'?data.income:data.expenses;
+  if(!arr[gi])return;
+  if(field==='date')val=dispToISO(val)||val;
+  arr[gi][field]=val;
+  scheduleSave();
+}
+
+// Recompute the IQD display span for one row, then refresh all totals
+function upPIqd(type,gi,iqdId){
+  var arr=type==='income'?data.income:data.expenses;
+  var el=document.getElementById(iqdId);
+  if(el&&arr[gi])el.textContent=fmt(getIqd(arr[gi]))+' IQD';
+  updatePreviewTotals();
+}
+
+// Toggle rate field enabled/disabled when currency changes
+function upPRate(type,gi,rateId,iqdId){
+  var arr=type==='income'?data.income:data.expenses;
+  var row=arr[gi];if(!row)return;
+  var rateEl=document.getElementById(rateId);
+  var isUsd=row.cur==='USD';
+  if(rateEl){
+    rateEl.style.opacity=isUsd?'1':'0.3';
+    rateEl.style.pointerEvents=isUsd?'auto':'none';
+    if(isUsd&&!rateEl.value){rateEl.value=data.usdRate||1310;row.rate=String(data.usdRate||1310);}
+    if(!isUsd)row.rate='';
+  }
+  upPIqd(type,gi,iqdId);
+  scheduleSave();
+}
+
+// Update all numeric totals (dashboard + footer) without re-rendering rows
+function updatePreviewTotals(){
+  var income=data.income||[];
+  var expenses=data.expenses||[];
+  var incTotal=income.reduce(function(s,r){return s+getIqd(r);},0);
+  var expTotal=expenses.reduce(function(s,r){return s+getIqd(r);},0);
+  var net=incTotal-expTotal;
+  setEl('dash-income',fmt(incTotal)+' IQD');
+  setEl('dash-expenses',fmt(expTotal)+' IQD');
+  setEl('dash-balance',(net>=0?'+':'')+fmt(net)+' IQD',net>=0?'var(--success)':'var(--danger)');
+  setEl('inc-preview-total',fmt(incTotal)+' IQD');
+  setEl('exp-preview-total',fmt(expTotal)+' IQD');
+  setEl('net-income-display',fmt(incTotal)+' IQD');
+  setEl('net-expenses-display',fmt(expTotal)+' IQD');
+  setEl('net-result-display',(net>=0?'+':'')+fmt(net)+' IQD',net>=0?'var(--success)':'var(--danger)');
+  // Expense category chips
+  var grouped={};
+  expenses.forEach(function(r){var k=r.cat||'_none';grouped[k]=(grouped[k]||0)+getIqd(r);});
+  var catHtml='';
+  (data.expenseCategories||[]).forEach(function(cat){
+    var v=grouped[cat.id];
+    if(v)catHtml+='<span style="font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border2);border-radius:5px;padding:3px 9px;white-space:nowrap">'+esc(cat.name)+': <b style="color:var(--danger)">'+fmt(v)+' IQD</b></span>';
+  });
+  if(grouped['_none'])catHtml+='<span style="font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border2);border-radius:5px;padding:3px 9px">Uncategorised: <b>'+fmt(grouped['_none'])+' IQD</b></span>';
+  var ecp=document.getElementById('exp-cat-chips');if(ecp)ecp.innerHTML=catHtml;
+}
+
+function renderPreviews(){
+  var income=data.income||[];
+  var expenses=data.expenses||[];
+  var usdRate=parseFloat((document.getElementById('usd-rate')||{value:'1310'}).value)||1310;
+  data.usdRate=usdRate;
+  var incPrev=income.slice(-5).reverse();
+  renderPreviewTable('income-preview-body',incPrev,data.incomeCategories||[],'income',income,'var(--success)');
+  var ic=document.getElementById('inc-preview-count');if(ic)ic.textContent='('+income.length+' total)';
+  var expPrev=expenses.slice(-5).reverse();
+  renderPreviewTable('expense-preview-body',expPrev,data.expenseCategories||[],'expense',expenses,'var(--danger)');
+  var ec=document.getElementById('exp-preview-count');if(ec)ec.textContent='('+expenses.length+' total)';
+  updatePreviewTotals();
+}
+
+// Renders an editable preview table — rows are fully inline-editable
+function renderPreviewTable(tbodyId,rows,cats,type,fullArray,amtColor){
+  var color=amtColor||'var(--accent)';
+  var tbody=document.getElementById(tbodyId);if(!tbody)return;
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--muted2);font-style:italic">No entries yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML=rows.map(function(r,i){
+    var gi=fullArray.indexOf(r); // global index in data.income / data.expenses
+    var iqd=getIqd(r);
+    var cur=r.cur||'IQD';
+    var isUsd=cur==='USD';
+    var rid='pr-'+type+'-'+gi+'-rate';
+    var iid='pr-'+type+'-'+gi+'-iqd';
+    var catOpts='<option value="">— No Category —</option>'+cats.map(function(c){
+      return '<option value="'+esc(c.id)+'"'+(c.id===r.cat?' selected':'')+'>'+esc(c.name)+'</option>';
+    }).join('');
+    return '<tr>'+
+      '<td class="row-num">'+(i+1)+'</td>'+
+      '<td><input class="cell-in" value="'+esc(r.desc||'')+'" placeholder="Description…"'+
+        ' oninput="upP(\''+type+'\','+gi+',\'desc\',this.value)"/></td>'+
+      '<td><select class="cell-in" style="padding:5px 4px;font-size:12px"'+
+        ' onchange="upP(\''+type+'\','+gi+',\'cat\',this.value)">'+catOpts+'</select></td>'+
+      '<td><input class="cell-in" type="text" maxlength="10" placeholder="DD/MM/YYYY"'+
+        ' value="'+isoToDisp(r.date||'')+'"'+
+        ' oninput="autoFmtQ(this)"'+
+        ' onchange="upP(\''+type+'\','+gi+',\'date\',dispToISO(this.value)||this.value)"'+
+        ' style="text-align:center;font-size:12px"/></td>'+
+      '<td><select class="cell-in" style="padding:5px 4px;font-size:12px"'+
+        ' onchange="upP(\''+type+'\','+gi+',\'cur\',this.value);upPRate(\''+type+'\','+gi+',\''+rid+'\',\''+iid+'\')">'+
+        '<option value="IQD"'+(isUsd?'':' selected')+'>IQD</option>'+
+        '<option value="USD"'+(isUsd?' selected':'')+'>USD $</option>'+
+      '</select></td>'+
+      '<td><input class="cell-in num" type="number" min="0" value="'+esc(r.amount||'')+'" placeholder="0"'+
+        ' oninput="upP(\''+type+'\','+gi+',\'amount\',this.value);upPIqd(\''+type+'\','+gi+',\''+iid+'\')"/></td>'+
+      '<td><input id="'+rid+'" class="cell-in num" type="number" min="0"'+
+        ' value="'+esc(r.rate||'')+'" placeholder="'+fmt(data.usdRate||1310)+'"'+
+        ' style="'+(isUsd?'':'opacity:.3;pointer-events:none')+'"'+
+        ' oninput="upP(\''+type+'\','+gi+',\'rate\',this.value);upPIqd(\''+type+'\','+gi+',\''+iid+'\')"/></td>'+
+      '<td style="text-align:right;padding:6px 8px">'+
+        '<span id="'+iid+'" style="font-family:monospace;font-weight:600;color:'+color+'">'+fmt(iqd)+' IQD</span>'+
+      '</td>'+
+      '</tr>';
+  }).join('');
+}
+
+function toggleStats(){
+  _statsVisible=!_statsVisible;
+  document.getElementById('stats-section').style.display=_statsVisible?'':'none';
+  document.getElementById('stats-toggle-btn').textContent=_statsVisible?'▲ Hide Dashboard':'▼ Show Dashboard';
+}
+function toggleSidebar(){
+  _sidebarOpen=!_sidebarOpen;
+  var sb=document.getElementById('sidebar');
+  if(sb){if(_sidebarOpen)sb.classList.remove('collapsed');else sb.classList.add('collapsed');}
+}
+
+window.addEventListener('DOMContentLoaded',async function(){
+  BINNA.injectProjectBadge();
+  if(!BINNA.requireProject())return;
+  if(!PROJECT_ID){BINNA.toast('No project selected','error');return;}
+  try{
+    var resp=await BINNA.fetchFinancial(PROJECT_ID);
+    if(resp.data){
+      data=resp.data;
+      if(!Array.isArray(data.expenses))data.expenses=[];
+      if(!data.incomeCategories)data.incomeCategories=[];
+      data.expenseCategories=(data.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};});
+    }
+  }catch(err){
+    BINNA.toast('Could not load data: '+(err.error||'error'),'error');
+  }
+  var ur=document.getElementById('usd-rate');
+  if(ur&&data.usdRate)ur.value=data.usdRate;
+  renderPreviews();
+});
+BINNA.renderSidebarTeam();
+</script>
+</body>
+</html>

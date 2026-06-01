@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Subcontractor Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/static/js/binna-api.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
+  --border:#d0d5dd;--border2:#e4e7ec;
+  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
+  --accent:#1a56db;--accent-light:#eff4ff;
+  --radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-.3px;text-decoration:none;display:inline-flex;align-items:center}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:7px}
+#sidebar-toggle-btn{background:transparent;border:1px solid transparent;border-radius:5px;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0}
+#sidebar-toggle-btn:hover{background:var(--surface);border-color:var(--border)}
+.proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
+.proj-badge b{color:var(--accent);margin-right:4px}
+.module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--surface)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;transition:width .22s ease,min-width .22s ease,padding .22s ease,border .22s ease;overflow:hidden;min-width:0}
+.sidebar.collapsed{width:0;padding:0;border-right:none}
+.sidebar-section{padding:6px 20px 4px;font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--muted2);text-transform:uppercase;margin-top:8px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:2px solid transparent;font-weight:400;text-decoration:none}
+.sidebar-item:hover{background:var(--surface);color:var(--text)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);border-left:2px solid var(--accent)}
+.sidebar-item .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+.main{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.coming-soon-card{
+  background:var(--white);border:1px solid var(--border);border-radius:14px;
+  padding:56px 48px;text-align:center;max-width:480px;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.coming-soon-icon{font-size:52px;margin-bottom:20px;opacity:.85}
+.coming-soon-title{font-size:20px;font-weight:700;color:var(--text);margin-bottom:10px}
+.coming-soon-desc{font-size:13px;color:var(--muted);line-height:1.6}
+.coming-soon-badge{
+  display:inline-block;background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;
+  border-radius:20px;font-size:11px;font-weight:600;padding:4px 12px;margin-top:20px;
+  letter-spacing:.3px;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+    <a href="/dashboard" class="logo">BINNA <span>Construction PM</span></a>
+    <div style="width:1px;height:24px;background:var(--border)"></div>
+    <div class="proj-badge"><b data-proj-code>…</b><span data-proj-name></span></div>
+    <div class="module-tag">SUB — Subcontractor Management</div>
+  </div>
+  <div class="topbar-right">
+    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">Project</div>
+  <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
+  <a class="sidebar-item" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
+  <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
+  <a class="sidebar-item" href="/legacy/financial"><span class="dot"></span> Financial</a>
+  <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
+  <a class="sidebar-item active" href="/legacy/sub"><span class="dot"></span> Subcontractor Mgmt</a>
+  <div class="sidebar-section">Consultant</div>
+  <a class="sidebar-item" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
+  <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
+  <a class="sidebar-item" href="/legacy/mir"><span class="dot"></span> MIR</a>
+  <a class="sidebar-item" href="/legacy/ms"><span class="dot"></span> Method Statements</a>
+  <a class="sidebar-item" href="/legacy/rfi"><span class="dot"></span> RFI</a>
+  <a class="sidebar-item" href="/legacy/lbt"><span class="dot"></span> Lab Tests</a>
+  <div style="margin-top:auto">
+    <div id="sidebar-team-legend" style="padding:10px 16px 4px;display:none">
+      <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:var(--muted2);text-transform:uppercase;margin-bottom:6px">Team</div>
+      <div id="sidebar-team-items"></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted2)">BINNA v2.0</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="coming-soon-card">
+    <div class="coming-soon-icon">🏗️</div>
+    <div class="coming-soon-title">Subcontractor Management</div>
+    <div class="coming-soon-desc">
+      Coming Soon — Subcontractor Management module is under development.<br><br>
+      This module will allow you to manage subcontractors, scopes of work, agreements, and performance tracking for your project.
+    </div>
+    <span class="coming-soon-badge">Under Development</span>
+  </div>
+</div>
+</div>
+
+<script>
+if (!BINNA.requireProject()) throw 0;
+
+const PROJECT = BINNA.getProject();
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+function init() {
+  BINNA.injectProjectBadge();
+  const proj = BINNA.getProject();
+  if (proj) {
+    document.title = 'BINNA — ' + proj.code + ' Subcontractors';
+    const backEl = document.getElementById('back-link');
+    if (proj.id) backEl.href = '/project/' + proj.id;
+  }
+  BINNA.renderSidebarTeam();
+}
+
+init();
+</script>
+</body>
+</html>

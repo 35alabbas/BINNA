@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
+  --border:#d0d5dd;--border2:#e4e7ec;
+  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
+  --accent:#1a56db;--accent-light:#eff4ff;--accent-dark:#1648c0;
+  --success:#027a48;--success-bg:#ecfdf3;--success-br:#6ce9a6;
+  --warning:#b54708;--warning-bg:#fffaeb;--warning-br:#fec84b;
+  --danger:#b42318;--danger-bg:#fff1f0;--danger-br:#fecdca;
+  --hold-c:#6941c6;--hold-bg:#f9f5ff;--hold-br:#d6bbfb;
+  --radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh}
+
+/* ── TOP BAR ─────────────────────────────────────────────────────── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;height:56px;background:var(--white);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;
+  box-shadow:0 1px 0 var(--border2);
+}
+.logo{font-weight:800;font-size:20px;color:var(--accent);letter-spacing:-.5px}
+.logo-sub{color:var(--muted);font-weight:400;font-size:12px;margin-left:10px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-pill{
+  display:flex;align-items:center;gap:8px;padding:5px 12px 5px 6px;
+  border:1px solid var(--border);border-radius:20px;background:var(--surface);cursor:pointer;
+  transition:background .12s;
+}
+.user-pill:hover{background:var(--border2)}
+.avatar{
+  width:28px;height:28px;border-radius:50%;background:var(--accent);
+  color:#fff;font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.user-name{font-size:13px;font-weight:500;color:var(--text2)}
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:7px 14px;border-radius:7px;font-size:13px;font-weight:500;
+  cursor:pointer;border:1px solid var(--border);background:var(--white);
+  color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap;
+}
+.btn:hover{background:var(--surface)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent-dark)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-danger{color:var(--danger);border-color:var(--danger-br)}
+.btn-danger:hover{background:var(--danger-bg)}
+
+/* ── MAIN ────────────────────────────────────────────────────────── */
+.main{padding:32px 28px;max-width:1280px;margin:0 auto}
+
+/* ── PAGE HEADER ─────────────────────────────────────────────────── */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.page-title{font-size:22px;font-weight:700;color:var(--text)}
+.page-title small{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:2px}
+
+/* ── STATS ───────────────────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px}
+.stat-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+.stat-val{font-size:28px;font-weight:700;color:var(--text);line-height:1}
+.stat-val.c-accent{color:var(--accent)}
+.stat-val.c-success{color:var(--success)}
+.stat-val.c-warning{color:var(--warning)}
+
+/* ── SEARCH / FILTER BAR ─────────────────────────────────────────── */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.search-input{
+  background:var(--white);border:1px solid var(--border);border-radius:7px;
+  padding:8px 13px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;
+  width:260px;transition:border-color .12s;
+}
+.search-input:focus{outline:none;border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted2)}
+.filter-sel{
+  background:var(--white);border:1px solid var(--border);border-radius:7px;
+  padding:8px 11px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;cursor:pointer;
+}
+
+/* ── PROJECT GRID ────────────────────────────────────────────────── */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
+
+.proj-card{
+  background:var(--white);border:1px solid var(--border);border-radius:12px;
+  display:flex;flex-direction:column;transition:box-shadow .15s,transform .15s;
+  overflow:hidden;
+}
+.proj-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.08);transform:translateY(-1px)}
+
+.proj-card-top{padding:18px 20px 14px;border-bottom:1px solid var(--border2)}
+.proj-card-badges{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.code-badge{
+  background:var(--accent);color:#fff;border-radius:6px;
+  padding:3px 10px;font-size:12px;font-weight:700;font-family:monospace;letter-spacing:.5px;
+}
+.status-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+}
+.status-active    {background:var(--success-bg);color:var(--success);border:1px solid var(--success-br)}
+.status-on-hold   {background:var(--hold-bg);  color:var(--hold-c); border:1px solid var(--hold-br)}
+.status-completed {background:var(--accent-light);color:var(--accent);border:1px solid #c7d7fd}
+
+.proj-name{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.3}
+.proj-meta{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.proj-meta span{display:flex;align-items:center;gap:5px}
+.meta-key{color:var(--muted2);min-width:72px}
+
+.proj-card-modules{padding:12px 20px;border-bottom:1px solid var(--border2)}
+.modules-label{font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.module-pills{display:flex;flex-wrap:wrap;gap:5px}
+.mod-pill{
+  font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:5px;
+  background:var(--accent-light);color:var(--accent);border:1px solid #c7d7fd;
+  white-space:nowrap;cursor:pointer;transition:all .12s;text-decoration:none;display:inline-block;
+}
+.mod-pill:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.proj-card-footer{
+  padding:12px 20px;display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface);
+}
+.member-info{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.card-actions{display:flex;gap:6px}
+
+/* ── EMPTY STATE ─────────────────────────────────────────────────── */
+.empty-state{
+  text-align:center;padding:80px 20px;background:var(--white);
+  border:1px solid var(--border);border-radius:12px;
+}
+.empty-icon{font-size:48px;opacity:.2;margin-bottom:16px}
+.empty-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px}
+.empty-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+
+/* ── LOADING SKELETON ────────────────────────────────────────────── */
+.skeleton{background:linear-gradient(90deg,var(--border2) 25%,var(--border) 50%,var(--border2) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
+@keyframes shimmer{to{background-position:-200% 0}}
+
+/* ── MODAL ───────────────────────────────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;background:#00000066;z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .18s;
+}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--white);border:1px solid var(--border);border-radius:14px;
+  width:100%;max-width:520px;max-height:90vh;overflow-y:auto;
+  transform:translateY(16px);transition:transform .18s;
+  box-shadow:0 24px 60px rgba(0,0,0,.15);
+}
+.overlay.open .modal{transform:translateY(0)}
+.mhead{padding:22px 24px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;justify-content:space-between}
+.mtitle{font-size:16px;font-weight:700}
+.msub{font-size:12px;color:var(--muted);margin-top:2px}
+.mbody{padding:24px}
+.mfoot{padding:14px 24px;border-top:1px solid var(--border2);display:flex;gap:8px;justify-content:flex-end}
+.closex{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.closex:hover{color:var(--text);background:var(--surface)}
+
+/* ── FORM ────────────────────────────────────────────────────────── */
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.frow.full{grid-template-columns:1fr}
+.fgrp{display:flex;flex-direction:column;gap:5px}
+.flbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text2)}
+.req{color:var(--danger)}
+.fi,.fs{
+  background:var(--white);border:1px solid var(--border);border-radius:7px;
+  padding:9px 12px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;
+  width:100%;transition:border-color .12s;
+}
+.fi:focus,.fs:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
+.fhint{font-size:10.5px;color:var(--muted2);margin-top:2px}
+.fi.error,.fs.error{border-color:var(--danger)}
+.form-error{font-size:12px;color:var(--danger);margin-top:12px;padding:9px 12px;background:var(--danger-bg);border:1px solid var(--danger-br);border-radius:6px;display:none}
+
+/* ── CONFIRM DIALOG ──────────────────────────────────────────────── */
+#confirm-overlay .modal{max-width:380px}
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────── */
+@media(max-width:640px){
+  .stats{grid-template-columns:1fr 1fr}
+  .proj-grid{grid-template-columns:1fr}
+  .topbar{padding:0 16px}
+  .main{padding:20px 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── TOP BAR ────────────────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div style="display:flex;align-items:center">
+    <div class="logo">BINNA</div>
+    <span class="logo-sub">Construction PM</span>
+  </div>
+  <div class="topbar-right">
+    <div class="user-pill" id="user-pill">
+      <div class="avatar" id="user-avatar">?</div>
+      <span class="user-name" id="user-name">Loading…</span>
+    </div>
+    <button class="btn btn-sm" onclick="BINNA.logout()">Log Out</button>
+  </div>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div class="page-title">
+      Projects
+      <small>All construction projects you have access to</small>
+    </div>
+    <button class="btn btn-primary" onclick="openProjectModal()">＋ New Project</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-lbl">Total Projects</div>
+      <div class="stat-val c-accent" id="s-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">Active</div>
+      <div class="stat-val c-success" id="s-active">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">On Hold</div>
+      <div class="stat-val c-warning" id="s-hold">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">Completed</div>
+      <div class="stat-val" id="s-done">—</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input class="search-input" type="text" id="search" placeholder="Search projects…" oninput="filterProjects()"/>
+    <select class="filter-sel" id="filter-status" onchange="filterProjects()">
+      <option value="">All Statuses</option>
+      <option value="active">Active</option>
+      <option value="on-hold">On Hold</option>
+      <option value="completed">Completed</option>
+    </select>
+    <span style="margin-left:auto;font-size:12px;color:var(--muted)" id="proj-count"></span>
+  </div>
+
+  <!-- Projects grid -->
+  <div id="proj-grid"></div>
+
+</div><!-- /main -->
+
+<!-- ══════════════ CREATE / EDIT PROJECT MODAL ══════════════ -->
+<div class="overlay" id="proj-modal">
+  <div class="modal">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="modal-title">New Project</div>
+        <div class="msub">Fill in the project details below</div>
+      </div>
+      <button class="closex" onclick="closeProjectModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Project Code <span class="req">*</span></label>
+          <input class="fi" type="text" id="f-code" placeholder="e.g. APS"
+                 maxlength="10" style="text-transform:uppercase;font-weight:700;letter-spacing:1px"
+                 oninput="this.value=this.value.toUpperCase()" />
+          <div class="fhint">Short code used in all document references</div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Status</label>
+          <select class="fs" id="f-status">
+            <option value="active">● Active</option>
+            <option value="on-hold">◐ On Hold</option>
+            <option value="completed">✓ Completed</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Project Name <span class="req">*</span></label>
+          <input class="fi" type="text" id="f-name" placeholder="e.g. Auxiliary Pump Station — Phase 2" />
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Client / Employer</label>
+          <input class="fi" type="text" id="f-client" placeholder="e.g. Ministry of Electricity" />
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Consultant</label>
+          <input class="fi" type="text" id="f-consultant" placeholder="e.g. XYZ Engineering" />
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Contractor</label>
+          <input class="fi" type="text" id="f-contractor" placeholder="e.g. Al-Hajrass Company" />
+        </div>
+      </div>
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Description</label>
+          <input class="fi" type="text" id="f-description" placeholder="Short project summary (optional)" />
+        </div>
+      </div>
+      <div class="form-error" id="modal-error"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-danger btn-sm" id="btn-delete-proj"
+              style="margin-right:auto;display:none" onclick="confirmDeleteProject()">
+        🗑 Delete Project
+      </button>
+      <button class="btn" onclick="closeProjectModal()">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-proj" onclick="saveProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ CONFIRM DELETE DIALOG ══════════════ -->
+<div class="overlay" id="confirm-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="mhead">
+      <div class="mtitle" style="color:var(--danger)">Delete Project?</div>
+      <button class="closex" onclick="closeConfirm()">✕</button>
+    </div>
+    <div class="mbody">
+      <p style="font-size:14px;color:var(--text2);line-height:1.6">
+        This will permanently delete <b id="confirm-proj-name"></b> and all its data.
+        This action <b>cannot be undone</b>.
+      </p>
+    </div>
+    <div class="mfoot">
+      <button class="btn" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="btn-confirm-delete" onclick="executeDelete()">
+        Delete Permanently
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/binna-api.js"></script>
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let allProjects = [];
+let editingId   = null;
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!BINNA.requireAuth()) return;
+
+  try {
+    const user = await BINNA.fetchMe();
+    document.getElementById('user-name').textContent   = user.username;
+    document.getElementById('user-avatar').textContent = user.username[0].toUpperCase();
+  } catch(e) { /* token expired → BINNA.fetchMe redirects */ }
+
+  await loadProjects();
+});
+
+// ── Load & render projects ────────────────────────────────────────────────────
+async function loadProjects() {
+  const grid = document.getElementById('proj-grid');
+  grid.innerHTML = skeletonHTML();
+
+  try {
+    const { projects } = await BINNA.fetchProjects();
+    allProjects = projects || [];
+    updateStats(allProjects);
+    filterProjects();
+  } catch(e) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">Could not load projects</div>
+      <div class="empty-sub">${BINNA.esc(e.error || String(e))}</div>
+      <button class="btn btn-primary" onclick="loadProjects()">Retry</button>
+    </div>`;
+  }
+}
+
+function filterProjects() {
+  const q      = document.getElementById('search').value.toLowerCase();
+  const status = document.getElementById('filter-status').value;
+
+  const filtered = allProjects.filter(p => {
+    const matchQ = !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+                      || (p.client||'').toLowerCase().includes(q);
+    const matchS = !status || p.status === status;
+    return matchQ && matchS;
+  });
+
+  document.getElementById('proj-count').textContent =
+    filtered.length + ' project' + (filtered.length !== 1 ? 's' : '');
+
+  renderProjects(filtered);
+}
+
+function renderProjects(list) {
+  const grid = document.getElementById('proj-grid');
+
+  if (!list.length && !allProjects.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <div class="empty-title">No projects yet</div>
+        <div class="empty-sub">Create your first project to start managing construction documents.</div>
+        <button class="btn btn-primary" onclick="openProjectModal()">＋ Create First Project</button>
+      </div>`;
+    return;
+  }
+
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">No matching projects</div>
+        <div class="empty-sub">Try adjusting your search or filter.</div>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = `<div class="proj-grid">${list.map(projCard).join('')}</div>`;
+}
+
+function projCard(p) {
+  const statusClass = { active:'status-active', 'on-hold':'status-on-hold', completed:'status-completed' }[p.status] || 'status-active';
+  const statusLabel = { active:'● Active', 'on-hold':'◐ On Hold', completed:'✓ Completed' }[p.status] || p.status;
+
+  const modules = [
+    ['dc','DC'],['dr','DR'],['dwg','DWG'],['fir','FIR'],['mir','MIR'],
+    ['ms','MS'],['rfi','RFI'],['lbt','LBT'],['contract','📋'],['financial','💰'],['gantt','📊'],
+  ];
+
+  const pills = modules.map(([key, label]) =>
+    `<a class="mod-pill" href="/legacy/${key}" onclick="setLegacyProject(event,${p.id})" title="${BINNA.esc(p.name)}">${label}</a>`
+  ).join('');
+
+  const canEdit = (p.my_role === 'owner' || p.my_role === 'admin');
+  const editBtn = canEdit
+    ? `<button class="btn btn-sm" onclick="openEditModal(${p.id})">Edit</button>`
+    : '';
+
+  return `
+  <div class="proj-card" id="card-${p.id}">
+    <div class="proj-card-top">
+      <div class="proj-card-badges">
+        <span class="code-badge">${BINNA.esc(p.code)}</span>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="proj-name">${BINNA.esc(p.name)}</div>
+      <div class="proj-meta">
+        ${p.client     ? `<span><span class="meta-key">Client</span>${BINNA.esc(p.client)}</span>` : ''}
+        ${p.consultant ? `<span><span class="meta-key">Consultant</span>${BINNA.esc(p.consultant)}</span>` : ''}
+        ${p.contractor ? `<span><span class="meta-key">Contractor</span>${BINNA.esc(p.contractor)}</span>` : ''}
+      </div>
+    </div>
+    <div class="proj-card-modules">
+      <div class="modules-label">Modules</div>
+      <div class="module-pills">${pills}</div>
+    </div>
+    <div class="proj-card-footer">
+      <div class="member-info">👤 ${p.member_count} member${p.member_count !== 1 ? 's' : ''}</div>
+      <div class="card-actions">
+        ${editBtn}
+        <a class="btn btn-primary btn-sm" href="/project/${p.id}"
+           onclick="BINNA.setProject(${JSON.stringify(JSON.stringify(p)).slice(1,-1)})">
+          Open →
+        </a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function setLegacyProject(event, projectId) {
+  const p = allProjects.find(x => x.id === projectId);
+  if (p) {
+    // Set the localStorage key the legacy HTML files read
+    localStorage.setItem('binna_project', JSON.stringify({
+      name:       p.name,
+      code:       p.code,
+      client:     p.client      || '',
+      consultant: p.consultant  || '',
+      contractor: p.contractor  || '',
+    }));
+    BINNA.setProject(p);
+  }
+  // let the link navigate normally
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function updateStats(list) {
+  document.getElementById('s-total').textContent  = list.length;
+  document.getElementById('s-active').textContent = list.filter(p => p.status === 'active').length;
+  document.getElementById('s-hold').textContent   = list.filter(p => p.status === 'on-hold').length;
+  document.getElementById('s-done').textContent   = list.filter(p => p.status === 'completed').length;
+}
+
+// ── Project modal ──────────────────────────────────────────────────────────────
+function openProjectModal() {
+  editingId = null;
+  clearForm();
+  document.getElementById('modal-title').textContent    = 'New Project';
+  document.getElementById('btn-save-proj').textContent  = 'Create Project';
+  document.getElementById('btn-delete-proj').style.display = 'none';
+  openOverlay('proj-modal');
+}
+
+function openEditModal(projectId) {
+  const p = allProjects.find(x => x.id === projectId);
+  if (!p) return;
+  editingId = projectId;
+
+  document.getElementById('f-code').value        = p.code;
+  document.getElementById('f-name').value        = p.name;
+  document.getElementById('f-client').value      = p.client      || '';
+  document.getElementById('f-consultant').value  = p.consultant  || '';
+  document.getElementById('f-contractor').value  = p.contractor  || '';
+  document.getElementById('f-description').value = p.description || '';
+  document.getElementById('f-status').value      = p.status;
+
+  document.getElementById('modal-title').textContent   = 'Edit Project';
+  document.getElementById('btn-save-proj').textContent = 'Save Changes';
+  document.getElementById('btn-delete-proj').style.display =
+    (p.my_role === 'owner') ? 'inline-flex' : 'none';
+  document.getElementById('confirm-proj-name').textContent = `"${p.name}"`;
+
+  hideModalError();
+  openOverlay('proj-modal');
+}
+
+async function saveProject() {
+  const code        = document.getElementById('f-code').value.trim().toUpperCase();
+  const name        = document.getElementById('f-name').value.trim();
+  const client      = document.getElementById('f-client').value.trim();
+  const consultant  = document.getElementById('f-consultant').value.trim();
+  const contractor  = document.getElementById('f-contractor').value.trim();
+  const description = document.getElementById('f-description').value.trim();
+  const status      = document.getElementById('f-status').value;
+
+  if (!code || !name) {
+    showModalError('Project code and name are required.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-save-proj');
+  btn.disabled    = true;
+  btn.textContent = editingId ? 'Saving…' : 'Creating…';
+
+  try {
+    const payload = { code, name, client, consultant, contractor, description, status };
+
+    if (editingId) {
+      const { project } = await BINNA.updateProject(editingId, payload);
+      // Update local list
+      const idx = allProjects.findIndex(p => p.id === editingId);
+      if (idx !== -1) allProjects[idx] = { ...allProjects[idx], ...project };
+      BINNA.toast('Project updated successfully', 'success');
+    } else {
+      const { project } = await BINNA.createProject(payload);
+      allProjects.unshift(project);
+      BINNA.toast('Project created!', 'success');
+    }
+
+    updateStats(allProjects);
+    filterProjects();
+    closeProjectModal();
+
+  } catch(e) {
+    showModalError(e.error || 'An error occurred. Please try again.');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = editingId ? 'Save Changes' : 'Create Project';
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+function confirmDeleteProject() {
+  const id = editingId;
+  closeProjectModal();
+  editingId = id;
+  openOverlay('confirm-overlay');
+}
+
+function closeConfirm() { closeOverlay('confirm-overlay'); }
+
+async function executeDelete() {
+  if (!editingId) return;
+  const btn = document.getElementById('btn-confirm-delete');
+  btn.disabled    = true;
+  btn.textContent = 'Deleting…';
+  try {
+    await BINNA.deleteProject(editingId);
+    allProjects = allProjects.filter(p => p.id !== editingId);
+    updateStats(allProjects);
+    filterProjects();
+    BINNA.toast('Project deleted', 'info');
+    closeConfirm();
+  } catch(e) {
+    BINNA.toast(e.error || 'Delete failed', 'error');
+    btn.disabled    = false;
+    btn.textContent = 'Delete Permanently';
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+function closeProjectModal() { closeOverlay('proj-modal'); clearForm(); hideModalError(); }
+
+function clearForm() {
+  ['f-code','f-name','f-client','f-consultant','f-contractor','f-description'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f-status').value = 'active';
+  editingId = null;
+}
+
+function showModalError(msg) {
+  const el = document.getElementById('modal-error');
+  el.textContent   = msg;
+  el.style.display = 'block';
+}
+function hideModalError() {
+  document.getElementById('modal-error').style.display = 'none';
+}
+
+function skeletonHTML() {
+  const card = `<div class="proj-card" style="padding:20px">
+    <div class="skeleton" style="height:18px;width:60%;margin-bottom:12px"></div>
+    <div class="skeleton" style="height:14px;width:40%;margin-bottom:8px"></div>
+    <div class="skeleton" style="height:14px;width:80%"></div>
+  </div>`;
+  return `<div class="proj-grid">${card.repeat(3)}</div>`;
+}
+
+// Close overlays on backdrop click
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>

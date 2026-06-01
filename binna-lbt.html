@@ -1,0 +1,849 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Lab Tests</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
+  --border:#d0d5dd;--border2:#e4e7ec;
+  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
+  --accent:#1a56db;--accent-light:#eff4ff;
+  --out-c:#6941c6;--out-bg:#f9f5ff;--out-br:#d6bbfb;
+  --in-c:#027a48;--in-bg:#ecfdf3;--in-br:#6ce9a6;
+  --pass-c:#027a48;--pass-bg:#ecfdf3;--pass-br:#6ce9a6;
+  --fail-c:#b42318;--fail-bg:#fff1f0;--fail-br:#fecdca;
+  --pending-c:#b54708;--pending-bg:#fffaeb;--pending-br:#fec84b;
+  --radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-.3px;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center}
+.logo:hover{color:#1648c0}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:7px}
+#sidebar-toggle-btn{background:transparent;border:1px solid transparent;border-radius:5px;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0}
+#sidebar-toggle-btn:hover{background:var(--surface);border-color:var(--border)}
+.proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
+.proj-badge b{color:var(--accent);margin-right:4px}
+.module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
+.btn:hover{background:var(--surface)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#1648c0}
+.btn-out{background:var(--out-bg);color:var(--out-c);border-color:var(--out-br)}
+.btn-out:hover{filter:brightness(.95)}
+.btn-in{background:var(--in-bg);color:var(--in-c);border-color:var(--in-br)}
+.btn-in:hover{filter:brightness(.95)}
+.btn-red{color:#b42318;border-color:#fecdca}
+.btn-red:hover{background:#fff1f0}
+.btn-sm{padding:5px 11px;font-size:12px}
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;transition:width .22s ease,min-width .22s ease,padding .22s ease,border .22s ease;overflow:hidden;min-width:0}
+.sidebar.collapsed{width:0;padding:0;border-right:none}
+.sidebar-section{padding:6px 20px 4px;font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--muted2);text-transform:uppercase;margin-top:8px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:2px solid transparent;font-weight:400;text-decoration:none}
+.sidebar-item:hover{background:var(--surface);color:var(--text)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);border-left:2px solid var(--accent)}
+.sidebar-item .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+.main{flex:1;overflow-y:auto;padding:24px 28px}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.stat-val{font-size:26px;font-weight:700;color:var(--text);line-height:1}
+.stats-toggle{display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px}
+.stats-toggle-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s}
+.stats-toggle-btn:hover{background:var(--surface);color:var(--text)}
+/* TABS */
+.tabs{display:flex;gap:4px;margin-bottom:18px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:4px;width:fit-content}
+.tab{padding:6px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);border:none;background:transparent;font-family:'Inter',sans-serif;transition:all .12s}
+.tab.active.out-tab{background:var(--out-bg);color:var(--out-c);border:1px solid var(--out-br)}
+.tab.active.in-tab{background:var(--in-bg);color:var(--in-c);border:1px solid var(--in-br)}
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.search{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:220px}
+.search:focus{outline:none;border-color:var(--accent)}
+.search::placeholder{color:var(--muted2)}
+.filter-sel{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;cursor:pointer}
+.rec-count{margin-left:auto;font-size:12px;color:var(--muted)}
+/* TABLE */
+.table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+td{padding:11px 14px;font-size:12.5px;border-bottom:1px solid var(--border2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface)}
+tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--accent);outline-offset:-1px}
+.code-out{font-family:monospace;font-size:12px;font-weight:700;color:var(--out-c)}
+.code-in{font-family:monospace;font-size:12px;font-weight:700;color:var(--in-c)}
+.muted-cell{color:var(--muted);font-size:12px}
+.action-btns{display:flex;gap:5px}
+.icon-btn{background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;color:var(--muted);font-size:12px;transition:all .12s;font-family:'Inter',sans-serif}
+.icon-btn:hover{background:var(--surface);color:var(--text)}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty .icon{font-size:40px;opacity:.15;margin-bottom:10px}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-pending{background:var(--pending-bg);color:var(--pending-c);border:1px solid var(--pending-br)}
+.badge-pass{background:var(--pass-bg);color:var(--pass-c);border:1px solid var(--pass-br)}
+.badge-fail{background:var(--fail-bg);color:var(--fail-c);border:1px solid var(--fail-br)}
+.badge-out{background:var(--out-bg);color:var(--out-c);border:1px solid var(--out-br)}
+.badge-in{background:var(--in-bg);color:var(--in-c);border:1px solid var(--in-br)}
+.attach-pill{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border2);color:var(--muted);background:var(--surface)}
+.attach-pill.has{color:var(--accent);border-color:#c7d7fd;background:var(--accent-light)}
+/* MODAL */
+.overlay{position:fixed;inset:0;background:#00000077;z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border:1px solid var(--border);border-radius:12px;width:600px;max-height:92vh;overflow-y:auto;transform:translateY(14px);transition:transform .18s;box-shadow:0 24px 48px rgba(0,0,0,.12)}
+.overlay.open .modal{transform:translateY(0)}
+.mhead{padding:20px 22px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;justify-content:space-between}
+.mtitle{font-size:16px;font-weight:700}
+.msubtitle{font-size:12px;color:var(--muted);margin-top:2px}
+.mbody{padding:22px}
+.mfoot{padding:14px 22px;border-top:1px solid var(--border2);display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.closex{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.closex:hover{color:var(--text);background:var(--surface)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.frow.full{grid-template-columns:1fr}
+.frow.tri{grid-template-columns:1fr 1fr 1fr}
+.fgrp{display:flex;flex-direction:column;gap:4px}
+.flbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text2)}
+.req{color:#b42318}
+.fhint{font-size:10.5px;color:var(--muted2);margin-top:2px}
+.fi,.fs,.ft{background:var(--white);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:100%;transition:border-color .12s}
+.fi:focus,.fs:focus,.ft:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
+.divider{height:1px;background:var(--border2);margin:14px 0}
+.section-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding-bottom:8px;border-bottom:1px solid var(--border2);margin-bottom:12px}
+/* DATE */
+.sd-wrap{position:relative;display:flex;align-items:center}
+.sd-input{flex:1;background:var(--white);border:1px solid var(--border);border-radius:7px;padding:8px 32px 8px 11px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;width:100%;transition:border-color .12s}
+.sd-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
+.sd-input::placeholder{color:var(--muted2)}
+.sd-cal{position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0;line-height:1}
+.sd-hidden{position:absolute;right:0;top:0;bottom:0;width:30px;opacity:0;cursor:pointer}
+/* FILE */
+.file-drop{border:2px dashed var(--border);border-radius:7px;padding:14px;text-align:center;cursor:pointer;position:relative;transition:all .12s;background:var(--white)}
+.file-drop:hover{border-color:var(--accent);background:var(--accent-light)}
+.file-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-drop p{font-size:12px;color:var(--muted)}
+.file-attached{display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--accent-light);border:1px solid #c7d7fd;border-radius:7px;font-size:12px;color:var(--accent);margin-top:8px}
+.file-attached .fname{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* DETAIL */
+.detail-section{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.detail-section-title{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.drow{display:flex;gap:10px;margin-bottom:7px;align-items:flex-start}
+.dkey{font-size:11px;color:var(--muted);width:140px;flex-shrink:0;text-transform:uppercase;letter-spacing:.4px}
+.dval{font-size:13px;color:var(--text);flex:1;word-break:break-word}
+/* CODE PREVIEW BOX */
+.code-preview{border-radius:7px;padding:8px 14px;font-family:monospace;font-size:14px;font-weight:700}
+.code-preview.out{background:var(--out-bg);border:1px solid var(--out-br);color:var(--out-c)}
+.code-preview.in{background:var(--in-bg);border:1px solid var(--in-br);color:var(--in-c)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
+    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
+    <div class="proj-badge"><b id="proj-code">APS</b><span id="proj-name">Auxiliary Pump Station</span></div>
+  </div>
+  <div class="topbar-right">
+    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
+    <div class="module-tag">LBT — Lab Tests</div>
+    <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>
+    <button class="btn btn-out" type="button" onclick="openAddOut()">+ New LBTOUT</button>
+    <button class="btn btn-in"  type="button" onclick="openAddIn()">+ New LBTIN</button>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">Project</div>
+  <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
+  <a class="sidebar-item" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
+  <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
+  <a class="sidebar-item" href="/legacy/financial"><span class="dot"></span> Financial</a>
+  <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
+  <a class="sidebar-item" href="/legacy/sub"><span class="dot"></span> Subcontractor Mgmt</a>
+  <div class="sidebar-section">Consultant</div>
+  <a class="sidebar-item" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
+  <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
+  <a class="sidebar-item" href="/legacy/mir"><span class="dot"></span> MIR</a>
+  <a class="sidebar-item" href="/legacy/ms"><span class="dot"></span> Method Statements</a>
+  <a class="sidebar-item" href="/legacy/rfi"><span class="dot"></span> RFI</a>
+  <a class="sidebar-item active" href="/legacy/lbt"><span class="dot"></span> Lab Tests</a>
+  <div style="margin-top:auto">
+    <div id="sidebar-team-legend" style="padding:10px 16px 4px;display:none">
+      <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:var(--muted2);text-transform:uppercase;margin-bottom:6px">Team</div>
+      <div id="sidebar-team-items"></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted2)">BINNA v2.0</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="stats-toggle">
+    <button class="stats-toggle-btn" id="stats-toggle-btn" onclick="toggleStats()">▲ Hide Dashboard</button>
+  </div>
+  <div id="stats-section">
+  <div class="stats">
+    <div class="stat-card"><div class="stat-label">Total Tests</div><div class="stat-val" style="color:var(--accent)" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Sent Out</div><div class="stat-val" style="color:var(--out-c)" id="s-out">—</div></div>
+    <div class="stat-card"><div class="stat-label">Received In</div><div class="stat-val" style="color:var(--in-c)" id="s-in">—</div></div>
+    <div class="stat-card"><div class="stat-label">Pending Result</div><div class="stat-val" style="color:var(--pending-c)" id="s-pending">—</div></div>
+    <div class="stat-card"><div class="stat-label">Pass</div><div class="stat-val" style="color:var(--pass-c)" id="s-pass">—</div></div>
+    <div class="stat-card"><div class="stat-label">Fail</div><div class="stat-val" style="color:var(--fail-c)" id="s-fail">—</div></div>
+  </div>
+  </div><!-- /stats-section -->
+
+  <div class="tabs">
+    <button class="tab active out-tab" id="tab-all" type="button" onclick="setTab('all',this)">All Tests</button>
+    <button class="tab" id="tab-out" type="button" onclick="setTab('out',this)">&#8593; LBTOUT — Sent</button>
+    <button class="tab" id="tab-in"  type="button" onclick="setTab('in',this)">&#8595; LBTIN — Results</button>
+  </div>
+
+  <div class="toolbar">
+    <input class="search" type="text" id="search" placeholder="Search by code, material or lab..." oninput="renderTable()"/>
+    <select class="filter-sel" id="filter-result" onchange="renderTable()">
+      <option value="">All Results</option>
+      <option value="pending">Pending</option>
+      <option value="pass">Pass</option>
+      <option value="fail">Fail</option>
+    </select>
+    <span class="rec-count" id="rec-count"></span>
+  </div>
+
+  <div class="table-wrap"><div id="table-body"></div></div>
+</div>
+
+<!-- LBTOUT MODAL — Test Information -->
+<div class="overlay" id="modal-out">
+  <div class="modal">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="out-title">New Lab Test — Sent Out</div>
+        <div class="msubtitle">Sample sent to external laboratory</div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-out')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="section-lbl" style="margin-top:0">Test Information (LBTOUT)</div>
+
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Sample Date <span class="req">*</span></label>
+          <div class="sd-wrap">
+            <input class="sd-input" id="out-date" placeholder="DD/MM/YYYY" maxlength="10" oninput="onDateType(this)"/>
+            <button class="sd-cal" type="button" onclick="pickDate('out-date-h')">&#128197;</button>
+            <input type="date" class="sd-hidden" id="out-date-h" onchange="fromCal(this,'out-date')"/>
+          </div>
+        </div>
+        <div class="fgrp" style="justify-content:flex-end;padding-top:22px">
+          <div class="code-preview out" id="out-code-box">APS-LBTOUT-001</div>
+          <div style="font-size:10.5px;color:var(--muted2);margin-top:4px">Auto-generated code</div>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Material / Sample <span class="req">*</span></label>
+          <input class="fi" type="text" id="out-material" placeholder="e.g. Concrete Cube, Rebar, Sand"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Test Type <span class="req">*</span></label>
+          <input class="fi" type="text" id="out-test-type" placeholder="e.g. Compressive Strength, Sieve Analysis"/>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Lab Name</label>
+          <input class="fi" type="text" id="out-lab" placeholder="Laboratory name"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Sample Location</label>
+          <input class="fi" type="text" id="out-location" placeholder="e.g. Grid A-B, Level 1"/>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Sample Ref. No.</label>
+          <input class="fi" type="text" id="out-sample-ref" placeholder="e.g. S-001"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Quantity / Count</label>
+          <input class="fi" type="text" id="out-qty" placeholder="e.g. 3 cubes"/>
+        </div>
+      </div>
+
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Notes</label>
+          <textarea class="ft" id="out-notes" rows="2" placeholder="Any additional notes..."></textarea>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-lbl">Lab Request Form / Sample Documentation</div>
+      <div class="file-drop">
+        <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" id="out-file" onchange="handleFile(this,'out')"/>
+        <div style="font-size:20px;opacity:.2;margin-bottom:6px">📎</div>
+        <p>Attach lab request form or sample documentation</p>
+      </div>
+      <div id="out-file-info" style="display:none"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-red btn-sm" type="button" id="out-del-btn" style="margin-right:auto;display:none" onclick="deleteRecord('out')">&#128465; Delete</button>
+      <button class="btn" type="button" onclick="closeModal('modal-out')">Cancel</button>
+      <button class="btn btn-out" type="button" onclick="saveOut()">Save LBTOUT</button>
+    </div>
+  </div>
+</div>
+
+<!-- LBTIN MODAL — Test Result -->
+<div class="overlay" id="modal-in">
+  <div class="modal">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="in-title">New Lab Result — Received In</div>
+        <div class="msubtitle">Result received from external laboratory</div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-in')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="section-lbl" style="margin-top:0">Test Result (LBTIN)</div>
+
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Result Date <span class="req">*</span></label>
+          <div class="sd-wrap">
+            <input class="sd-input" id="in-date" placeholder="DD/MM/YYYY" maxlength="10" oninput="onDateType(this)"/>
+            <button class="sd-cal" type="button" onclick="pickDate('in-date-h')">&#128197;</button>
+            <input type="date" class="sd-hidden" id="in-date-h" onchange="fromCal(this,'in-date')"/>
+          </div>
+        </div>
+        <div class="fgrp" style="justify-content:flex-end;padding-top:22px">
+          <div class="code-preview in" id="in-code-box">APS-LBTIN-001</div>
+          <div style="font-size:10.5px;color:var(--muted2);margin-top:4px">Auto-generated code</div>
+        </div>
+      </div>
+
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Related LBTOUT (Sent Sample) <span class="req">*</span></label>
+          <select class="fs" id="in-related-out">
+            <option value="">— Select the sent sample this result belongs to —</option>
+          </select>
+          <div class="fhint">Link this result to the original sent sample</div>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fgrp">
+          <label class="flbl">Result <span class="req">*</span></label>
+          <select class="fs" id="in-result">
+            <option value="pending">Pending — awaiting result</option>
+            <option value="pass">Pass ✓</option>
+            <option value="fail">Fail ✗</option>
+          </select>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Lab Name</label>
+          <input class="fi" type="text" id="in-lab" placeholder="Laboratory name"/>
+        </div>
+      </div>
+
+      <div class="frow tri">
+        <div class="fgrp">
+          <label class="flbl">Required Value</label>
+          <input class="fi" type="text" id="in-req-val" placeholder="e.g. ≥ 25 MPa"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Actual Value</label>
+          <input class="fi" type="text" id="in-act-val" placeholder="e.g. 28.4 MPa"/>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Unit</label>
+          <input class="fi" type="text" id="in-unit" placeholder="e.g. MPa"/>
+        </div>
+      </div>
+
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Result Notes / Comments</label>
+          <textarea class="ft" id="in-notes" rows="2" placeholder="Comments, recommendations..."></textarea>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-lbl">Lab Result Report File</div>
+      <div class="file-drop">
+        <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" id="in-file" onchange="handleFile(this,'in')"/>
+        <div style="font-size:20px;opacity:.2;margin-bottom:6px">📋</div>
+        <p>Attach the laboratory result report</p>
+      </div>
+      <div id="in-file-info" style="display:none"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-red btn-sm" type="button" id="in-del-btn" style="margin-right:auto;display:none" onclick="deleteRecord('in')">&#128465; Delete</button>
+      <button class="btn" type="button" onclick="closeModal('modal-in')">Cancel</button>
+      <button class="btn btn-in" type="button" onclick="saveIn()">Save LBTIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="overlay" id="modal-view">
+  <div class="modal" style="width:580px">
+    <div class="mhead">
+      <div>
+        <div class="mtitle" id="view-title"></div>
+        <div class="msubtitle" id="view-sub"></div>
+      </div>
+      <button class="closex" type="button" onclick="closeModal('modal-view')">✕</button>
+    </div>
+    <div class="mbody" id="view-body"></div>
+    <div class="mfoot">
+      <button class="btn btn-sm" type="button" id="view-edit-btn">✏️ Edit</button>
+      <button class="btn" type="button" onclick="closeModal('modal-view')">Close</button>
+    </div>
+  </div>
+</div>
+</div><!-- /layout -->
+
+<script src="/static/js/binna-api.js"></script>
+<script>
+'use strict';
+if (!BINNA.requireProject()) { throw new Error('auth'); }
+const PROJECT    = BINNA.getProject();
+const PROJECT_ID = PROJECT.id;
+
+let allRecords  = [];
+let editId      = null;
+let curTab      = 'all';
+let _selId      = null;
+let outFileName = null;
+let inFileName  = null;
+
+function selectRow(id) {
+  _selId = id;
+  document.querySelectorAll('#table-body tr.row-sel').forEach(r => r.classList.remove('row-sel'));
+  const tr = document.querySelector(`#table-body tr[data-id="${id}"]`);
+  if (tr) tr.classList.add('row-sel');
+}
+
+window.addEventListener('DOMContentLoaded', async function() {
+  BINNA.injectProjectBadge();
+  var bl = document.getElementById('back-link');
+  if (bl) bl.href = '/project/' + PROJECT_ID;
+  await loadRecords();
+  BINNA.registerDeleteSelected(function() {
+    if (!_selId) return;
+    var r = allRecords.find(function(x){return x.id===_selId;});
+    if (r) { editId = _selId; deleteRecord(r.direction); }
+  });
+});
+
+async function loadRecords() {
+  try {
+    const data = await BINNA.fetchLBTs(PROJECT_ID);
+    allRecords = data.items || [];
+  } catch(e) {
+    BINNA.toast('Failed to load: ' + (e.error || 'error'), 'error');
+    allRecords = [];
+  }
+  render();
+}
+
+// ── OPEN OUT ──────────────────────────────────────────────────────────────────
+async function openAddOut(id){
+  editId=id||null; outFileName=null;
+  var r=id?allRecords.find(function(x){return x.id===id;}):null;
+  document.getElementById('out-title').textContent = r?'Edit LBTOUT':'New Lab Test — Sent Out';
+  document.getElementById('out-del-btn').style.display = r?'inline-flex':'none';
+
+  if(r){
+    document.getElementById('out-code-box').textContent = r.code;
+  } else {
+    try {
+      var nc = await BINNA.lbtNextCode(PROJECT_ID,'out');
+      document.getElementById('out-code-box').textContent = nc.code;
+    } catch {}
+  }
+
+  document.getElementById('out-date').value       = r?disp(r.date):disp(isoToday());
+  document.getElementById('out-material').value   = r?(r.material||''):'';
+  document.getElementById('out-test-type').value  = r?(r.test_type||''):'';
+  document.getElementById('out-lab').value        = r?(r.lab||''):'';
+  document.getElementById('out-location').value   = r?(r.location||''):'';
+  document.getElementById('out-sample-ref').value = r?(r.sample_ref||''):'';
+  document.getElementById('out-qty').value        = r?(r.qty||''):'';
+  document.getElementById('out-notes').value      = r?(r.notes||''):'';
+  var fi=document.getElementById('out-file-info');
+  fi.style.display=(r&&r.file_name)?'flex':'none';
+  if(r&&r.file_name) fi.innerHTML=fileTag(r.file_name);
+  document.getElementById('out-file').value='';
+  openModal('modal-out');
+}
+
+// ── OPEN IN ───────────────────────────────────────────────────────────────────
+async function openAddIn(id){
+  editId=id||null; inFileName=null;
+  var r=id?allRecords.find(function(x){return x.id===id;}):null;
+  document.getElementById('in-title').textContent = r?'Edit LBTIN':'New Lab Result — Received In';
+  document.getElementById('in-del-btn').style.display = r?'inline-flex':'none';
+
+  if(r){
+    document.getElementById('in-code-box').textContent = r.code;
+  } else {
+    try {
+      var nc = await BINNA.lbtNextCode(PROJECT_ID,'in');
+      document.getElementById('in-code-box').textContent = nc.code;
+    } catch {}
+  }
+
+  document.getElementById('in-date').value    = r?disp(r.date):disp(isoToday());
+  document.getElementById('in-result').value  = r?(r.result||'pending'):'pending';
+  document.getElementById('in-lab').value     = r?(r.lab||''):'';
+  document.getElementById('in-req-val').value = r?(r.req_val||''):'';
+  document.getElementById('in-act-val').value = r?(r.act_val||''):'';
+  document.getElementById('in-unit').value    = r?(r.unit||''):'';
+  document.getElementById('in-notes').value   = r?(r.result_notes||''):'';
+
+  // Populate LBTOUT dropdown
+  var sel=document.getElementById('in-related-out');
+  sel.innerHTML='<option value="">— Select the sent sample this result belongs to —</option>';
+  allRecords.filter(function(x){return x.direction==='out';}).forEach(function(x){
+    sel.innerHTML+='<option value="'+x.id+'">'+x.code+' — '+x.material+' ('+x.test_type+')</option>';
+  });
+  sel.value=r?(r.related_out_id||''):'';
+
+  var fi=document.getElementById('in-file-info');
+  fi.style.display=(r&&r.result_file)?'flex':'none';
+  if(r&&r.result_file) fi.innerHTML=fileTag(r.result_file);
+  document.getElementById('in-file').value='';
+  openModal('modal-in');
+}
+
+// ── SAVE OUT ──────────────────────────────────────────────────────────────────
+async function saveOut(){
+  var date=getISO('out-date'), mat=document.getElementById('out-material').value.trim(), tt=document.getElementById('out-test-type').value.trim();
+  if(!date){BINNA.toast('Sample date is required.','error');return;}
+  if(!mat){BINNA.toast('Material / Sample is required.','error');return;}
+  if(!tt){BINNA.toast('Test Type is required.','error');return;}
+
+  var r = editId ? allRecords.find(function(x){return x.id===editId;}) : null;
+  var payload = {
+    direction:'out', date:date, material:mat, test_type:tt,
+    lab:       document.getElementById('out-lab').value.trim(),
+    location:  document.getElementById('out-location').value.trim(),
+    sample_ref:document.getElementById('out-sample-ref').value.trim(),
+    qty:       document.getElementById('out-qty').value.trim(),
+    notes:     document.getElementById('out-notes').value.trim(),
+    file_name: outFileName||(r?r.file_name:null)||'',
+  };
+
+  try {
+    if(editId){
+      const oldRec = JSON.parse(JSON.stringify(allRecords.find(function(x){return x.id===editId;})||{}));
+      const eid = editId;
+      await BINNA.updateLBT(PROJECT_ID, editId, payload);
+      await loadRecords();
+      BINNA.toast('Updated.','success');
+      BINNA.undo.push(async function(){
+        try{ await BINNA.updateLBT(PROJECT_ID,eid,oldRec); await loadRecords(); BINNA.toast('Undone','info',1500); }
+        catch(e){ BINNA.toast('Undo failed: '+(e.error||e),'error'); }
+      });
+    } else {
+      const result = await BINNA.createLBT(PROJECT_ID, payload);
+      const newId = result.item ? result.item.id : null;
+      await loadRecords();
+      BINNA.toast('LBTOUT saved.','success');
+      if(newId) BINNA.undo.push(async function(){
+        try{ await BINNA.deleteLBT(PROJECT_ID,newId); await loadRecords(); BINNA.toast('Undone','info',1500); }
+        catch(e){ BINNA.toast('Undo failed: '+(e.error||e),'error'); }
+      });
+    }
+    closeModal('modal-out');
+  } catch(e){
+    BINNA.toast((e.error||'Save failed'),'error');
+  }
+}
+
+// ── SAVE IN ───────────────────────────────────────────────────────────────────
+async function saveIn(){
+  var date=getISO('in-date'), relId=document.getElementById('in-related-out').value;
+  if(!date){BINNA.toast('Result date is required.','error');return;}
+  if(!relId){BINNA.toast('Please select the related LBTOUT sent sample.','error');return;}
+
+  var r = editId ? allRecords.find(function(x){return x.id===editId;}) : null;
+  var payload = {
+    direction:'in', date:date,
+    related_out_id: parseInt(relId),
+    result:       document.getElementById('in-result').value,
+    lab:          document.getElementById('in-lab').value.trim(),
+    req_val:      document.getElementById('in-req-val').value.trim(),
+    act_val:      document.getElementById('in-act-val').value.trim(),
+    unit:         document.getElementById('in-unit').value.trim(),
+    result_notes: document.getElementById('in-notes').value.trim(),
+    result_file:  inFileName||(r?r.result_file:null)||'',
+  };
+
+  try {
+    if(editId){
+      const oldRec = JSON.parse(JSON.stringify(allRecords.find(function(x){return x.id===editId;})||{}));
+      const eid = editId;
+      await BINNA.updateLBT(PROJECT_ID, editId, payload);
+      await loadRecords();
+      BINNA.toast('Updated.','success');
+      BINNA.undo.push(async function(){
+        try{ await BINNA.updateLBT(PROJECT_ID,eid,oldRec); await loadRecords(); BINNA.toast('Undone','info',1500); }
+        catch(e){ BINNA.toast('Undo failed: '+(e.error||e),'error'); }
+      });
+    } else {
+      const result = await BINNA.createLBT(PROJECT_ID, payload);
+      const newId = result.item ? result.item.id : null;
+      await loadRecords();
+      BINNA.toast('LBTIN saved.','success');
+      if(newId) BINNA.undo.push(async function(){
+        try{ await BINNA.deleteLBT(PROJECT_ID,newId); await loadRecords(); BINNA.toast('Undone','info',1500); }
+        catch(e){ BINNA.toast('Undo failed: '+(e.error||e),'error'); }
+      });
+    }
+    closeModal('modal-in');
+  } catch(e){
+    BINNA.toast((e.error||'Save failed'),'error');
+  }
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+async function deleteRecord(type){
+  if(!editId) return;
+  var r=allRecords.find(function(x){return x.id===editId;});
+  if(!confirm('Delete '+(r?r.code:'this record')+'?')) return;
+  const snap = JSON.parse(JSON.stringify(r||{}));
+  const delId = editId;
+  try {
+    await BINNA.deleteLBT(PROJECT_ID, editId);
+    if(_selId===delId) _selId=null;
+    closeModal('modal-'+type);
+    await loadRecords();
+    BINNA.toast('Deleted.','success');
+    BINNA.undo.push(async function(){
+      try{ await BINNA.createLBT(PROJECT_ID,snap); await loadRecords(); BINNA.toast('Undone (re-created with new code)','info',2500); }
+      catch(e){ BINNA.toast('Undo failed: '+(e.error||e),'error'); }
+    });
+  } catch(e){
+    BINNA.toast((e.error||'Delete failed'),'error');
+  }
+}
+
+// ── VIEW ──────────────────────────────────────────────────────────────────────
+function viewRecord(id){
+  var r=allRecords.find(function(x){return x.id===id;}); if(!r) return;
+  document.getElementById('view-title').textContent=r.code;
+  var isOut=r.direction==='out';
+  document.getElementById('view-sub').textContent=isOut?(r.material+' — '+r.test_type):'Lab Result';
+  var fileHTML=r.file_name?'<span class="attach-pill has">📎 '+r.file_name+'</span>':'<span style="color:var(--muted2)">None</span>';
+  var rfHTML=r.result_file?'<span class="attach-pill has">📎 '+r.result_file+'</span>':'<span style="color:var(--muted2)">None</span>';
+  var body='';
+  if(isOut){
+    body='<div class="detail-section">'
+      +'<div class="detail-section-title">Test Information — LBTOUT</div>'
+      +'<div class="drow"><div class="dkey">Code</div><div class="dval code-out">'+r.code+'</div></div>'
+      +'<div class="drow"><div class="dkey">Sample Date</div><div class="dval">'+disp(r.date)+'</div></div>'
+      +'<div class="drow"><div class="dkey">Material</div><div class="dval" style="font-weight:600">'+r.material+'</div></div>'
+      +'<div class="drow"><div class="dkey">Test Type</div><div class="dval">'+r.test_type+'</div></div>'
+      +(r.lab?'<div class="drow"><div class="dkey">Lab</div><div class="dval">'+r.lab+'</div></div>':'')
+      +(r.location?'<div class="drow"><div class="dkey">Location</div><div class="dval">'+r.location+'</div></div>':'')
+      +(r.sample_ref?'<div class="drow"><div class="dkey">Sample Ref.</div><div class="dval">'+r.sample_ref+'</div></div>':'')
+      +(r.qty?'<div class="drow"><div class="dkey">Quantity</div><div class="dval">'+r.qty+'</div></div>':'')
+      +(r.notes?'<div class="drow"><div class="dkey">Notes</div><div class="dval" style="color:var(--muted)">'+r.notes+'</div></div>':'')
+      +'<div class="drow"><div class="dkey">File</div><div class="dval">'+fileHTML+'</div></div>'
+      +'</div>';
+    var linked=allRecords.filter(function(x){return x.direction==='in'&&x.related_out_id===r.id;});
+    if(linked.length){
+      body+='<div class="detail-section"><div class="detail-section-title">Linked LBTIN Results</div>';
+      linked.forEach(function(l){
+        body+='<div class="drow"><div class="dkey">'+l.code+'</div><div class="dval">'+badgeResult(l.result)+(l.act_val?' — '+l.act_val+(l.unit?' '+l.unit:''):'')+'</div></div>';
+      });
+      body+='</div>';
+    }
+  } else {
+    var rel=allRecords.find(function(x){return x.id===r.related_out_id;});
+    body='<div class="detail-section">'
+      +'<div class="detail-section-title">Test Result — LBTIN</div>'
+      +'<div class="drow"><div class="dkey">Code</div><div class="dval code-in">'+r.code+'</div></div>'
+      +'<div class="drow"><div class="dkey">Result Date</div><div class="dval">'+disp(r.date)+'</div></div>'
+      +(rel?'<div class="drow"><div class="dkey">Related LBTOUT</div><div class="dval"><span class="code-out">'+rel.code+'</span> — '+rel.material+' ('+rel.test_type+')</div></div>':'')
+      +'<div class="drow"><div class="dkey">Result</div><div class="dval">'+badgeResult(r.result)+'</div></div>'
+      +(r.lab?'<div class="drow"><div class="dkey">Lab</div><div class="dval">'+r.lab+'</div></div>':'')
+      +(r.req_val?'<div class="drow"><div class="dkey">Required</div><div class="dval">'+r.req_val+(r.unit?' '+r.unit:'')+'</div></div>':'')
+      +(r.act_val?'<div class="drow"><div class="dkey">Actual</div><div class="dval" style="font-weight:600">'+r.act_val+(r.unit?' '+r.unit:'')+'</div></div>':'')
+      +(r.result_notes?'<div class="drow"><div class="dkey">Notes</div><div class="dval" style="color:var(--muted)">'+r.result_notes+'</div></div>':'')
+      +'<div class="drow"><div class="dkey">Result File</div><div class="dval">'+rfHTML+'</div></div>'
+      +'</div>';
+  }
+  document.getElementById('view-body').innerHTML=body;
+  document.getElementById('view-edit-btn').onclick=function(){
+    closeModal('modal-view');
+    if(r.direction==='out') openAddOut(id); else openAddIn(id);
+  };
+  openModal('modal-view');
+}
+
+// ── TABLE ─────────────────────────────────────────────────────────────────────
+function setTab(tab,el){
+  curTab=tab;
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active','in-tab','out-tab');});
+  el.classList.add('active');
+  if(tab==='in')  el.classList.add('in-tab');
+  if(tab==='out') el.classList.add('out-tab');
+  if(tab==='all') el.classList.add('out-tab');
+  renderTable();
+}
+
+function render(){ renderTable(); updateStats(); }
+
+function renderTable(){
+  var search=document.getElementById('search').value.toLowerCase();
+  var resF=document.getElementById('filter-result').value;
+  var filtered=allRecords.filter(function(r){
+    if(curTab==='out'&&r.direction!=='out') return false;
+    if(curTab==='in' &&r.direction!=='in')  return false;
+    if(resF&&r.direction==='out') return false;
+    if(resF&&r.direction==='in'&&r.result!==resF) return false;
+    if(search&&!(r.code.toLowerCase().includes(search)||(r.material||'').toLowerCase().includes(search)||(r.test_type||'').toLowerCase().includes(search)||(r.lab||'').toLowerCase().includes(search))) return false;
+    return true;
+  });
+  filtered.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
+  document.getElementById('rec-count').textContent=filtered.length+' record'+(filtered.length!==1?'s':'');
+  if(!filtered.length){
+    document.getElementById('table-body').innerHTML='<div class="empty"><div class="icon">🧪</div><p>'+(allRecords.length?'No results match your filters.':'No lab tests yet.')+'</p></div>';
+    return;
+  }
+  var html='<table><thead><tr><th>Code</th><th>Date</th><th>Type</th><th>Material / Test</th><th>Lab</th><th>Location</th><th>Result</th><th>Req.</th><th>Actual</th><th>File</th><th></th></tr></thead><tbody>';
+  filtered.forEach(function(r){
+    var isOut=r.direction==='out';
+    var rel=isOut?null:allRecords.find(function(x){return x.id===r.related_out_id;});
+    var mat=isOut?(r.material+' / '+r.test_type):(rel?(rel.material+' / '+rel.test_type):'—');
+    var result=isOut?'<span class="badge badge-out" style="font-size:10px">Sent Out</span>':badgeResult(r.result);
+    var hasFile=isOut?!!r.file_name:!!r.result_file;
+    html+='<tr data-id="'+r.id+'" onclick="selectRow('+r.id+')">'
+      +'<td><span class="'+(isOut?'code-out':'code-in')+'">'+r.code+'</span></td>'
+      +'<td class="muted-cell">'+disp(r.date)+'</td>'
+      +'<td>'+(isOut?'<span class="badge badge-out" style="font-size:10px">LBTOUT</span>':'<span class="badge badge-in" style="font-size:10px">LBTIN</span>')+'</td>'
+      +'<td style="font-size:12px;word-break:break-word;overflow-wrap:break-word">'+mat+'</td>'
+      +'<td class="muted-cell">'+(r.lab||'—')+'</td>'
+      +'<td class="muted-cell">'+(isOut?(r.location||'—'):(rel?(rel.location||'—'):'—'))+'</td>'
+      +'<td>'+result+'</td>'
+      +'<td class="muted-cell">'+(r.req_val?(r.req_val+(r.unit?' '+r.unit:'')):'—')+'</td>'
+      +'<td style="font-weight:600">'+(r.act_val?(r.act_val+(r.unit?' '+r.unit:'')):'—')+'</td>'
+      +'<td><span class="attach-pill'+(hasFile?' has':'')+'">📎</span></td>'
+      +'<td><div class="action-btns">'
+        +'<button class="icon-btn" type="button" onclick="viewRecord('+r.id+')" title="View">👁</button>'
+        +'<button class="icon-btn" type="button" onclick="'+(isOut?'openAddOut':'openAddIn')+'('+r.id+')" title="Edit">✏️</button>'
+      +'</div></td>'
+    +'</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('table-body').innerHTML=html;
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats(){
+  document.getElementById('s-total').textContent   = allRecords.length;
+  document.getElementById('s-out').textContent     = allRecords.filter(function(r){return r.direction==='out';}).length;
+  document.getElementById('s-in').textContent      = allRecords.filter(function(r){return r.direction==='in';}).length;
+  document.getElementById('s-pending').textContent = allRecords.filter(function(r){return r.direction==='in'&&r.result==='pending';}).length;
+  document.getElementById('s-pass').textContent    = allRecords.filter(function(r){return r.result==='pass';}).length;
+  document.getElementById('s-fail').textContent    = allRecords.filter(function(r){return r.result==='fail';}).length;
+}
+
+var statsVisible = true;
+function toggleStats(){
+  statsVisible = !statsVisible;
+  document.getElementById('stats-section').style.display = statsVisible ? '' : 'none';
+  document.getElementById('stats-toggle-btn').textContent = statsVisible ? '▲ Hide Dashboard' : '▼ Show Dashboard';
+}
+
+// ── BADGE / FILE / MODAL / DATE HELPERS ──────────────────────────────────────
+function badgeResult(result){
+  if(result==='pass') return '<span class="badge badge-pass">Pass \u2713</span>';
+  if(result==='fail') return '<span class="badge badge-fail">Fail \u2717</span>';
+  return '<span class="badge badge-pending">Pending</span>';
+}
+async function handleFile(input,type){
+  if(!input.files||!input.files[0]) return;
+  var file=input.files[0];
+  var infoEl=document.getElementById(type+'-file-info');
+  infoEl.style.display='flex'; infoEl.innerHTML=fileTag('Uploading…');
+  try {
+    var fd=new FormData(); fd.append('file',file);
+    var res=await BINNA.uploadFile(PROJECT.id,fd);
+    if(type==='out') outFileName=res.file_name; else inFileName=res.file_name;
+    infoEl.innerHTML=fileTag(res.original_name||file.name);
+  } catch(err){
+    infoEl.innerHTML='';
+    BINNA.toast('Upload failed: '+(err.error||'Unknown error'),'error');
+  }
+}
+function fileTag(name){ return '<div class="file-attached"><span>📎</span><span class="fname">'+name+'</span></div>'; }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(function(o){
+  o.addEventListener('click',function(e){ if(e.target===o) o.classList.remove('open'); });
+});
+function isoToday(){ return new Date().toISOString().split('T')[0]; }
+function disp(s){ if(!s)return'—'; var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function getISO(fieldId){
+  var v=document.getElementById(fieldId).value;
+  var m=v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m?m[3]+'-'+m[2]+'-'+m[1]:null;
+}
+function onDateType(el){
+  var v=el.value.replace(/[^0-9]/g,'');
+  if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);
+  if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);
+  if(v.length>10)v=v.slice(0,10);
+  el.value=v;
+}
+function fromCal(natEl,fieldId){
+  if(!natEl.value)return;
+  var p=natEl.value.split('-');
+  document.getElementById(fieldId).value=p[2]+'/'+p[1]+'/'+p[0];
+}
+function pickDate(hidId){
+  var el=document.getElementById(hidId);
+  if(el.showPicker) el.showPicker(); else el.click();
+}
+
+// ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────────
+var _sidebarOpen = true;
+function toggleSidebar() {
+  _sidebarOpen = !_sidebarOpen;
+  var sb  = document.getElementById('sidebar');
+  var btn = document.getElementById('sidebar-toggle-btn');
+  if (_sidebarOpen) {
+    sb.classList.remove('collapsed');
+    btn.textContent = '☰';
+    btn.title = 'Hide Sidebar';
+  } else {
+    sb.classList.add('collapsed');
+    btn.textContent = '▶';
+    btn.title = 'Show Sidebar';
+  }
+}
+BINNA.renderSidebarTeam();
+</script>
+</body>
+</html>
+
