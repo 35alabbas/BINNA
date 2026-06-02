@@ -39,3 +39,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Generated tool output (graphify knowledge graph)
+graphify-out/

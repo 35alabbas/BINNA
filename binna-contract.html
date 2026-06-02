@@ -1075,10 +1075,7 @@ function loadAll(){
     calcContractEnd(); calcWarrantyEnd(); // recalculate derived dates after loading fields
     // BOQ
     data.boq.forEach(_loadBoqRow);
-    if(!data.boq.length) {
-      if(_hasSavedData) addBoqRow(); // project exists, user intentionally emptied BOQ
-      else loadSampleData();         // brand new project, show starter template
-    }
+    if(!data.boq.length) addBoqRow(); // start with one blank row — no demo pre-fill
     // VO
     data.vo.forEach(_loadVoRow);
     if(!data.vo.length) addVoRow();
@@ -1092,70 +1089,6 @@ function loadAll(){
     renderContractExtensions();
     applyContractModes();
   } finally { _loadingAll=false; }
-}
-
-// ── SAMPLE DATA — Auxiliary Pump Station — Phase 2 ───────────────────────────
-function loadSampleData(){
-  // Pre-fill contract details
-  var cd = {
-    'contractor':             'Al-Rasheed Construction Co.  /  شركة الرشيد للإنشاءات',
-    'client':                 'Ministry of Water Resources  /  وزارة الموارد المائية',
-    'project':                'Auxiliary Pump Station — Phase 2  /  محطة الضخ المساعدة',
-    'contract-no':            'MWR-2025-APS-047',
-    'contract-value-mode':    'auto',
-    'vo-total-mode':          'auto',
-    'contract-total-mode':    'auto',
-    'date':                   '2025-09-01',
-    'period':                 '365',
-    'extensions':             [],
-    'contract-end':           '2026-09-01',
-    'insurance':              '5',
-    'tax':                    '3',
-    'penalty-rate':           '0.1',
-    'rules':                  'Iraqi Government Standard Conditions — Cumulative deductions per Ministry Circular No. 14/2024'
-  };
-  Object.keys(cd).forEach(function(k){
-    var el = document.getElementById('cd-'+k);
-    if(el) el.value = cd[k];
-    data.contractDetails[k] = cd[k];
-  });
-
-  // ── BOQ Sections & Items ────────────────────────────────────────────────────
-  addBoqSection('الأعمال المدنية — Civil Works');
-  [
-    {desc:'Earthworks, Bulk Excavation & Disposal off Site',          unit:'m³',   qty:'2500',  price:'4500'},
-    {desc:'Reinforced Concrete Foundations — Grade C30 (Blinding + Pad)', unit:'m³', qty:'850', price:'90000'},
-    {desc:'Reinforced Concrete Walls & Columns — Grade C30',          unit:'m³',   qty:'380',   price:'105000'},
-    {desc:'Block Work & Masonry — 200mm Hollow Block',                unit:'m²',   qty:'1400',  price:'11500'},
-    {desc:'External Civil Works — Access Roads, Paving, Drainage & Perimeter Fencing', unit:'LS', qty:'1', price:'8200000'},
-  ].forEach(function(r){ addBoqRow(r); });
-
-  addBoqSection('الأعمال الميكانيكية — Mechanical Works');
-  [
-    {desc:'Main Centrifugal Pump Sets — Supply, Deliver & Install (4 No.)',unit:'No.',qty:'4',    price:'3200000'},
-    {desc:'Steel Pipework DN200 & DN250 — Supply, Fabricate & Lay',   unit:'m',    qty:'720',   price:'42000'},
-    {desc:'Gate Valves, Butterfly Valves, Check Valves & Flanged Fittings',unit:'LS',qty:'1',   price:'9500000'},
-    {desc:'Pump Ancillaries — Base Plates, Flexible Couplings & Guards',   unit:'LS',qty:'1',   price:'4800000'},
-  ].forEach(function(r){ addBoqRow(r); });
-
-  addBoqSection('الأعمال الكهربائية — Electrical Works');
-  [
-    {desc:'11kV Medium Voltage Switchgear Panel — Supply, Install & Test',unit:'No.',qty:'2',   price:'5500000'},
-    {desc:'LV Main Distribution Boards — Supply, Install & Test',      unit:'No.',  qty:'6',    price:'680000'},
-    {desc:'Power Cabling, PVC Conduit & Cable Tray — Supply & Install', unit:'m',   qty:'2200', price:'9000'},
-    {desc:'Control & Instrumentation System — PLC / SCADA Integration', unit:'LS',  qty:'1',    price:'14500000'},
-    {desc:'Earthing, Equipotential Bonding & Lightning Protection',     unit:'LS',   qty:'1',    price:'3200000'},
-  ].forEach(function(r){ addBoqRow(r); });
-
-  addBoqSection('أعمال التشطيبات — Finishing Works');
-  [
-    {desc:'Internal Plastering, Skim & Emulsion Paint (Walls & Ceilings)',unit:'m²', qty:'1800', price:'7500'},
-    {desc:'External Textured Render & Wall Cladding',                  unit:'m²',   qty:'920',   price:'16500'},
-    {desc:'Floor Screeding & Anti-Slip Ceramic Tiling',                unit:'m²',   qty:'650',   price:'21000'},
-    {desc:'Steel Doors, Louvred Windows & Access Hatches',             unit:'No.',  qty:'18',    price:'450000'},
-  ].forEach(function(r){ addBoqRow(r); });
-
-  recalcBoq();
 }
 
 // ── BOQ ───────────────────────────────────────────────────────────────────────

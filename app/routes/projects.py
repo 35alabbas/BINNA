@@ -10,11 +10,28 @@ POST   /api/v1/projects/<id>/members
 DELETE /api/v1/projects/<id>/members/<member_id>
 PUT    /api/v1/projects/<id>/members/<member_id>   (change role)
 """
+import json
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
-from app.models import Project, ProjectMember, User
+from app.models import FinancialData, Project, ProjectMember, User
+
+# Blank financial structure seeded for every new project — matches the schema
+# the contract / financial frontends read (contractDetails, boq, vo, payments,
+# income, expenses, incomeCategories, expenseCategories, usdRate).
+_BLANK_FINANCIAL = {
+    'contractDetails':   {},
+    'boq':               [],
+    'vo':                [],
+    'payments':          [],
+    'income':            [],
+    'expenses':          [],
+    'incomeCategories':  [],
+    'expenseCategories': [],
+    'usdRate':           1300,
+}
 
 projects_bp = Blueprint('projects', __name__, url_prefix='/api/v1/projects')
 
@@ -103,6 +120,14 @@ def create_project():
     # Creator is the owner
     member = ProjectMember(project_id=project.id, user_id=user_id, role='owner')
     db.session.add(member)
+
+    # Seed a blank financial record so the contract / financial pages open empty
+    db.session.add(FinancialData(
+        project_id = project.id,
+        data       = json.dumps(_BLANK_FINANCIAL, ensure_ascii=False),
+        updated_by = user_id,
+    ))
+
     db.session.commit()
 
     result              = project.to_dict()

@@ -194,6 +194,43 @@ class DCLetter(db.Model):
         return f'<DCLetter {self.code}>'
 
 
+# ── Archive ───────────────────────────────────────────────────────────────────
+
+class Archive(db.Model):
+    __tablename__ = 'archives'
+
+    id              = db.Column(db.Integer,     primary_key=True)
+    project_id      = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False)
+    archive_number  = db.Column(db.String(60),  nullable=False)          # APS-ARC-001
+    name            = db.Column(db.String(500), nullable=False)          # user-supplied
+    date            = db.Column(db.Date,        nullable=False)          # auto-set to today
+    file_attachment = db.Column(db.String(500))                          # UUID-prefixed stored filename
+    created_by      = db.Column(db.Integer,     db.ForeignKey('users.id'))
+    created_at      = db.Column(db.DateTime,    default=_now)
+    updated_at      = db.Column(db.DateTime,    default=_now, onupdate=_now)
+
+    project = db.relationship('Project',
+                              backref=db.backref('archives', lazy='dynamic',
+                                                 cascade='all, delete-orphan'))
+    creator = db.relationship('User', foreign_keys=[created_by])
+
+    def to_dict(self) -> dict:
+        return {
+            'id':              self.id,
+            'project_id':      self.project_id,
+            'archive_number':  self.archive_number,
+            'name':            self.name,
+            'date':            self.date.isoformat() if self.date else None,
+            'file_attachment': self.file_attachment or '',
+            'created_by':      self.created_by,
+            'created_at':      self.created_at.isoformat() if self.created_at else None,
+            'updated_at':      self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Archive {self.archive_number}>'
+
+
 # ── Submittal ─────────────────────────────────────────────────────────────────
 
 VALID_SUBMITTAL_TYPES   = frozenset({'dwg', 'fir', 'mir', 'ms', 'rfi'})

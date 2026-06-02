@@ -5,13 +5,16 @@ Phase 2
 All routes are nested under:
     /api/v1/projects/<project_id>/dc
 """
+import os
+import uuid
 from datetime import date
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from werkzeug.utils import secure_filename
 
 from app import db
-from app.models import DCLetter, Project, ProjectMember, _ROLE_ORDER
+from app.models import Archive, DCLetter, Project, ProjectMember, _ROLE_ORDER
 
 dc_bp = Blueprint('dc', __name__)
 
@@ -57,6 +60,30 @@ def _generate_code(project: Project, direction: str) -> str:
         direction=direction
     ).count()
     return f"{project.code}-{suffix}-{str(count + 1).zfill(3)}"
+
+
+def _generate_archive_number(project: Project) -> str:
+    """Generate next archive number: {CODE}-ARC-{NNN}, using max(existing) + 1."""
+    existing = Archive.query.filter_by(project_id=project.id).all()
+    max_num = 0
+    for a in existing:
+        try:
+            n = int((a.archive_number or '').rsplit('-', 1)[1])
+            max_num = max(max_num, n)
+        except (ValueError, IndexError):
+            continue
+    return f"{project.code}-ARC-{str(max_num + 1).zfill(3)}"
+
+
+ARCHIVE_ALLOWED_EXTENSIONS = {
+    'pdf', 'doc', 'docx', 'xls', 'xlsx',
+    'jpg', 'jpeg', 'png', 'gif', 'bmp',
+    'zip', 'rar', 'txt', 'csv',
+}
+
+
+def _archive_allowed(filename: str) -> bool:
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ARCHIVE_ALLOWED_EXTENSIONS
 
 
 # ── List / Create ─────────────────────────────────────────────────────────────
@@ -278,3 +305,103 @@ def stats(project_id: int):
     return jsonify({
         'total': total, 'incoming': inc, 'outgoing': out, 'pending': pending
     }), 200
+
+
+# ── Archive ───────────────────────────────────────────────────────────────────
+
+@dc_bp.route('/archive', methods=['GET'])
+@jwt_required()
+def list_archives(project_id: int):
+    uid = int(get_jwt_identity())
+    proj, mem = _get_membership(project_id, uid)
+    if not proj:
+        return jsonify({'error': 'Project not found or access denied'}), 404
+
+    query  = Archive.query.filter_by(project_id=project_id)
+    search = request.args.get('q', '').strip().lower()
+    if search:
+        like = f'%{search}%'
+        query = query.filter(
+            db.or_(
+                Archive.archive_number.ilike(like),
+                Archive.name.ilike(like),
+            )
+        )
+
+    archives = query.order_by(Archive.created_at.desc()).all()
+    return jsonify({
+        'archives': [a.to_dict() for a in archives],
+        'total':    len(archives),
+    }), 200
+
+
+@dc_bp.route('/archive', methods=['POST'])
+@jwt_required()
+def create_archive(project_id: int):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if proj is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions — member role required'}), 403
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+
+    archive = Archive(
+        project_id     = project_id,
+        archive_number = _generate_archive_number(proj),
+        name           = name,
+        date           = date.today(),
+        created_by     = uid,
+    )
+    db.session.add(archive)
+    db.session.commit()
+
+    return jsonify({'archive': archive.to_dict()}), 201
+
+
+@dc_bp.route('/archive/<int:archive_id>/upload', methods=['POST'])
+@jwt_required()
+def upload_archive_file(project_id: int, archive_id: int):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if proj is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+
+    archive = Archive.query.filter_by(id=archive_id, project_id=project_id).first()
+    if not archive:
+        return jsonify({'error': 'Archive not found'}), 404
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    f = request.files['file']
+    if not f or not f.filename:
+        return jsonify({'error': 'Empty filename'}), 400
+    if not _archive_allowed(f.filename):
+        return jsonify({
+            'error': f"File type not allowed. Allowed: {', '.join(sorted(ARCHIVE_ALLOWED_EXTENSIONS))}"
+        }), 400
+
+    # Build unique filename:  <uuid>_<original_secure_name>
+    orig        = secure_filename(f.filename)
+    stored_name = f"{uuid.uuid4().hex}_{orig}"
+
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    os.makedirs(upload_folder, exist_ok=True)
+    f.save(os.path.join(upload_folder, stored_name))
+
+    archive.file_attachment = stored_name
+    db.session.commit()
+
+    return jsonify({
+        'archive':       archive.to_dict(),
+        'file_name':     stored_name,
+        'original_name': orig,
+        'url':           f'/api/v1/uploads/{stored_name}',
+    }), 201
