@@ -191,16 +191,21 @@ def project_stats(project_id):
             project_id=project_id, module_type=mtype
         ).count()
 
-    # Financial: length of payments array (fall back to boq when no payments)
+    # Financial blob holds two distinct dashboard metrics:
+    #   financial → payments count (fallback to BOQ rows)  → Contract & Payment card
+    #   cashflow  → income + expenses transaction count     → Financial card
     stats['financial'] = 0
+    stats['cashflow']  = 0
     fin = FinancialData.query.filter_by(project_id=project_id).first()
     if fin and fin.data:
         try:
             fdata = json.loads(fin.data)
             payments = fdata.get('payments') or []
             stats['financial'] = len(payments) if payments else len(fdata.get('boq') or [])
+            stats['cashflow']  = len(fdata.get('income') or []) + len(fdata.get('expenses') or [])
         except (ValueError, TypeError):
             stats['financial'] = 0
+            stats['cashflow']  = 0
 
     # Gantt: total task count
     stats['gantt'] = 0
