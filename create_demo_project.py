@@ -384,45 +384,33 @@ def seed_financial(pid):
         print('  Financial: already has data -- skipping')
         return
 
-    boq_sections = [
-        {
-            'id': 's1', 'title': 'Section A - Civil Works',
-            'items': [
-                {'id':'A1','description':'Excavation in all materials',                   'unit':'m3', 'qty':2500,'rate':4500,    'amount':11250000},
-                {'id':'A2','description':'Reinforced concrete C30/37 - foundations',      'unit':'m3', 'qty':850, 'rate':90000,   'amount':76500000},
-                {'id':'A3','description':'Reinforced concrete C30/37 - walls and columns','unit':'m3', 'qty':380, 'rate':105000,  'amount':39900000},
-                {'id':'A4','description':'Concrete block work 200mm',                     'unit':'m2', 'qty':1400,'rate':11500,   'amount':16100000},
-                {'id':'A5','description':'External civil works (paving, drainage, fencing)','unit':'LS','qty':1,  'rate':8200000, 'amount':8200000},
-            ]
-        },
-        {
-            'id': 's2', 'title': 'Section B - Mechanical Works',
-            'items': [
-                {'id':'B1','description':'Submersible pump sets Grundfos SP250-7 supply', 'unit':'No.','qty':4,  'rate':3200000, 'amount':12800000},
-                {'id':'B2','description':'Ductile iron pipework DN200/DN250',             'unit':'m',  'qty':720,'rate':42000,   'amount':30240000},
-                {'id':'B3','description':'Valves, fittings and pump manifold',            'unit':'LS', 'qty':1,  'rate':9500000, 'amount':9500000},
-                {'id':'B4','description':'Mechanical ancillaries and supports',           'unit':'LS', 'qty':1,  'rate':4800000, 'amount':4800000},
-            ]
-        },
-        {
-            'id': 's3', 'title': 'Section C - Electrical Works',
-            'items': [
-                {'id':'C1','description':'11kV switchgear panels 2 No.',                 'unit':'No.','qty':2,   'rate':5500000, 'amount':11000000},
-                {'id':'C2','description':'LV distribution boards 6 No.',                 'unit':'No.','qty':6,   'rate':680000,  'amount':4080000},
-                {'id':'C3','description':'Power and control cabling',                    'unit':'m',  'qty':2200,'rate':9000,    'amount':19800000},
-                {'id':'C4','description':'SCADA and control and instrumentation system', 'unit':'LS', 'qty':1,   'rate':14500000,'amount':14500000},
-                {'id':'C5','description':'Earthing and lightning protection system',     'unit':'LS', 'qty':1,   'rate':3200000, 'amount':3200000},
-            ]
-        },
-        {
-            'id': 's4', 'title': 'Section D - Finishing Works',
-            'items': [
-                {'id':'D1','description':'Internal plastering and rendering',             'unit':'m2', 'qty':1800,'rate':7500,   'amount':13500000},
-                {'id':'D2','description':'External cladding and insulation',             'unit':'m2', 'qty':920, 'rate':16500,  'amount':15180000},
-                {'id':'D3','description':'Floor and wall tiling - pump room and admin',  'unit':'m2', 'qty':650, 'rate':21000,  'amount':13650000},
-                {'id':'D4','description':'Doors, windows and ironmongery',               'unit':'No.','qty':18,  'rate':450000, 'amount':8100000},
-            ]
-        },
+    # Flat BOQ list — this is the schema the contract page reads:
+    #   data.boq = [{desc, unit, qty, price}], item ids assigned by row index
+    #   (boq0..boqN) in binna-contract.html. A sectioned shape renders blank
+    #   rows, so keep it flat to match the frontend / seed_financial.py.
+    boq = [
+        # Civil Works
+        {'desc':'Excavation in all materials',                      'unit':'m3', 'qty':'2500','price':'4500'},
+        {'desc':'Reinforced concrete C30/37 - foundations',        'unit':'m3', 'qty':'850', 'price':'90000'},
+        {'desc':'Reinforced concrete C30/37 - walls and columns',  'unit':'m3', 'qty':'380', 'price':'105000'},
+        {'desc':'Concrete block work 200mm',                       'unit':'m2', 'qty':'1400','price':'11500'},
+        {'desc':'External civil works (paving, drainage, fencing)','unit':'LS', 'qty':'1',   'price':'8200000'},
+        # Mechanical Works
+        {'desc':'Submersible pump sets Grundfos SP250-7 supply',   'unit':'No.','qty':'4',   'price':'3200000'},
+        {'desc':'Ductile iron pipework DN200/DN250',               'unit':'m',  'qty':'720', 'price':'42000'},
+        {'desc':'Valves, fittings and pump manifold',              'unit':'LS', 'qty':'1',   'price':'9500000'},
+        {'desc':'Mechanical ancillaries and supports',             'unit':'LS', 'qty':'1',   'price':'4800000'},
+        # Electrical Works
+        {'desc':'11kV switchgear panels 2 No.',                    'unit':'No.','qty':'2',   'price':'5500000'},
+        {'desc':'LV distribution boards 6 No.',                    'unit':'No.','qty':'6',   'price':'680000'},
+        {'desc':'Power and control cabling',                       'unit':'m',  'qty':'2200','price':'9000'},
+        {'desc':'SCADA and control and instrumentation system',    'unit':'LS', 'qty':'1',   'price':'14500000'},
+        {'desc':'Earthing and lightning protection system',        'unit':'LS', 'qty':'1',   'price':'3200000'},
+        # Finishing Works
+        {'desc':'Internal plastering and rendering',               'unit':'m2', 'qty':'1800','price':'7500'},
+        {'desc':'External cladding and insulation',                'unit':'m2', 'qty':'920', 'price':'16500'},
+        {'desc':'Floor and wall tiling - pump room and admin',     'unit':'m2', 'qty':'650', 'price':'21000'},
+        {'desc':'Doors, windows and ironmongery',                  'unit':'No.','qty':'18',  'price':'450000'},
     ]
 
     contract_details = {
@@ -442,15 +430,17 @@ def seed_financial(pid):
 
     data = {
         'contractDetails': contract_details,
-        'boq': boq_sections,
+        'usdRate': 1310,
+        'boq': boq,
+        'vo': [],
         'payments': [],
-        'variations': [],
-        'extraDeductions': [],
+        'income': [],
+        'expenseCategories': [],
     }
 
-    db.session.add(FinancialData(project_id=pid, data=json.dumps(data)))
+    db.session.add(FinancialData(project_id=pid, data=json.dumps(data, ensure_ascii=False)))
     db.session.commit()
-    print('  Financial -- BOQ (18 items, 4 sections) seeded')
+    print('  Financial -- BOQ (%d items, flat schema) seeded' % len(boq))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

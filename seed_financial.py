@@ -381,17 +381,26 @@ GANTT_TASKS = [
 
 def main():
     with app.app_context():
-        proj = db.session.get(Project, 3)
+        # Resolve the target project from an optional CLI argument
+        # (python seed_financial.py <project_id>); fall back to the APS
+        # project by code so the script isn't pinned to a hardcoded id.
+        if len(sys.argv) > 1:
+            pid = int(sys.argv[1])
+            proj = db.session.get(Project, pid)
+        else:
+            proj = Project.query.filter_by(code='APS').first()
         if not proj:
-            print("ERROR: Project ID 3 not found.")
+            print("ERROR: Project not found. Pass a project id, e.g. "
+                  "`python seed_financial.py 3`.")
             sys.exit(1)
+        pid = proj.id
 
         # --- Financial ---
-        fd = FinancialData.query.filter_by(project_id=3).first()
+        fd = FinancialData.query.filter_by(project_id=pid).first()
         if fd:
             print(f"Replacing existing financial data for project {proj.id} ({proj.code})")
         else:
-            fd = FinancialData(project_id=3, updated_by=2)
+            fd = FinancialData(project_id=pid, updated_by=2)
             db.session.add(fd)
             print(f"Creating financial data for project {proj.id} ({proj.code})")
 
@@ -403,11 +412,11 @@ def main():
               f"{len(FINANCIAL_DATA['vo'])} VOs saved.")
 
         # --- Gantt ---
-        gd = GanttData.query.filter_by(project_id=3).first()
+        gd = GanttData.query.filter_by(project_id=pid).first()
         if gd:
             print(f"Replacing existing Gantt data")
         else:
-            gd = GanttData(project_id=3, updated_by=2)
+            gd = GanttData(project_id=pid, updated_by=2)
             db.session.add(gd)
             print(f"Creating Gantt data")
 
