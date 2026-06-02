@@ -366,22 +366,26 @@ let PROJECT = null;
 let MY_ROLE  = null;
 
 // ── Module definitions ────────────────────────────────────────────────────
+// `statKey` ties a card to a key in GET /projects/<id>/stats. Cards without a
+// statKey (Financial income/expense, Subcontractor) have no stat counter yet.
+// Note: per Gemini's blueprint the "financial" stat (payments/BOQ count) is
+// surfaced on the Contract & Payment card, not the income/expense Financial card.
 const MAIN_MODULES = [
-  { key:'dc',        icon:'📁', name:'Document Control',           desc:'Manage incoming & outgoing correspondence, letters, and official communications.' },
-  { key:'dr',        icon:'📋', name:'Daily Reports',              desc:'Track daily site activities, weather, manpower, work done, and visitors.' },
-  { key:'contract',  icon:'📋', name:'Contract & Payment',         desc:'Contract details, BOQ, variation orders, and client payment certificates (ذرعات).' },
+  { key:'dc',        statKey:'dc',        icon:'📁', name:'Document Control',           desc:'Manage incoming & outgoing correspondence, letters, and official communications.' },
+  { key:'dr',        statKey:'dr',        icon:'📋', name:'Daily Reports',              desc:'Track daily site activities, weather, manpower, work done, and visitors.' },
+  { key:'contract',  statKey:'financial', icon:'📋', name:'Contract & Payment',         desc:'Contract details, BOQ, variation orders, and client payment certificates (ذرعات).' },
   { key:'financial', icon:'💰', name:'Financial',                  desc:'Track project income and expenses, USD/IQD cash flow, and net financial position.' },
-  { key:'gantt',     icon:'📊', name:'Gantt Chart',                desc:'Visualise project schedule, milestones, progress, and task dependencies.' },
+  { key:'gantt',     statKey:'gantt',     icon:'📊', name:'Gantt Chart',                desc:'Visualise project schedule, milestones, progress, and task dependencies.' },
   { key:'sub',       icon:'🏗️', name:'Subcontractor Management',   desc:'Manage subcontractors, scopes of work, agreements, and performance tracking.' },
 ];
 
 const CONSULTANT_MODULES = [
-  { key:'mir',  icon:'🧱', name:'Material Inspection',      desc:'Submit material inspection requests (MIR) for approval before installation.' },
-  { key:'fir',  icon:'🔍', name:'Field Inspection',         desc:'Raise and track field inspection requests (FIR) for completed work items.' },
-  { key:'ms',   icon:'📄', name:'Method Statements',        desc:'Prepare and submit method statements for consultant review and approval.' },
-  { key:'rfi',  icon:'❓', name:'Requests for Information', desc:'Raise RFIs for clarifications on design drawings and specifications.' },
-  { key:'dwg',  icon:'📐', name:'Drawings',                 desc:'Submit construction drawings for consultant review and track approval status.' },
-  { key:'lbt',  icon:'🧪', name:'Lab Tests',                desc:'Record and track laboratory test results for materials and soil samples.' },
+  { key:'mir',  statKey:'mir', icon:'🧱', name:'Material Inspection',      desc:'Submit material inspection requests (MIR) for approval before installation.' },
+  { key:'fir',  statKey:'fir', icon:'🔍', name:'Field Inspection',         desc:'Raise and track field inspection requests (FIR) for completed work items.' },
+  { key:'ms',   statKey:'ms',  icon:'📄', name:'Method Statements',        desc:'Prepare and submit method statements for consultant review and approval.' },
+  { key:'rfi',  statKey:'rfi', icon:'❓', name:'Requests for Information', desc:'Raise RFIs for clarifications on design drawings and specifications.' },
+  { key:'dwg',  statKey:'dwg', icon:'📐', name:'Drawings',                 desc:'Submit construction drawings for consultant review and track approval status.' },
+  { key:'lbt',  statKey:'lbt', icon:'🧪', name:'Lab Tests',                desc:'Record and track laboratory test results for materials and soil samples.' },
 ];
 
 // ── Render a group of module cards ────────────────────────────────────────
@@ -401,7 +405,7 @@ function moduleCardHtml(m, isConsultant) {
       <div class="module-desc">${m.desc}</div>
     </div>
     <div class="module-footer">
-      <span class="module-status" id="mod-status-${m.key}">—</span>
+      <span class="module-status" id="${m.statKey ? 'stat-' + m.statKey : 'mod-status-' + m.key}">—</span>
       <span class="module-open">Open →</span>
     </div>
   </a>`;
@@ -654,6 +658,24 @@ async function saveEdit() {
   }
 }
 
+// ── Dashboard stats ───────────────────────────────────────────────────────
+// GET /projects/<id>/stats → { stats: { dc, dr, lbt, dwg, fir, mir, ms, rfi,
+// financial, gantt } }. Each key maps to a card's <span id="stat-<key>">.
+// NOTE: BINNA.get already prefixes '/api/v1', so the path here is '/projects/…'.
+async function loadStats() {
+  try {
+    const data = await BINNA.get(`/projects/${PROJECT_ID}/stats`);
+    if (data && data.stats) {
+      Object.keys(data.stats).forEach(key => {
+        const el = document.getElementById('stat-' + key);
+        if (el) el.textContent = data.stats[key];   // renders '0' instead of '—'
+      });
+    }
+  } catch (err) {
+    // On failure the cards keep their '—' placeholder — non-blocking.
+  }
+}
+
 // ── User badge ────────────────────────────────────────────────────────────
 function renderUser() {
   const u = BINNA.getUser();
@@ -665,7 +687,8 @@ function renderUser() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 renderUser();
-renderModules();
+renderModules();   // builds the cards (so stat-* spans exist)
+loadStats();       // fills the card counters from the stats API
 loadProject();
 </script>
 </body>

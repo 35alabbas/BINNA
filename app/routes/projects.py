@@ -16,7 +16,17 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
-from app.models import FinancialData, Project, ProjectMember, User
+from app.models import (
+    DCLetter,
+    DailyReport,
+    FinancialData,
+    GanttData,
+    LabTest,
+    Project,
+    ProjectMember,
+    Submittal,
+    User,
+)
 
 # Blank financial structure seeded for every new project — matches the schema
 # the contract / financial frontends read (contractDetails, boq, vo, payments,
@@ -150,6 +160,58 @@ def get_project(project_id):
     result             = project.to_dict(include_members=True)
     result['my_role']  = member.role
     return jsonify({'project': result})
+
+
+# ── Dashboard stats ───────────────────────────────────────────────────────────
+
+@projects_bp.route('/<int:project_id>/stats', methods=['GET'])
+@jwt_required()
+def project_stats(project_id):
+    """Aggregate counts for the project dashboard cards.
+
+    Relational modules are counted directly; Financial and Gantt are stored as
+    JSON blobs (one row per project) so their stat is the length of the relevant
+    array, computed in Python.
+    """
+    uid = int(get_jwt_identity())
+    project, _ = _requires_role(project_id, uid, 'viewer')
+    if not project:
+        return jsonify({'error': 'Project not found or insufficient permissions'}), 404
+
+    stats = {
+        # Relational counts
+        'dc':  DCLetter.query.filter_by(project_id=project_id).count(),
+        'dr':  DailyReport.query.filter_by(project_id=project_id).count(),
+        'lbt': LabTest.query.filter_by(project_id=project_id).count(),
+    }
+
+    # Submittals broken out by module type
+    for mtype in ('dwg', 'fir', 'mir', 'ms', 'rfi'):
+        stats[mtype] = Submittal.query.filter_by(
+            project_id=project_id, module_type=mtype
+        ).count()
+
+    # Financial: length of payments array (fall back to boq when no payments)
+    stats['financial'] = 0
+    fin = FinancialData.query.filter_by(project_id=project_id).first()
+    if fin and fin.data:
+        try:
+            fdata = json.loads(fin.data)
+            payments = fdata.get('payments') or []
+            stats['financial'] = len(payments) if payments else len(fdata.get('boq') or [])
+        except (ValueError, TypeError):
+            stats['financial'] = 0
+
+    # Gantt: total task count
+    stats['gantt'] = 0
+    gantt = GanttData.query.filter_by(project_id=project_id).first()
+    if gantt and gantt.tasks:
+        try:
+            stats['gantt'] = len(json.loads(gantt.tasks) or [])
+        except (ValueError, TypeError):
+            stats['gantt'] = 0
+
+    return jsonify({'stats': stats})
 
 
 # ── Update project ────────────────────────────────────────────────────────────
