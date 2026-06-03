@@ -61,6 +61,85 @@ def _task_dur(t):
     return 1
 
 
+def _build_pred_map(tasks):
+    """Map task_id → list of its predecessor task ids."""
+    pred_map = {}
+    for t in tasks:
+        tid = t.get('id')
+        if tid is None:
+            continue
+        pred_map[tid] = [
+            p.get('id') for p in (t.get('preds') or [])
+            if p.get('id') is not None
+        ]
+    return pred_map
+
+
+def has_cycle(task_id, new_predecessor_id, pred_map):
+    """
+    Return True if making `new_predecessor_id` a predecessor of `task_id`
+    would create a circular dependency.
+
+    A task may never depend (directly or transitively) on itself.  Starting
+    from the proposed predecessor we DFS down the *existing* predecessor
+    chain; if the traversal ever reaches `task_id`, the new edge would close
+    a loop and must be rejected.
+    """
+    if task_id == new_predecessor_id:
+        return True
+    stack = [new_predecessor_id]
+    seen = set()
+    while stack:
+        cur = stack.pop()
+        if cur == task_id:
+            return True
+        if cur in seen:
+            continue
+        seen.add(cur)
+        stack.extend(pred_map.get(cur, []))
+    return False
+
+
+def _detect_cycle(tasks):
+    """
+    Validate the entire predecessor graph of a submitted task list.
+
+    Performs an iterative DFS with white/grey/black colouring.  A grey node
+    re-encountered while still on the active path means a back-edge — i.e. a
+    circular dependency.  Returns True if any task participates in a cycle.
+
+    This guards `_recalc_tasks` Pass 2 (which walks `preds`) from looping
+    forever on a malformed chain such as A→B→C→A.
+    """
+    pred_map = _build_pred_map(tasks)
+    WHITE, GREY, BLACK = 0, 1, 2
+    color = {tid: WHITE for tid in pred_map}
+
+    for root in pred_map:
+        if color[root] != WHITE:
+            continue
+        # (node, iterator over its predecessors) frames on an explicit stack
+        stack = [(root, iter(pred_map.get(root, [])))]
+        color[root] = GREY
+        while stack:
+            node, it = stack[-1]
+            advanced = False
+            for nxt in it:
+                if nxt not in color:          # dangling ref — ignore
+                    continue
+                if color[nxt] == GREY:        # back-edge → cycle
+                    return True
+                if color[nxt] == WHITE:
+                    color[nxt] = GREY
+                    stack.append((nxt, iter(pred_map.get(nxt, []))))
+                    advanced = True
+                    break
+            if not advanced:
+                color[node] = BLACK
+                stack.pop()
+    return False
+
+
 def _recalc_tasks(tasks):
     """
     Server-side recalculation — mirrors JS recalc() in binna-gantt.html.
@@ -179,6 +258,15 @@ def save_gantt(project_id):
     tasks = body.get('tasks', [])
     if not isinstance(tasks, list):
         tasks = []
+
+    # Circular dependency guard — abort before touching the DB or recalc().
+    # A cyclic predecessor chain (e.g. linking a task to its own descendant)
+    # would otherwise drive _recalc_tasks Pass 2 into an unstable loop.
+    if _detect_cycle(tasks):
+        return jsonify({
+            'error': 'Circular dependency detected: '
+                     'This action would create an invalid task chain.'
+        }), 400
 
     # Server-side recalculation: groups from children, milestones from preds
     tasks = _recalc_tasks(tasks)
