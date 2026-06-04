@@ -1687,8 +1687,8 @@ function deleteFromModal() {
   var t = tasks[idx];
   var count = _countDescendants(idx);
 
-  if (_isContainer(t) && count > 0) {
-    // Close edit modal first, then show group dialog
+  if (count > 0) {
+    // Has children — close edit modal first, then show delete-options dialog
     closeModal();
     _showDelGroupDlg(t.id);
   } else {
@@ -1747,7 +1747,7 @@ function removeTask(id) {
   if (idx < 0) return;
   var t = tasks[idx];
   var count = _countDescendants(idx);
-  if (_isContainer(t) && count > 0) {
+  if (count > 0) {
     _showDelGroupDlg(id);
   } else {
     if (!confirm('Delete "' + t.name + '"?')) return;
@@ -1769,30 +1769,22 @@ function _countDescendants(idx) {
   return n;
 }
 
-function _isContainer(t) {
-  return t.type === 'group' || t.type === 'subgroup' || t.type === 'milestone';
-}
-
 function _showDelGroupDlg(id) {
   var idx = tasks.findIndex(function(x){ return x.id === id; });
   if (idx < 0) return;
-  var t = tasks[idx];
-  var count = _countDescendants(idx);
-  var typeLabel = {group:'Group', subgroup:'Sub-Group', milestone:'Milestone'}[t.type] || 'Container';
-
-  document.getElementById('dgd-title').textContent = 'Delete "' + t.name + '"?';
+  document.getElementById('dgd-title').textContent = 'Delete Options';
   document.getElementById('dgd-msg').textContent   =
-    'This ' + typeLabel + ' contains ' + count + ' task' + (count !== 1 ? 's' : '') + '. Choose how to delete it:';
+    'This item contains sub-tasks. What would you like to do?';
 
   var onlyBtn = document.getElementById('dgd-only');
-  onlyBtn.textContent = 'Delete ' + typeLabel + ' header only — keep the ' + count + ' task' + (count !== 1 ? 's' : '') + ' inside';
+  onlyBtn.textContent = 'Delete Group Only';
   onlyBtn.onclick = function() {
     document.getElementById('dgd').style.display = 'none';
     _deleteGroupOnly(id);
   };
 
   var allBtn = document.getElementById('dgd-all');
-  allBtn.textContent = 'Delete ' + typeLabel + ' AND all ' + count + ' tasks inside permanently';
+  allBtn.textContent = 'Delete All';
   allBtn.onclick = function() {
     document.getElementById('dgd').style.display = 'none';
     _deleteGroupWithChildren(id);
