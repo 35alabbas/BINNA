@@ -149,6 +149,12 @@ def _recalc_tasks(tasks):
 
     Task (leaf) start/end dates are NEVER modified server-side; predecessor
     scheduling is the frontend's responsibility.
+
+    NOTE (demo-data cleanup): because the old server-side Pass 2 scheduler
+    was removed, tasks written directly via the API (e.g. demo/seed data)
+    that never passed through the frontend recalc() will NOT have their
+    predecessor dates normalized here. Such payloads must arrive already
+    scheduled, or be loaded through the UI which runs recalc() before save.
     """
     if not tasks:
         return tasks
