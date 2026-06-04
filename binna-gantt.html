@@ -831,17 +831,21 @@ function render() {
 }
 
 function visible() {
-  return tasks.filter(function(t, i) {
-    var lv = t.level || 0;
-    if (!lv) return true;
-    for (var j = i - 1; j >= 0; j--) {
-      if ((tasks[j].level || 0) < lv) {
-        if (collapsed.has(tasks[j].id)) return false;
-        break;
-      }
+  // Hide only the descendants of each collapsed row. A row is a descendant of a
+  // collapsed group when its level is strictly deeper (level > parentLevel) and no
+  // row at level <= parentLevel sits between them. Walking forward from the
+  // collapsed row and breaking at the first level <= parentLevel guarantees that
+  // sibling groups (same level) and ancestors are never swallowed.
+  var hidden = Object.create(null);
+  for (var i = 0; i < tasks.length; i++) {
+    if (!collapsed.has(tasks[i].id)) continue;
+    var parentLevel = tasks[i].level || 0;
+    for (var j = i + 1; j < tasks.length; j++) {
+      if ((tasks[j].level || 0) <= parentLevel) break;  // sibling/ancestor — stop
+      hidden[tasks[j].id] = true;                        // direct/indirect descendant
     }
-    return true;
-  });
+  }
+  return tasks.filter(function(t) { return !hidden[t.id]; });
 }
 
 function dateRange() {
