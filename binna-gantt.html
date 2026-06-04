@@ -616,7 +616,6 @@ window.addEventListener('DOMContentLoaded', async function() {
     BINNA.toast('Could not load Gantt: ' + (err.error || 'Unknown error'), 'error');
     tasks = [];
   }
-  if (!tasks.length && new URLSearchParams(location.search).get('demo') === '1') loadSample();
   render();
   setTimeout(scrollToToday, 300);
 
@@ -661,87 +660,8 @@ function sanitizeTask(t) {
 }
 
 // ── SAMPLE DATA ───────────────────────────────────────────────────────────────
-function loadSample() {
-  var T = function(o, d) {
-    var s = new Date(); s.setDate(s.getDate() + o);
-    var e = new Date(s); e.setDate(e.getDate() + d);
-    return [iso(s), iso(e)];
-  };
-  tasks = [
-    // ── Milestone 1: Civil & Structural ───────────────────────────────────────
-    {id:'m1', type:'milestone', level:0, color:'#0f2a5e', name:'Milestone 1 — Civil & Structural Complete',
-     start:T(-248,248)[0], end:T(-248,248)[1], pct:82, preds:[], person:'', notes:''},
-
-    // Group: Earthworks (inside m1)
-    {id:'g1', type:'group', level:1, color:COLORS[8], name:'Earthworks & Foundations',
-     start:T(-248,70)[0], end:T(-248,70)[1], pct:100, preds:[], person:'', notes:''},
-    {id:'t01',type:'task',  level:2, color:COLORS[0], name:'Site Mobilisation & Hoarding',
-     start:T(-248,14)[0], end:T(-248,14)[1], pct:100, preds:[], person:'Site Manager', notes:''},
-    {id:'t02',type:'task',  level:2, color:COLORS[0], name:'Excavation & Disposal (2,500 m³)',
-     start:T(-234,28)[0], end:T(-234,28)[1], pct:100, preds:[{id:'t01',lag:0}], person:'Civil Team', notes:''},
-    {id:'t03',type:'task',  level:2, color:COLORS[0], name:'RC Foundations C30 (850 m³)',
-     start:T(-206,42)[0], end:T(-206,42)[1], pct:100, preds:[{id:'t02',lag:0}], person:'Civil Team', notes:''},
-
-    // Sub-Group: Superstructure (inside g1... wait, g1 is Earthworks. Let me put superstructure in its own group)
-    // Group: Superstructure (inside m1)
-    {id:'g2', type:'group', level:1, color:COLORS[8], name:'Superstructure',
-     start:T(-164,116)[0], end:T(-164,116)[1], pct:88, preds:[], person:'', notes:''},
-    // Sub-Group: RC Works
-    {id:'sg1',type:'subgroup',level:2, color:COLORS[5], name:'RC Works',
-     start:T(-164,70)[0], end:T(-164,70)[1], pct:100, preds:[], person:'', notes:''},
-    {id:'t11',type:'task',  level:3, color:COLORS[0], name:'RC Walls & Columns (380 m³)',
-     start:T(-164,70)[0], end:T(-164,70)[1], pct:100, preds:[{id:'t03',lag:0}], person:'Civil Team', notes:''},
-    // Sub-Group: Masonry & Finishing
-    {id:'sg2',type:'subgroup',level:2, color:COLORS[5], name:'Masonry & External Works',
-     start:T(-94,46)[0], end:T(-94,46)[1], pct:75, preds:[], person:'', notes:''},
-    {id:'t12',type:'task',  level:3, color:COLORS[0], name:'Block Work 200mm (1,400 m²)',
-     start:T(-94,45)[0], end:T(-94,45)[1], pct:82, preds:[{id:'t11',lag:7}], person:'Civil Team', notes:''},
-    {id:'t13',type:'task',  level:3, color:COLORS[0], name:'External Paving & Roads',
-     start:T(-49,42)[0], end:T(-49,42)[1], pct:38, preds:[{id:'t12',lag:5}], person:'Civil Team', notes:''},
-
-    // ── Milestone 2: MEP Works ─────────────────────────────────────────────────
-    {id:'m2', type:'milestone', level:0, color:'#0f2a5e', name:'Milestone 2 — MEP Works Complete',
-     start:T(-145,180)[0], end:T(-145,180)[1], pct:48, preds:[], person:'', notes:''},
-
-    // Group: Mechanical (inside m2)
-    {id:'g3', type:'group', level:1, color:COLORS[8], name:'Mechanical Works',
-     start:T(-145,180)[0], end:T(-145,180)[1], pct:44, preds:[], person:'', notes:''},
-    {id:'t21',type:'task',  level:2, color:COLORS[4], name:'Pump Equipment Supply (4 No.)',
-     start:T(-145,84)[0], end:T(-145,84)[1], pct:100, preds:[], person:'Procurement', notes:''},
-    {id:'t22',type:'task',  level:2, color:COLORS[4], name:'Pipework DN200/DN250 (720 m)',
-     start:T(-88,70)[0],  end:T(-88,70)[1],  pct:65,  preds:[{id:'t03',lag:30}], person:'Mech. Team', notes:''},
-    {id:'t23',type:'task',  level:2, color:COLORS[4], name:'Pump Installation & Alignment',
-     start:T(-56,56)[0],  end:T(-56,56)[1],  pct:30,  preds:[{id:'t22',lag:0}],  person:'Mech. Team', notes:''},
-    {id:'t24',type:'task',  level:2, color:COLORS[4], name:'Valves & Fittings',
-     start:T(-21,56)[0],  end:T(-21,56)[1],  pct:10,  preds:[{id:'t23',lag:0}],  person:'Mech. Team', notes:''},
-
-    // Group: Electrical (inside m2)
-    {id:'g4', type:'group', level:1, color:COLORS[8], name:'Electrical Works',
-     start:T(-115,148)[0],end:T(-115,148)[1],pct:52, preds:[], person:'', notes:''},
-    {id:'t31',type:'task',  level:2, color:COLORS[5], name:'11kV Switchgear Supply & Install',
-     start:T(-115,42)[0], end:T(-115,42)[1], pct:100, preds:[], person:'Electrical Team', notes:''},
-    {id:'t32',type:'task',  level:2, color:COLORS[5], name:'LV Distribution Boards (6 No.)',
-     start:T(-80,35)[0],  end:T(-80,35)[1],  pct:95,  preds:[{id:'t31',lag:7}],  person:'Electrical Team', notes:''},
-    {id:'t33',type:'task',  level:2, color:COLORS[5], name:'Power Cabling & Cable Tray',
-     start:T(-73,70)[0],  end:T(-73,70)[1],  pct:55,  preds:[{id:'t32',lag:0}],  person:'Electrical Team', notes:''},
-    {id:'t34',type:'task',  level:2, color:COLORS[5], name:'SCADA & Control System',
-     start:T(-21,56)[0],  end:T(-21,56)[1],  pct:12,  preds:[{id:'t33',lag:14}], person:'C&I Engineer', notes:''},
-
-    // ── Milestone 3: Commissioning ─────────────────────────────────────────────
-    {id:'m3', type:'milestone', level:0, color:'#0f2a5e', name:'Milestone 3 — Practical Completion',
-     start:T(5,97)[0], end:T(5,97)[1], pct:0, preds:[], person:'', notes:''},
-
-    {id:'g5', type:'group', level:1, color:COLORS[8], name:'Finishing & Commissioning',
-     start:T(5,97)[0], end:T(5,97)[1], pct:0, preds:[], person:'', notes:''},
-    {id:'t41',type:'task',  level:2, color:COLORS[6], name:'Internal & External Finishing',
-     start:T(5,35)[0],  end:T(5,35)[1],  pct:0, preds:[{id:'t12',lag:0},{id:'t13',lag:0}], person:'Finishing Team', notes:''},
-    {id:'t42',type:'task',  level:2, color:COLORS[6], name:'Pre-Commissioning & System Test',
-     start:T(40,35)[0], end:T(40,35)[1], pct:0, preds:[{id:'t24',lag:0},{id:'t34',lag:0}], person:'Site Manager', notes:''},
-    {id:'t43',type:'task',  level:2, color:COLORS[6], name:'Commissioning & 72-hr Run',
-     start:T(75,22)[0], end:T(75,22)[1], pct:0, preds:[{id:'t42',lag:0}], person:'Site Manager', notes:''},
-  ].map(sanitizeTask);
-  save();
-}
+// Demo/sample tasks are intentionally not bundled — projects are populated
+// manually online. (Former loadSample() and the ?demo=1 trigger were removed.)
 
 // ── RECALC: bottom-up hierarchy ───────────────────────────────────────────────
 // All non-task nodes (subgroup, group, milestone) derive start/end/pct from children.
