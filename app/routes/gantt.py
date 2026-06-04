@@ -14,7 +14,7 @@ Recalculation (mirrors frontend recalc() in binna-gantt.html):
     Tasks (type='task') are leaf nodes — they are never recalculated here.
 """
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -142,19 +142,16 @@ def _detect_cycle(tasks):
 
 def _recalc_tasks(tasks):
     """
-    Server-side recalculation — mirrors JS recalc() in binna-gantt.html.
+    Server-side recalculation — container rollup only.
 
     Pass 1 (reverse): containers (group/subgroup/milestone) derive
       start/end/pct from direct children.
 
-    Pass 2 (forward, iterated): every task with predecessors is snapped to
-      start exactly at max(pred_end + 1 + lag).  Iterates until stable so
-      chains A→B→C propagate fully.
+    Task (leaf) start/end dates are NEVER modified server-side; predecessor
+    scheduling is the frontend's responsibility.
     """
     if not tasks:
         return tasks
-
-    task_map = {t['id']: t for t in tasks if t.get('id')}
 
     def _pass1():
         for gi in range(len(tasks) - 1, -1, -1):
@@ -184,42 +181,6 @@ def _recalc_tasks(tasks):
             g['pct']  = round(done_dur / total_dur * 100) if total_dur > 0 else 0
 
     _pass1()
-
-    # Pass 2: snap predecessor-driven tasks to exact scheduled start
-    changed = True
-    guard   = 0
-    while changed and guard < 30:
-        changed = False
-        guard  += 1
-        for t in tasks:
-            preds = t.get('preds') or []
-            if not preds:
-                continue
-            min_start = None
-            for p in preds:
-                src = task_map.get(p.get('id'))
-                if not src:
-                    continue
-                src_end = _parse_date(src.get('end') or src.get('start'))
-                if not src_end:
-                    continue
-                lag  = int(p.get('lag') or 0)
-                cand = src_end + timedelta(days=1 + lag)
-                if min_start is None or cand > min_start:
-                    min_start = cand
-            if min_start is None:
-                continue
-            iso_min = _fmt_date(min_start)
-            cur_start = _parse_date(t.get('start'))
-            if not cur_start or min_start > cur_start:
-                old_end  = _parse_date(t.get('end') or t.get('start'))
-                old_start = _parse_date(t.get('start'))
-                duration = max(1, (old_end - old_start).days + 1) if old_end and old_start else 1
-                t['start'] = iso_min
-                t['end']   = _fmt_date(min_start + timedelta(days=duration - 1))
-                changed = True
-        if changed:
-            _pass1()
 
     return tasks
 
