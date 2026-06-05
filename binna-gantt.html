@@ -63,7 +63,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .prog-outer{width:100%;height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin-top:8px}
 .prog-inner{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
 /* GANTT WRAPPER */
-.gantt-wrapper{display:flex;flex:1;min-height:0;overflow:hidden;background:var(--white)}
+.gantt-wrapper{display:flex;flex:1;min-height:0;overflow:hidden;background:var(--white);position:relative}
 /* TASK PANEL */
 .task-panel{width:480px;min-width:200px;display:flex;flex-direction:column;background:var(--white);flex-shrink:0;position:relative;overflow:hidden}
 .tp-header{display:grid;grid-template-columns:14px 22px 1fr var(--col-dur) var(--col-start) var(--col-end) var(--col-pred);align-items:center;height:var(--hdr-h);border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;padding:0 4px;border-right:1px solid var(--border)}
@@ -329,18 +329,17 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   </div>
 </div>
 
-<!-- Selection action toolbar — always in layout (visibility:hidden when empty prevents layout shift) -->
-<div id="sel-toolbar" style="display:flex;visibility:hidden;align-items:center;gap:8px;padding:4px 12px;background:#eff4ff;border-bottom:1px solid #c7d7fd;flex-shrink:0;font-size:12px">
-  <span id="sel-count" style="color:var(--accent);font-weight:600;min-width:90px"></span>
-  <button class="tb-btn" id="multi-btn" onclick="toggleMultiMode()" title="Keep adding to selection without holding Ctrl" style="font-size:11px">☑ Multi-Select</button>
-  <button class="tb-btn" id="sel-edit-btn" onclick="openEditSelected()" title="Edit selected task" style="display:none;font-size:11px">✏ Edit</button>
-  <div style="margin-left:auto;display:flex;gap:6px">
-    <button class="tb-btn" onclick="deleteAllSelected()" style="color:var(--danger);border-color:#fecdca;font-size:11px">🗑 Delete Selected</button>
-    <button class="tb-btn" onclick="clearSelection()" style="font-size:11px">✕ Clear</button>
-  </div>
-</div>
-
 <div class="gantt-wrapper" id="gantt-wrapper">
+  <!-- Selection action toolbar — floats over the task list (position:absolute) so showing/hiding never shifts rows -->
+  <div id="sel-toolbar" style="position:absolute;top:0;left:0;right:0;z-index:30;display:none;align-items:center;gap:8px;padding:4px 12px;background:#eff4ff;border-bottom:1px solid #c7d7fd;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.08)">
+    <span id="sel-count" style="color:var(--accent);font-weight:600;min-width:90px"></span>
+    <button class="tb-btn" id="multi-btn" onclick="toggleMultiMode()" title="Keep adding to selection without holding Ctrl" style="font-size:11px">☑ Multi-Select</button>
+    <button class="tb-btn" id="sel-edit-btn" onclick="openEditSelected()" title="Edit selected task" style="display:none;font-size:11px">✏ Edit</button>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="tb-btn" onclick="deleteAllSelected()" style="color:var(--danger);border-color:#fecdca;font-size:11px">🗑 Delete Selected</button>
+      <button class="tb-btn" onclick="clearSelection()" style="font-size:11px">✕ Clear</button>
+    </div>
+  </div>
   <div class="task-panel" id="task-panel">
     <div class="tp-header">
       <span></span><span>#</span><span style="text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Task Name</span>
@@ -1941,15 +1940,15 @@ function updateSelToolbar() {
   var ebt = document.getElementById('sel-edit-btn');
   if (!tb) return;
   var n = selIds.size;
-  // Use visibility (not display) so the toolbar always occupies its height —
-  // prevents gantt-wrapper from resizing and causing scroll jumps on selection.
+  // Toolbar is absolutely positioned (floats over the task list), so toggling
+  // display never reflows the rows — no scroll/layout jump on selection.
   if (n > 0) {
-    tb.style.visibility = 'visible';
+    tb.style.display = 'flex';
     cnt.textContent = n + ' task' + (n > 1 ? 's' : '') + ' selected';
     var mb = document.getElementById('multi-btn');
     if (mb) mb.classList.toggle('active', _multiMode);
   } else {
-    tb.style.visibility = 'hidden';
+    tb.style.display = 'none';
     _multiMode = false;
     var mb2 = document.getElementById('multi-btn');
     if (mb2) mb2.classList.remove('active');
