@@ -843,19 +843,25 @@ function render() {
   updateSelToolbar();
 }
 
+// Effective nesting depth as the user sees it. The on-screen indent (renderLeft)
+// is (level + textIndent), and the indent/outdent buttons change only textIndent —
+// so collapse MUST use this same value, not level alone, or rows nested via the
+// indent buttons are mis-hidden and sibling groups get swallowed.
+function _effLevel(t) { return (t.level || 0) + (t.textIndent || 0); }
+
 function visible() {
   // Hide only the descendants of each collapsed row. A row is a descendant of a
-  // collapsed group when its level is strictly deeper (level > parentLevel) and no
-  // row at level <= parentLevel sits between them. Walking forward from the
-  // collapsed row and breaking at the first level <= parentLevel guarantees that
-  // sibling groups (same level) and ancestors are never swallowed.
+  // collapsed group when its effective level is strictly deeper than the collapsed
+  // row's, with no row at effLevel <= parentLevel between them. Walking forward and
+  // breaking at the first effLevel <= parentLevel guarantees that sibling groups
+  // (same depth) and ancestors are never swallowed.
   var hidden = Object.create(null);
   for (var i = 0; i < tasks.length; i++) {
     if (!collapsed.has(tasks[i].id)) continue;
-    var parentLevel = tasks[i].level || 0;
+    var parentLevel = _effLevel(tasks[i]);
     for (var j = i + 1; j < tasks.length; j++) {
-      if ((tasks[j].level || 0) <= parentLevel) break;  // sibling/ancestor — stop
-      hidden[tasks[j].id] = true;                        // direct/indirect descendant
+      if (_effLevel(tasks[j]) <= parentLevel) break;  // peer/ancestor — stop
+      hidden[tasks[j].id] = true;                     // direct/indirect descendant
     }
   }
   return tasks.filter(function(t) { return !hidden[t.id]; });
