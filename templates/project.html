@@ -670,6 +670,20 @@ async function loadStats() {
         const el = document.getElementById('stat-' + key);
         if (el) el.textContent = data.stats[key];   // renders '0' instead of '—'
       });
+      // Contract & Payment card: cashflow summary — Total Certified vs Total
+      // Received (%), recomputed server-side from the saved payment JSON each load.
+      const fEl = document.getElementById('stat-financial');
+      const cert = Number(data.stats.certified) || 0;
+      const rcv  = Number(data.stats.received)  || 0;
+      if (fEl && (cert > 0 || rcv > 0)) {
+        const money = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? Math.round(v/1e3)+'K' : Math.round(v);
+        const pct = cert > 0 ? Math.round(rcv/cert*1000)/10 : 0;
+        const paid = cert > 0 && rcv >= cert - 0.5;
+        fEl.innerHTML = `Total Certified: <b>${money(cert)} IQD</b> | Total Received: `
+          + `<b style="color:#16a34a">${money(rcv)} IQD</b> `
+          + (paid ? `<span style="color:#16a34a;font-weight:700">(${pct}%) ✓</span>`
+                  : `<span style="color:#b42318;font-weight:600">(${pct}%)</span>`);
+      }
     }
   } catch (err) {
     // On failure the cards keep their '—' placeholder — non-blocking.

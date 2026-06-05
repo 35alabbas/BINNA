@@ -29,6 +29,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
 .proj-badge b{color:var(--accent);margin-right:4px}
 .module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600}
+/* ── Contract type selector (Stage 1) ───────────────────────────────────── */
+.ctype-box{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px}
+.ctype-btn{border:1.5px solid var(--border);background:var(--surface);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:var(--text2);transition:all .12s;display:inline-flex;align-items:center;gap:6px}
+.ctype-btn:hover:not(:disabled){border-color:var(--accent)}
+.ctype-btn.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+.ctype-btn:disabled{cursor:not-allowed}
+.ctype-tag{align-items:center;gap:5px;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700}
+.ctype-tag.gov{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent)}
+.ctype-tag.priv{background:#fdf2fa;border:1px solid #fcceee;color:#c11574}
 .topbar-right{display:flex;align-items:center;gap:10px}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
 .btn:hover{background:var(--surface)}
@@ -151,6 +160,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .pst tr.pst-custom td{background:#fafbf7}
 .pst-x{border:none;background:transparent;color:var(--muted2);cursor:pointer;font-size:13px;padding:1px 5px;line-height:1;border-radius:3px;float:right;font-family:Inter,sans-serif}
 .pst-x:hover{color:var(--danger)}
+/* Editable summary row labels: gray placeholder = default (UI only), black = custom; print shows effective label */
+.pst-lbl-in{border:none;background:transparent;font:inherit;color:inherit;width:58%;min-width:120px;max-width:78%;padding:1px 3px;outline:none;border-radius:3px}
+.pst-lbl-in::placeholder{color:var(--muted2);font-weight:400}
+.pst-lbl-in:focus{background:#fffde7}
+.pst-lbl-print{display:none}
+@media print{
+  .pst-lbl-in{display:none!important}
+  .pst-lbl-print{display:inline!important}
+  .pst td.pst-lbl{color:#000!important}
+}
 /* ── Work mode toggle ───────────────────────────────────────────────────── */
 .wm-bar{padding:7px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;background:#fafbff;font-size:12px}
 .wm-btn{border:1px solid var(--border);border-radius:6px;padding:4px 12px;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;transition:all .12s}
@@ -159,6 +178,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .att-item{display:flex;align-items:center;gap:8px;padding:5px 9px;background:var(--surface);border:1px solid var(--border2);border-radius:5px;margin-bottom:5px;font-size:12px}
 @media print{
   .pst-x,.wm-bar,.att-item button{display:none!important}
+  .pst-foot{display:none!important}
 }
 
 @media print{
@@ -185,6 +205,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
     <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
     <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
     <div class="proj-badge"><b id="proj-code">APS</b><span id="proj-name">Auxiliary Pump Station</span></div>
+    <span id="contract-type-tag" class="ctype-tag" style="display:none"></span>
   </div>
   <div class="topbar-right">
     <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
@@ -264,6 +285,15 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
     </div>
   </div>
 
+  <!-- Contract Type (Stage 1) -->
+  <div class="ctype-box">
+    <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Contract Type / نوع العقد</span>
+    <button type="button" id="ctype-government" class="ctype-btn" onclick="setContractType('government')">🏛 Government / عقد حكومي</button>
+    <button type="button" id="ctype-private" class="ctype-btn" onclick="setContractType('private')">🤝 Private / عقد خاص</button>
+    <span id="ctype-lock" title="Contract type cannot be changed after payments are added" style="display:none;align-items:center;gap:4px;color:var(--muted2);font-size:11px;cursor:help">🔒 Locked</span>
+  </div>
+
+
   <!-- Contract Details -->
   <div class="sheet-wrap" style="margin-bottom:14px">
     <table class="sheet-table">
@@ -277,6 +307,16 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
         <tr><td class="row-num">2</td><td><input class="cell-in label" readonly value="Client / Employer"/></td><td><input class="cell-in" id="cd-client" placeholder="Client name"/></td></tr>
         <tr><td class="row-num">3</td><td><input class="cell-in label" readonly value="Project Name"/></td><td><input class="cell-in" id="cd-project" placeholder="Project name"/></td></tr>
         <tr><td class="row-num">4</td><td><input class="cell-in label" readonly value="Contract Number"/></td><td><input class="cell-in" id="cd-contract-no" placeholder="Contract reference no."/></td></tr>
+        <tr><td class="row-num">⤷</td><td><input class="cell-in label" readonly value="Currency / العملة"/></td>
+          <td><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="cd-currency" onchange="setCurrency(this.value)" class="cell-in" style="width:auto;flex:0 0 auto;cursor:pointer">
+              <option value="IQD">IQD — Iraqi Dinar (default)</option>
+              <option value="USD">USD — US Dollar ($)</option>
+              <option value="EUR">EUR — Euro (€)</option>
+              <option value="custom">Custom…</option>
+            </select>
+            <input id="cd-currency-custom" placeholder="Code or symbol — e.g. GBP, SAR, ₺, £" oninput="setCurrencyCustom(this.value)" class="cell-in" style="display:none;flex:1;min-width:140px"/>
+          </div></td></tr>
 
         <tr><td class="row-num">5</td><td><input class="cell-in label" readonly value="Contract Value / قيمة العقد الأصلية"/></td>
           <td><div style="display:flex;gap:5px;align-items:center">
@@ -470,6 +510,33 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 
 <!-- ═══════════════ PAYMENTS TAB ═══════════════ -->
 <div class="tab-content" id="tab-payments">
+  <!-- Private contract payments (Stage 2) -->
+  <div id="pay-private-content" style="display:none">
+    <div class="sec-header">
+      <div>
+        <div class="sec-title">🤝 Private Contract Payments</div>
+        <div class="sec-sub">Fully user-defined payment summary — no government rules applied</div>
+      </div>
+      <button class="btn btn-sm btn-primary" type="button" id="priv-add-top" onclick="addPrivatePay()">+ Add Payment</button>
+    </div>
+    <div id="priv-settings"></div>
+    <div id="priv-alloc-bar" style="display:none"></div>
+    <div id="priv-rows-container"></div>
+    <button class="btn btn-sm btn-primary" type="button" id="priv-add-bottom" onclick="addPrivatePay()" style="margin-bottom:16px">+ Add Payment</button>
+    <!-- Private summary strip -->
+    <div class="summary-grid">
+      <div class="summary-card full">
+        <div class="sum-title">Private Payments Summary</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+          <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Payments</div><div style="font-size:16px;font-weight:700;color:var(--accent)" id="priv-s-count">0</div></div>
+          <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Total Work / Gross</div><div style="font-size:16px;font-weight:700" id="priv-s-work">0 IQD</div></div>
+          <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Net to Contractor</div><div style="font-size:16px;font-weight:700;color:var(--success)" id="priv-s-net">0 IQD</div></div>
+          <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Total Received</div><div style="font-size:16px;font-weight:700;color:var(--success)" id="priv-s-received">0 IQD</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="pay-gov-content">
   <div class="sec-header">
     <div>
       <div class="sec-title">طلبات استحصال السلف — Payment Requests</div>
@@ -529,6 +596,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
       </div>
     </div>
   </div>
+  </div><!-- /pay-gov-content -->
 </div>
 
 <!-- Income & Expenses managed by Financial module (/legacy/financial) -->
@@ -565,15 +633,16 @@ function toggleStats() {
   document.getElementById('stats-toggle-btn').textContent = statsVisible ? '▲ Hide Dashboard' : '▼ Show Dashboard';
 }
 function updateFinancialDashboard() {
-  // Contract value from BOQ summary
-  var contractEl = document.getElementById('boq-contract-total');
-  if (contractEl) document.getElementById('dash-contract').textContent = contractEl.textContent || '0 IQD';
-  // Payments count
-  var payCount = document.querySelectorAll('#pay-body tr').length;
-  document.getElementById('dash-payments').textContent = payCount;
-  // Net paid from payments summary
-  var netPaidEl = document.getElementById('pay-f-net');
-  if (netPaidEl) document.getElementById('dash-net-paid').textContent = netPaidEl.textContent || '0 IQD';
+  // Recomputed from scratch every call — never read possibly-stale DOM text.
+  // CONTRACT VALUE = BOQ total + all VOs
+  document.getElementById('dash-contract').textContent = fmt(getContractTotal()) + ' IQD';
+  // PAYMENTS (ذرعات) = count of payment entries
+  document.getElementById('dash-payments').textContent = payRows.length;
+  // NET PAID TO CONTRACTOR = cash actually received (sum of every installment
+  // amount across all payments), NOT the certified net. 0 if nothing received.
+  var netPaid = 0;
+  payRows.forEach(function(r){ (r.received||[]).forEach(function(rc){ netPaid += parseFloat(rc.amount)||0; }); });
+  document.getElementById('dash-net-paid').textContent = fmt(netPaid) + ' IQD';
   // Income total
   var incEl = document.getElementById('inc-total');
   if (incEl) document.getElementById('dash-income').textContent = incEl.textContent || '0 IQD';
@@ -657,6 +726,8 @@ function _reloadAll() {
     updateSummaries();
     renderContractExtensions();
     applyContractModes();
+    renderContractType();
+    renderPrivSettings();
   } finally { _loadingAll=false; }
 }
 
@@ -715,6 +786,7 @@ async function saveAll(){
   clearTimeout(_asSaveTimer);
   _asSaveTimer = null;
   collectAll();
+  updateFinancialDashboard(); // recompute the top strip from scratch on every save
   var btn=event.currentTarget||document.querySelector('[onclick="saveAll()"]');
   try {
     await BINNA.saveFinancial(PROJECT_ID, data);
@@ -1088,7 +1160,77 @@ function loadAll(){
     // Income & Expenses are managed by the Financial module — skip loading here
     renderContractExtensions();
     applyContractModes();
+    renderContractType();
+    renderPrivSettings();
   } finally { _loadingAll=false; }
+}
+
+// ── CONTRACT TYPE (Stage 1: flag + UI only) ───────────────────────────────────
+function getContractType(){ return data.contract_type==='private' ? 'private' : 'government'; }
+
+// "Has payments" = any ذرعة carrying real entered data; the default empty row
+// (auto-created on load) does NOT count, so the type can still be changed.
+function hasPaymentData(){
+  return payRows.some(function(r){
+    return (r.boqItems&&r.boqItems.length)
+        || (r.manualWork&&parseFloat(r.manualWork))
+        || (r.received&&r.received.length)
+        || (r.extraDeductions&&r.extraDeductions.length)
+        || (r.surplusCredits&&r.surplusCredits.length)
+        // Private-side data: a summary row carrying a real amount, or attachments
+        || (r.summaryRows&&r.summaryRows.some(function(s){return parseFloat(s.amount);}))
+        || (r.attachments&&r.attachments.length);
+  });
+}
+
+function setContractType(type){
+  if(type!=='government'&&type!=='private') return;
+  if(getContractType()===type) return;
+  if(hasPaymentData()){ BINNA.toast('Contract type cannot be changed after payments are added','info',2800); return; }
+  data.contract_type=type;
+  renderContractType();
+  if(type==='private') renderPrivSettings();
+  renderPayRows(); // guard dispatches to gov or private renderer
+  scheduleAutoSave();
+}
+
+function renderContractType(){
+  var type=getContractType();
+  var locked=hasPaymentData();
+  // Toggle buttons + active state + lock
+  var gBtn=document.getElementById('ctype-government');
+  var pBtn=document.getElementById('ctype-private');
+  if(gBtn&&pBtn){
+    gBtn.classList.toggle('active',type==='government');
+    pBtn.classList.toggle('active',type==='private');
+    [gBtn,pBtn].forEach(function(b){
+      b.disabled=locked;
+      b.style.opacity=(locked&&!b.classList.contains('active'))?'0.5':'1';
+      b.title=locked?'Contract type cannot be changed after payments are added':'';
+    });
+  }
+  var lk=document.getElementById('ctype-lock');
+  if(lk) lk.style.display=locked?'inline-flex':'none';
+  // Page tag (always visible once known)
+  var tag=document.getElementById('contract-type-tag');
+  if(tag){
+    tag.textContent=type==='government'?'🏛 Government':'🤝 Private';
+    tag.className='ctype-tag '+(type==='government'?'gov':'priv');
+    tag.style.display='inline-flex';
+  }
+  // Conditional Payments tab: private → placeholder, government → existing system
+  // Currency selector (in Contract Details table — both contract types, Fix 1)
+  var curSel=document.getElementById('cd-currency');
+  if(curSel) curSel.value=cur();
+  var curCustom=document.getElementById('cd-currency-custom');
+  if(curCustom){ curCustom.style.display=(cur()==='custom')?'':'none'; curCustom.value=data.currency_custom||''; }
+  var gov=document.getElementById('pay-gov-content');
+  var ph=document.getElementById('pay-private-content');
+  if(gov&&ph){
+    var priv=type==='private';
+    gov.style.display=priv?'none':'';
+    ph.style.display=priv?'':'none';
+  }
 }
 
 // ── BOQ ───────────────────────────────────────────────────────────────────────
@@ -1318,7 +1460,7 @@ function addPayRow(d){
     surplusCredits:d.surplusCredits||[],
     deductionReversals:d.deductionReversals||[],
     penaltyDays:d.penaltyDays||0, penaltyWaived:d.penaltyWaived||0,
-    penaltyWaivedNote:d.penaltyWaivedNote||'',
+    penaltyWaivedNote:d.penaltyWaivedNote||'', _penaltyOpen:d._penaltyOpen||false,
     releaseInitial:d.releaseInitial||false,
     releaseFinal:d.releaseFinal||false,
     colVis:d.colVis||{},
@@ -1328,7 +1470,22 @@ function addPayRow(d){
     manualItems:d.manualItems||[],
     hiddenRows:d.hiddenRows||{},
     customSummaryRows:d.customSummaryRows||[],
-    attachments:d.attachments||[]
+    sumLabels:d.sumLabels||{},
+    received:d.received||[],
+    attachments:d.attachments||[],
+    // ── Private contract fields (Stage 2) ──────────────────────────────────
+    payment_mode:d.payment_mode||'',
+    summaryRows:d.summaryRows!==undefined?d.summaryRows:null, // null = init from template on first render
+    milestoneName:d.milestoneName||'',
+    milestonePct:d.milestonePct||'',
+    invoiceNo:d.invoiceNo||'',
+    period:d.period||'',
+    scheduleLabel:d.scheduleLabel||'',
+    schedulePct:d.schedulePct||'',
+    privTaxEnabled:d.privTaxEnabled!==undefined?d.privTaxEnabled:null, // null = follow settings default
+    privTaxRate:d.privTaxRate!==undefined?d.privTaxRate:'',
+    relRet1:d.relRet1||false,
+    relRet2:d.relRet2||false
   });
   renderPayRows();
 }
@@ -1346,6 +1503,7 @@ function calcCell(label, val, color, bold, hint){
 var _revM={payIdx:null,registry:[],selIdx:null,type:'full',value:''};
 
 function buildDeductionsRegistry(upToPayIdx){
+  if(getContractType()==='private') return buildPrivDeductionsRegistry(upToPayIdx);
   var boqItems=getBoqItems();
   var ct=getContractTotal();
   var insRequired=ct*0.05;
@@ -1416,9 +1574,9 @@ function revModalBuild(){
     html+='<div onclick="revModalSelect('+i+')" style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--border2);cursor:pointer;'+(sel?'background:var(--accent-light)':'')+'" onmouseover="if('+i+'!==_revM.selIdx)this.style.background=\'var(--surface)\'" onmouseout="if('+i+'!==_revM.selIdx)this.style.background=\'\'">'
       +'<div style="font-size:11px;font-weight:700;color:var(--accent)">ذرعة '+r.payNum+'</div>'
       +'<div style="font-size:12px;color:var(--text2);padding-right:8px">'+esc(r.label)+'</div>'
-      +'<div style="text-align:right;font-family:monospace;font-size:11.5px;color:var(--danger)">−'+fmt(r.gross)+' IQD</div>'
+      +'<div style="text-align:right;font-family:monospace;font-size:11.5px;color:var(--danger)">−'+fmt(r.gross)+' '+curSym()+'</div>'
       +'<div style="text-align:right;font-family:monospace;font-size:11.5px;color:var(--muted2)">'+(r.totalReversed>0?'+'+fmt(r.totalReversed):'—')+'</div>'
-      +'<div style="text-align:right;font-family:monospace;font-size:11.5px;font-weight:700;color:var(--warning)">'+fmt(r.remaining)+' IQD</div>'
+      +'<div style="text-align:right;font-family:monospace;font-size:11.5px;font-weight:700;color:var(--warning)">'+fmt(r.remaining)+' '+curSym()+'</div>'
     +'</div>';
   });
   list.innerHTML=html;
@@ -1440,7 +1598,7 @@ function revModalRefreshEntry(){
   var r=_revM.registry[_revM.selIdx];
   entry.style.display='';
   document.getElementById('rev-sel-label').textContent=r.label+' — ذرعة '+r.payNum;
-  document.getElementById('rev-sel-remaining').textContent=fmt(r.remaining)+' IQD';
+  document.getElementById('rev-sel-remaining').textContent=fmt(r.remaining)+' '+curSym();
   // Sync type radio
   var typeRadios=document.querySelectorAll('[name="rev-type"]');
   typeRadios.forEach(function(rb){ if(rb.value===_revM.type) rb.checked=true; });
@@ -1448,7 +1606,7 @@ function revModalRefreshEntry(){
   var vi=document.getElementById('rev-value-wrap');
   if(vi) vi.style.display=_revM.type==='full'?'none':'';
   var vInp=document.getElementById('rev-value-inp');
-  if(vInp){ vInp.placeholder=_revM.type==='pct'?'e.g. 50':'Amount IQD'; vInp.value=_revM.value; }
+  if(vInp){ vInp.placeholder=_revM.type==='pct'?'e.g. 50':'Amount '+curSym(); vInp.value=_revM.value; }
   revModalUpdatePreview();
 }
 
@@ -1457,7 +1615,7 @@ function revModalTypeChange(type){
   var vi=document.getElementById('rev-value-wrap');
   if(vi) vi.style.display=type==='full'?'none':'';
   var vInp=document.getElementById('rev-value-inp');
-  if(vInp){ vInp.value=''; vInp.placeholder=type==='pct'?'e.g. 50':'Amount IQD'; vInp.focus(); }
+  if(vInp){ vInp.value=''; vInp.placeholder=type==='pct'?'e.g. 50':'Amount '+curSym(); vInp.focus(); }
   revModalUpdatePreview();
 }
 
@@ -1475,7 +1633,7 @@ function revModalUpdatePreview(){
   if(_revM.type==='full') amt=r.remaining;
   else if(_revM.type==='pct') amt=r.remaining*(parseFloat(_revM.value)||0)/100;
   else amt=Math.min(parseFloat(_revM.value)||0,r.remaining);
-  el.textContent=amt>0?'Will release: +'+fmt(amt)+' IQD':'';
+  el.textContent=amt>0?'Will release: +'+fmt(amt)+' '+curSym():'';
   el.style.color=amt>0?'var(--success)':'var(--muted)';
 }
 
@@ -1561,6 +1719,9 @@ function payEngQtyChange(payIdx,boqId,inputEl,prevCert){
 }
 
 function renderPayRows(){
+  // Private contracts use a fully user-defined renderer — every existing call
+  // to renderPayRows() (load, recalc, onchange handlers) routes here correctly.
+  if(getContractType()==='private'){ return renderPrivatePayRows(); }
   var container=document.getElementById('pay-rows-container');
   if(!container) return; // tab not active yet
   container.innerHTML='';
@@ -1571,11 +1732,12 @@ function renderPayRows(){
   var cd=data.contractDetails||{};
   var penaltyRate=parseFloat(cd['penalty-rate'])||0;
   var contractEndDate=cd['contract-end']||'';
+  var CUR=curSym(); // currency symbol applied across all government card amounts (Fix 1)
 
   // Update reference bar
-  set('pay-contract-ref',fmt(ct)+' IQD');
-  set('pay-threshold-ref',fmt(threshold)+' IQD');
-  set('pay-ins-required',fmt(insRequired)+' IQD');
+  set('pay-contract-ref',fmt(ct)+' '+CUR+'');
+  set('pay-threshold-ref',fmt(threshold)+' '+CUR+'');
+  set('pay-ins-required',fmt(insRequired)+' '+CUR+'');
   set('pay-ref-period',cd.period||'—');
   set('pay-ref-penalty',penaltyRate?(penaltyRate+'% / day'):'Not set');
 
@@ -1585,6 +1747,7 @@ function renderPayRows(){
   var totalWork=0,totalIns=0,totalTax=0,totalPenalty=0,totalExtra=0,totalNet=0;
   var totalRelIni=0,totalRelFin=0;
   var totalPenaltyWaived=0;
+  var totalReceived=0;
 
   payRows.forEach(function(row,idx){
     var prevCertQtyMap={}; for(var _k in cumulativeQtyMap) prevCertQtyMap[_k]=cumulativeQtyMap[_k];
@@ -1595,8 +1758,9 @@ function renderPayRows(){
     // thisWork = NET increment this payment = cumulativeWork - previous payment's cumulative.
     var cumulativeWork=0;
     if(row.workMode==='manual'){
-      var manualAmt=parseFloat(row.manualWork)||0;
-      cumulativeWork=prevCumulative+manualAmt;
+      // Manual entry is the CUMULATIVE work done to date (not the net for this
+      // payment). Net for this payment = entered cumulative − previous cumulative.
+      cumulativeWork=parseFloat(row.manualWork)||0;
     } else {
       (row.boqItems||[]).forEach(function(bi){
         var item=boqItems.find(function(b){return b.id===bi.id;});
@@ -1667,9 +1831,17 @@ function renderPayRows(){
     // ── Final net ─────────────────────────────────────────────────────────
     var netFinal=netAfterTax-retention10+relIni+relFin;
 
+    // ── Amount received (cash collected against this payment) ──────────────
+    var receivedTotal=0;
+    (row.received||[]).forEach(function(r){ receivedTotal+=parseFloat(r.amount)||0; });
+
     totalWork+=thisWork; totalIns+=insThis; totalTax+=taxAmt;
     totalPenalty+=penNet; totalExtra+=extraTotal; totalNet+=netFinal;
     totalRelIni+=relIni; totalRelFin+=relFin; totalPenaltyWaived+=penWaived;
+    totalReceived+=receivedTotal;
+    // Persist per-payment net due + received so the dashboard can recompute the
+    // cashflow totals straight from the saved payment JSON (no cached variable).
+    row._netDue=netFinal; row._received=receivedTotal;
 
     // ── Build BOQ items table (Fix 1: all checked items shown regardless of qty) ─
     var includedBoqItems=boqItems.filter(function(item){
@@ -1730,9 +1902,9 @@ function renderPayRows(){
             +(cv.over20?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:72px;color:#b54708;font-size:9.5px;font-weight:600">كمية الزيادة</th>':'')
             +(cv.newPrice?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:82px;color:#b54708;font-size:9.5px;font-weight:600">سعر الجديد</th>':'')
             +(cv.ctrQty?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:72px;color:var(--muted2);font-size:9.5px;font-weight:600">Qty</th>':'')
-            +(cv.ctrAmt?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:95px;color:var(--muted2);font-size:9.5px;font-weight:600">Amount IQD</th>':'')
+            +(cv.ctrAmt?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:95px;color:var(--muted2);font-size:9.5px;font-weight:600">Amount '+CUR+'</th>':'')
             +(cv.engQty?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:72px;color:var(--accent);font-size:9.5px;font-weight:600">Qty</th>':'')
-            +(cv.engAmt?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:95px;color:var(--accent);font-size:9.5px;font-weight:700">Amount IQD</th>':'')
+            +(cv.engAmt?'<th style="padding:4px 5px;border:1px solid var(--border2);text-align:right;width:95px;color:var(--accent);font-size:9.5px;font-weight:700">Amount '+CUR+'</th>':'')
           +'</tr>'
           +'</thead><tbody>';
 
@@ -1773,8 +1945,8 @@ function renderPayRows(){
         });
         boqTable+='</tbody></table></div>'
           +'<div style="display:flex;justify-content:flex-end;align-items:center;gap:20px;padding:4px 4px 6px;font-size:12px">'
-            +'<span style="color:var(--muted)">المجموع التراكمي: <b style="font-family:monospace">'+fmt(cumulativeWork)+' IQD</b></span>'
-            +'<span style="color:var(--accent);font-weight:700">صافي هذه الذرعة: +'+fmt(Math.max(0,thisWork))+' IQD</span>'
+            +'<span style="color:var(--muted)">المجموع التراكمي: <b style="font-family:monospace">'+fmt(cumulativeWork)+' '+CUR+'</b></span>'
+            +'<span style="color:var(--accent);font-weight:700">صافي هذه الذرعة: +'+fmt(Math.max(0,thisWork))+' '+CUR+'</span>'
           +'</div>';
       }
       boqTable+='<div style="display:flex;align-items:center;gap:10px;margin-top:4px">'
@@ -1808,46 +1980,65 @@ function renderPayRows(){
           +'<input style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif" placeholder="Reversal reason / reference" value="'+esc(rv.note||'')+'" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].note=this.value"/>'
           +'<select style="border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif" onchange="edRevTypeChange('+idx+','+ei+','+ri+',this.value)">'
             +'<option value="full"'+(rv.type==='full'?' selected':'')+'>Reverse Exact (Full)</option>'
-            +'<option value="fixed"'+(rv.type==='fixed'||!rv.type?' selected':'')+'>Reverse Partial (IQD)</option>'
+            +'<option value="fixed"'+(rv.type==='fixed'||!rv.type?' selected':'')+'>Reverse Partial ('+CUR+')</option>'
             +'<option value="pct"'+(rv.type==='pct'?' selected':'')+'>Reverse by % (of deduction)</option>'
           +'</select>'
           +(rv.type!=='full'?'<input type="number" min="0" style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(rv.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].value=this.value" onchange="renderPayRows()"/>':
             '<span style="width:80px;font-size:11.5px;color:var(--success);font-family:monospace;text-align:right">= full</span>')
-          +'<span style="font-size:11.5px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(rvAmt)+' IQD</span>'
+          +'<span style="font-size:11.5px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(rvAmt)+' '+CUR+'</span>'
           +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px;padding:1px 4px" onclick="payRows['+idx+'].extraDeductions['+ei+'].reversals.splice('+ri+',1);renderPayRows()" title="Remove reversal">✕</button>'
         +'</div>';
       });
 
-      extraHTML+='<div style="margin-bottom:8px">'
+      extraHTML+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px">'
         // Main deduction row
         +'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff8f8;border:1px solid #fecdca;border-radius:6px">'
           +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Deduction name" value="'+esc(ed.label||'')+'" oninput="payRows['+idx+'].extraDeductions['+ei+'].label=this.value"/>'
           +'<select style="border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" onchange="payRows['+idx+'].extraDeductions['+ei+'].type=this.value;renderPayRows()">'
             +'<option value="pct"'+(ed.type==='pct'?' selected':'')+'>% of net</option>'
-            +'<option value="fixed"'+(ed.type==='fixed'?' selected':'')+'>Fixed IQD</option>'
+            +'<option value="fixed"'+(ed.type==='fixed'?' selected':'')+'>Fixed '+CUR+'</option>'
           +'</select>'
           +'<input type="number" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(ed.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].value=this.value" onchange="renderPayRows()"/>'
-          +'<span style="font-size:12px;color:var(--danger);font-family:monospace;min-width:90px;text-align:right">−'+fmt(edGross)+' IQD</span>'
-          +(revTotal>0?'<span style="font-size:11px;color:var(--success);font-family:monospace;white-space:nowrap">Net: −'+fmt(edNet)+' IQD</span>':'')
+          +'<span style="font-size:12px;color:var(--danger);font-family:monospace;min-width:90px;text-align:right">−'+fmt(edGross)+' '+CUR+'</span>'
+          +(revTotal>0?'<span style="font-size:11px;color:var(--success);font-family:monospace;white-space:nowrap">Net: −'+fmt(edNet)+' '+CUR+'</span>':'')
           +'<button type="button" title="Add reversal / credit" onclick="addEdReversal('+idx+','+ei+')" style="border:1px solid #a6f4c5;background:#f0fbf4;color:var(--success);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 7px;white-space:nowrap;font-family:Inter,sans-serif">↩ Reverse</button>'
           +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="payRows['+idx+'].extraDeductions.splice('+ei+',1);renderPayRows()" title="Remove deduction">✕</button>'
         +'</div>'
         // Reversal rows
         +revHTML
-      +'</div>';
+      +'</td></tr>';
     });
 
     // ── Cross-payment deduction reversal lines ────────────────────────────
     var crossRevHTML='';
     (row.deductionReversals||[]).forEach(function(rv,ri){
       var amt=parseFloat(rv.amount)||0;
-      crossRevHTML+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+      crossRevHTML+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
         +'<span style="color:var(--success);font-weight:700;font-size:13px;flex-shrink:0">↩</span>'
         +'<span style="flex:1;font-size:12px;color:var(--text2)">'+esc(rv.note||'Reversal')+'</span>'
-        +'<span style="font-size:12px;color:var(--success);font-family:monospace;font-weight:700;white-space:nowrap">+'+fmt(amt)+' IQD</span>'
+        +'<span style="font-size:12px;color:var(--success);font-family:monospace;font-weight:700;white-space:nowrap">+'+fmt(amt)+' '+CUR+'</span>'
         +'<button type="button" title="Remove reversal" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px" onclick="payRows['+idx+'].deductionReversals.splice('+ri+',1);renderPayRows()">✕</button>'
-      +'</div>';
+      +'</div></td></tr>';
     });
+
+    // ── Surplus credit rows (rendered inside the Payment Summary table) ────
+    var surplusRows='';
+    (row.surplusCredits||[]).forEach(function(sc,si){
+      var amt=parseFloat(sc.amount)||0;
+      surplusRows+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+        +'<span style="color:var(--success);font-weight:700;font-size:14px;flex-shrink:0">+</span>'
+        +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Surplus credit description" value="'+esc(sc.note||'')+'" oninput="payRows['+idx+'].surplusCredits['+si+'].note=this.value"/>'
+        +'<input type="number" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success);font-weight:600" value="'+esc(sc.amount||'')+'" placeholder="Amount '+CUR+'" oninput="payRows['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPayRows()"/>'
+        +'<span style="font-size:12px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(amt)+' '+CUR+'</span>'
+        +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="payRows['+idx+'].surplusCredits.splice('+si+',1);renderPayRows()" title="Remove credit">✕</button>'
+      +'</div></td></tr>';
+    });
+
+    // Stash the full BOQ table so the BOQ modal can render it on demand (the card
+    // itself only shows a collapsed summary line — see below).
+    _boqTableHTML[idx]=boqTable;
+    _boqTotalStr[idx]=fmt(cumulativeWork)+' '+CUR;
+    _boqCountNum[idx]=includedBoqItems.length;
 
     // ── Card ──────────────────────────────────────────────────────────────
     var pctColor=completionPct>=50?'var(--success)':'#b54708';
@@ -1862,7 +2053,7 @@ function renderPayRows(){
             :'<span style="font-size:13px;font-weight:700;color:var(--accent)">Payment No. '+(idx+1)+' / الدفعة '+(idx+1)+'</span>')
           +'<button type="button" onclick="togglePayFinal('+idx+')" class="wm-btn" style="font-size:11px">'+(row.isFinalPayment?'↩ Regular Payment':'★ Mark as Final')+'</button>'
           +'<span style="font-size:11px;font-weight:600;color:'+pctColor+'">'+completionPct.toFixed(1)+'% completion</span>'
-          +'<span style="font-size:11px;color:var(--muted2)">Cumulative: '+fmt(cumulative)+' IQD</span>'
+          +'<span style="font-size:11px;color:var(--muted2)">Cumulative: '+fmt(cumulative)+' '+CUR+'</span>'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:8px">'
           +'<select style="font-size:11.5px;border:1px solid var(--border);border-radius:5px;padding:3px 7px;font-family:Inter,sans-serif" onchange="payRows['+idx+'].status=this.value">'
@@ -1895,11 +2086,17 @@ function renderPayRows(){
         +'<button type="button" class="wm-btn'+(row.workMode!=='manual'?' active':'')+'" onclick="togglePayWorkMode('+idx+',\'auto\')">⚙ Auto from BOQ</button>'
         +'<button type="button" class="wm-btn'+(row.workMode==='manual'?' active':'')+'" onclick="togglePayWorkMode('+idx+',\'manual\')">✏ Manual Entry</button>'
         +(row.workMode==='manual'
-          ?'<input type="number" min="0" value="'+esc(row.manualWork||'')+'" placeholder="Net work this payment (IQD)" style="width:220px;border:1px solid #d6bbfb;border-radius:6px;padding:4px 10px;font-size:13px;font-family:monospace;color:#6941c6;font-weight:600;outline:none" oninput="payRows['+idx+'].manualWork=this.value" onchange="renderPayRows()"/>'
+          ?'<input type="number" min="0" value="'+esc(row.manualWork||'')+'" placeholder="Cumulative work done to date ('+CUR+')" title="Total cumulative work done from project start through this payment — the net for this payment is calculated automatically" style="width:260px;border:1px solid #d6bbfb;border-radius:6px;padding:4px 10px;font-size:13px;font-family:monospace;color:#6941c6;font-weight:600;outline:none" oninput="payRows['+idx+'].manualWork=this.value" onchange="renderPayRows()"/>'
           :'')
       +'</div>'
-      +(row.workMode!=='manual'?boqTable:
-        '<div style="margin:8px 14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:12px;color:var(--muted2)">BOQ linking bypassed — enter net work amount above</div>')
+      // Collapsed BOQ summary (Auto mode) — full table opens in a modal.
+      // Manual mode shows nothing here (the amount input lives in the bar above).
+      +(row.workMode==='manual' ? '' :
+        '<div style="margin:8px 14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+          +'<span style="font-size:13px;color:var(--text2)">📋 <b>BOQ Items</b> — '+includedBoqItems.length+' item'+(includedBoqItems.length===1?'':'s')+' <span style="color:var(--muted2)">|</span> Total: <b style="font-family:monospace;color:var(--accent)">'+fmt(cumulativeWork)+' '+CUR+'</b></span>'
+          +'<button type="button" class="btn btn-sm btn-primary" onclick="openBoqModal('+idx+')" style="font-size:11.5px">View / Edit Items</button>'
+          +'<span style="margin-left:auto;font-size:11px;color:var(--accent);font-weight:700">صافي هذه الذرعة: +'+fmt(Math.max(0,thisWork))+' '+CUR+'</span>'
+        +'</div>')
       // ── Payment Summary Table ─────────────────────────────────────────────
       +(function(){
         var hr=row.hiddenRows||{};
@@ -1907,41 +2104,58 @@ function renderPayRows(){
         var dateDisp=isoToDisp(row.date||todayISO());
         var rows='';
         // Cumulative This Payment
-        if(!hr['cum-this']) rows+='<tr><td class="pst-lbl">Cumulative Work Done — This Payment<button class="pst-x" onclick="hidePayRow('+idx+',\'cum-this\')">×</button></td><td class="pst-amt">'+fmt(cumulativeWork)+' IQD</td></tr>';
+        if(!hr['cum-this']) rows+='<tr><td class="pst-lbl">'+pstLbl(idx,'cum-this','Cumulative Work Done — This Payment')+'<button class="pst-x" onclick="hidePayRow('+idx+',\'cum-this\')">×</button></td><td class="pst-amt">'+fmt(cumulativeWork)+' '+CUR+'</td></tr>';
         // Cumulative Previous
-        if(!hr['cum-prev']) rows+='<tr><td class="pst-lbl" style="color:var(--muted)">Cumulative Work Done — All Previous Payments<button class="pst-x" onclick="hidePayRow('+idx+',\'cum-prev\')">×</button></td><td class="pst-amt" style="color:var(--muted)">'+fmt(prevCumulative)+' IQD</td></tr>';
+        if(!hr['cum-prev']) rows+='<tr><td class="pst-lbl" style="color:var(--muted)">'+pstLbl(idx,'cum-prev','Cumulative Work Done — All Previous Payments')+'<button class="pst-x" onclick="hidePayRow('+idx+',\'cum-prev\')">×</button></td><td class="pst-amt" style="color:var(--muted)">'+fmt(prevCumulative)+' '+CUR+'</td></tr>';
         // Net Work Done
-        if(!hr['net-work']) rows+='<tr style="background:#f8faff"><td class="pst-lbl" style="font-weight:700">Net Work Done — '+payLabel+' <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Cumulative This − Cumulative Previous)</span><button class="pst-x" onclick="hidePayRow('+idx+',\'net-work\')">×</button></td><td class="pst-amt" style="color:var(--text)">'+fmt(thisWork)+' IQD</td></tr>';
+        if(!hr['net-work']) rows+='<tr style="background:#f8faff"><td class="pst-lbl" style="font-weight:700">'+pstLbl(idx,'net-work','Net Work Done — '+payLabel)+' <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Cumulative This − Cumulative Previous)</span><button class="pst-x" onclick="hidePayRow('+idx+',\'net-work\')">×</button></td><td class="pst-amt" style="color:var(--text)">'+fmt(thisWork)+' '+CUR+'</td></tr>';
         // Insurance
-        if(!hr['insurance']&&insThis>0) rows+='<tr><td class="pst-lbl" style="color:var(--danger)">تأمينات حسن التنفيذ / Performance Bond <span style="font-size:10.5px;color:var(--muted2)">'+(completionPct>=50?'≥50% — Full 5% applied':'<50% — 10% of work')+'</span><button class="pst-x" onclick="hidePayRow('+idx+',\'insurance\')">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(insThis)+' IQD</td></tr>';
-        // Penalty
-        if(!hr['penalty']&&penNet>0) rows+='<tr><td class="pst-lbl" style="color:var(--danger)">غرامة التأخير / Delay Penalty<button class="pst-x" onclick="hidePayRow('+idx+',\'penalty\')">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(penNet)+' IQD</td></tr>';
-        // Each extra deduction as its own row
-        (row.extraDeductions||[]).forEach(function(ed,ei){
-          if(hr['extra-'+ei]) return;
-          var edGross=ed.type==='pct'?netBeforeTax*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
-          if(edGross<=0) return;
-          rows+='<tr><td class="pst-lbl" style="color:var(--danger)">'+(ed.label||'Deduction '+(ei+1))+'<button class="pst-x" onclick="hidePayRow('+idx+',\'extra-'+ei+'\')">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(edGross)+' IQD</td></tr>';
-        });
-        // Additions / Reversals
-        var addTotal=surplusTotal+crossRevTotal;
-        if(!hr['additions']&&addTotal>0) rows+='<tr><td class="pst-lbl" style="color:var(--success)">Additions / Reversals<button class="pst-x" onclick="hidePayRow('+idx+',\'additions\')">×</button></td><td class="pst-amt" style="color:var(--success)">+ '+fmt(addTotal)+' IQD</td></tr>';
+        if(!hr['insurance']&&insThis>0) rows+='<tr><td class="pst-lbl" style="color:var(--danger)">'+pstLbl(idx,'insurance','تأمينات حسن التنفيذ / Performance Bond')+' <span style="font-size:10.5px;color:var(--muted2)">'+(completionPct>=50?'≥50% — Full 5% applied':'<50% — 10% of work')+'</span><button class="pst-x" onclick="hidePayRow('+idx+',\'insurance\')">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(insThis)+' '+CUR+'</td></tr>';
+        // Daily Penalty — editable, in-table; shown only when there are delay days
+        // (penalty amount > 0) or the user has opened it for entry via the footer.
+        var penDaysNum=parseFloat(row.penaltyDays)||0;
+        var penShown=penDaysNum>0||row._penaltyOpen;
+        if(penShown) rows+='<tr class="pst-pen"><td class="pst-lbl" style="color:var(--danger)">'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+            +'<b>غرامة التأخير / Daily Penalty</b>'
+            +'<span style="color:var(--muted2);font-weight:400">Delay days:</span><input type="number" min="0" style="width:58px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(row.penaltyDays||0)+'" oninput="payRows['+idx+'].penaltyDays=this.value" onchange="renderPayRows()"/>'
+            +'<span style="color:var(--muted2);font-weight:400">Waived:</span><input type="number" min="0" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(row.penaltyWaived||0)+'" oninput="payRows['+idx+'].penaltyWaived=this.value" onchange="renderPayRows()"/>'
+            +'<input style="flex:1;min-width:120px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif;color:var(--success)" placeholder="Waiver reason / VO reference" value="'+esc(row.penaltyWaivedNote||'')+'" oninput="payRows['+idx+'].penaltyWaivedNote=this.value"/>'
+            +'<button class="pst-x" title="Clear penalty" onclick="payRows['+idx+'].penaltyDays=0;payRows['+idx+'].penaltyWaived=0;payRows['+idx+']._penaltyOpen=false;renderPayRows()">×</button>'
+          +'</div>'
+        +'</td><td class="pst-amt" style="color:var(--danger)">− '+fmt(penNet)+' '+CUR+'</td></tr>';
+        // ── Extra deductions, cross-payment reversals & surplus credits ───────
+        // Editable rows rendered directly inside the table (with all controls).
+        rows+=extraHTML+crossRevHTML+surplusRows;
         // Custom rows from user
         (row.customSummaryRows||[]).forEach(function(cr,ci){
           rows+='<tr class="pst-custom"><td class="pst-lbl"><input value="'+esc(cr.label||'')+'" placeholder="Row label…" style="border:none;background:transparent;width:70%;font-size:13px;font-family:Inter,sans-serif;color:var(--text2)" oninput="payRows['+idx+'].customSummaryRows['+ci+'].label=this.value"/><button class="pst-x" onclick="deletePayCustomRow('+idx+','+ci+')">×</button></td>'
-            +'<td class="pst-amt"><select onchange="payRows['+idx+'].customSummaryRows['+ci+'].sign=this.value" style="border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:12px;margin-right:4px"><option value="-"'+(cr.sign==='-'?' selected':'')+'>−</option><option value="+"'+(cr.sign==='+'?' selected':'')+'>+</option></select><input type="number" value="'+esc(cr.value||'')+'" placeholder="0" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payRows['+idx+'].customSummaryRows['+ci+'].value=this.value"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">IQD</span></td></tr>';
+            +'<td class="pst-amt"><select onchange="payRows['+idx+'].customSummaryRows['+ci+'].sign=this.value" style="border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:12px;margin-right:4px"><option value="-"'+(cr.sign==='-'?' selected':'')+'>−</option><option value="+"'+(cr.sign==='+'?' selected':'')+'>+</option></select><input type="number" value="'+esc(cr.value||'')+'" placeholder="0" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payRows['+idx+'].customSummaryRows['+ci+'].value=this.value"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">'+CUR+'</span></td></tr>';
         });
         // 10% Retention — Final Payment only
-        if(row.isFinalPayment&&!hr['retention10']) rows+='<tr><td class="pst-lbl" style="color:#6941c6">10% Retention — held until clearance certificates obtained from relevant authorities<button class="pst-x" onclick="hidePayRow('+idx+',\'retention10\')">×</button></td><td class="pst-amt" style="color:#6941c6">− '+fmt(retention10)+' IQD</td></tr>';
+        if(row.isFinalPayment&&!hr['retention10']) rows+='<tr><td class="pst-lbl" style="color:#6941c6">'+pstLbl(idx,'retention10','10% Retention — held until clearance certificates obtained from relevant authorities')+'<button class="pst-x" onclick="hidePayRow('+idx+',\'retention10\')">×</button></td><td class="pst-amt" style="color:#6941c6">− '+fmt(retention10)+' '+CUR+'</td></tr>';
         // Tax
-        if(!hr['tax']) rows+='<tr><td class="pst-lbl" style="color:var(--danger)">Tax '+taxRate+'% (على الصافي)<button class="pst-x" onclick="hidePayRow('+idx+',\'tax\')">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(taxAmt)+' IQD</td></tr>';
-        // Insurance releases
+        if(!hr['tax']) rows+='<tr><td class="pst-lbl" style="color:var(--danger)">'+pstLbl(idx,'tax','Tax '+taxRate+'% (على الصافي)')+'<button class="pst-x" onclick="hidePayRow('+idx+',\'tax\')">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(taxAmt)+' '+CUR+'</td></tr>';
+        // Insurance releases (conditional rows — appear when the footer checkbox is ticked)
         if(relIni>0||relFin>0){
-          if(relIni>0) rows+='<tr><td class="pst-lbl" style="color:var(--success)">الاستلام الأولي — Initial Handover Insurance Release</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relIni)+' IQD</td></tr>';
-          if(relFin>0) rows+='<tr><td class="pst-lbl" style="color:var(--success)">الاستلام النهائي — Final Handover Insurance Release</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relFin)+' IQD</td></tr>';
+          if(relIni>0) rows+='<tr><td class="pst-lbl" style="color:var(--success)">'+pstLbl(idx,'relIni','الاستلام الأولي — Initial Handover Insurance Release')+'</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relIni)+' '+CUR+'</td></tr>';
+          if(relFin>0) rows+='<tr><td class="pst-lbl" style="color:var(--success)">'+pstLbl(idx,'relFin','الاستلام النهائي — Final Handover Insurance Release')+'</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relFin)+' '+CUR+'</td></tr>';
         }
+        // ── Footer controls (above NET): add deduction/surplus, reverse previous, insurance release ──
+        rows+='<tr class="pst-foot"><td colspan="2" style="padding:8px 12px;background:var(--surface)">'
+          +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+            +'<button type="button" class="btn btn-sm" onclick="payRows['+idx+'].extraDeductions.push({label:\'\',type:\'pct\',value:\'\',reversals:[]});renderPayRows()" style="font-size:11px;padding:3px 10px">+ Add Deduction</button>'
+            +'<button type="button" class="btn btn-sm" onclick="if(!payRows['+idx+'].surplusCredits)payRows['+idx+'].surplusCredits=[];payRows['+idx+'].surplusCredits.push({note:\'\',amount:\'\'});renderPayRows()" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5">+ Add Surplus</button>'
+            +(!penShown?'<button type="button" class="btn btn-sm" onclick="payRows['+idx+']._penaltyOpen=true;renderPayRows()" style="font-size:11px;padding:3px 10px;color:var(--danger);border-color:#fecdca">+ Daily Penalty</button>':'')
+            +(idx>0?'<button type="button" class="btn btn-sm" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5" onclick="openRevModal('+idx+')">↩ Reverse Previous Deduction</button>':'')
+            +'<span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>'
+            +'<span style="font-size:11px;font-weight:600;color:var(--muted)">Insurance Release:</span>'
+            +'<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;color:var(--text2)"><input type="checkbox" '+(row.releaseInitial?'checked':'')+' onchange="payRows['+idx+'].releaseInitial=this.checked;renderPayRows()" style="accent-color:var(--success)"/> الاستلام الأولي (Initial Handover) +'+fmt(insRequired*0.5)+' '+CUR+'</label>'
+            +'<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;color:var(--text2)"><input type="checkbox" '+(row.releaseFinal?'checked':'')+' onchange="payRows['+idx+'].releaseFinal=this.checked;renderPayRows()" style="accent-color:var(--success)"/> الاستلام النهائي (Final Handover) +'+fmt(insRequired*0.5)+' '+CUR+'</label>'
+          +'</div>'
+        +'</td></tr>';
         // NET TO CONTRACTOR — always shown
-        rows+='<tr class="pst-net"><td class="pst-lbl">NET TO CONTRACTOR / صافي الاستحقاق</td><td class="pst-amt">'+fmt(netFinal)+' IQD</td></tr>';
+        rows+='<tr class="pst-net"><td class="pst-lbl">'+pstLbl(idx,'net-contractor','NET TO CONTRACTOR / صافي الاستحقاق')+'</td><td class="pst-amt">'+fmt(netFinal)+' '+CUR+'</td></tr>';
         var hiddenCount=Object.keys(hr).length;
         return '<div style="padding:12px 14px;border-bottom:1px solid var(--border2)">'
           +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
@@ -1957,66 +2171,41 @@ function renderPayRows(){
           +'</tbody></table>'
         +'</div>';
       })()
-      // Penalty row
-      +'<div style="padding:8px 14px;border-bottom:1px solid var(--border2);display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
-        +'<span style="font-size:11px;font-weight:600;color:var(--muted)">غرامة التأخير:</span>'
-        +'<div style="display:flex;align-items:center;gap:6px;font-size:12px">'
-          +'<span style="color:var(--muted2)">Delay days:</span>'
-          +'<input type="number" min="0" style="width:60px;border:1px solid var(--border);border-radius:5px;padding:3px 7px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(row.penaltyDays||0)+'" oninput="payRows['+idx+'].penaltyDays=this.value" onchange="renderPayRows()"/>'
+      // Daily Penalty now lives INSIDE the Payment Summary table (conditional row).
+      // Extra Deductions, Surplus Credits & Insurance Release now live INSIDE the
+      // Payment Summary table above (see footer control row). Sections removed.
+      // ── Amount Received (المبالغ المستلمة) ───────────────────────────────
+      +'<div style="padding:10px 14px;border-bottom:1px solid var(--border2)">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+          +'<span style="font-size:11px;font-weight:600;color:var(--muted)">المبالغ المستلمة — Amount Received</span>'
+          +'<button type="button" class="btn btn-sm" onclick="addInstallment('+idx+')" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5">+ Add Installment</button>'
         +'</div>'
-        +'<div style="display:flex;align-items:center;gap:6px;font-size:12px">'
-          +'<span style="color:var(--muted2)">Penalty amt:</span>'
-          +'<span style="color:var(--danger);font-weight:600;font-family:monospace">'+fmt(penAmt)+' IQD</span>'
-        +'</div>'
-        +'<div style="display:flex;align-items:center;gap:6px;font-size:12px">'
-          +'<span style="color:var(--muted2)">Waived / VO covered:</span>'
-          +'<input type="number" min="0" style="width:120px;border:1px solid var(--border);border-radius:5px;padding:3px 7px;font-size:12px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(row.penaltyWaived||0)+'" oninput="payRows['+idx+'].penaltyWaived=this.value" onchange="renderPayRows()"/>'
-        +'</div>'
-        +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success)" placeholder="Waiver reason / VO reference" value="'+esc(row.penaltyWaivedNote||'')+'" oninput="payRows['+idx+'].penaltyWaivedNote=this.value"/>'
+        +((row.received&&row.received.length)
+          ?row.received.map(function(rc,ri){
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+              +'<input type="text" maxlength="10" placeholder="DD/MM/YYYY" style="width:108px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(isoToDisp(rc.date||todayISO()))+'" oninput="autoFmtDate(this)" onchange="var iso=dispToISO(this.value);if(iso)payRows['+idx+'].received['+ri+'].date=iso;"/>'
+              +'<input type="number" min="0" style="width:130px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:monospace;color:var(--success);font-weight:600" placeholder="Amount '+CUR+'" value="'+esc(rc.amount||'')+'" oninput="payRows['+idx+'].received['+ri+'].amount=this.value" onchange="renderPayRows()"/>'
+              +'<span title="% of Net Due" style="font-size:11px;color:var(--muted2);min-width:52px;text-align:right;font-family:monospace">'+(netFinal>0?(Math.round((parseFloat(rc.amount)||0)/netFinal*1000)/10)+'%':'—')+'</span>'
+              +'<input style="flex:1;min-width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Note (optional)" value="'+esc(rc.note||'')+'" oninput="payRows['+idx+'].received['+ri+'].note=this.value"/>'
+              +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="removeInstallment('+idx+','+ri+')" title="Remove installment">✕</button>'
+            +'</div>';
+          }).join('')
+          :'<div style="font-size:11.5px;color:var(--muted2);font-style:italic;padding:2px 0 6px">No payments received yet — click <b style="color:var(--success)">+ Add Installment</b>.</div>')
       +'</div>'
-      // Extra deductions
-      +'<div style="padding:8px 14px;border-bottom:1px solid var(--border2)">'
-        +'<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">استقطاعات إضافية — Extra Deductions</div>'
-        +extraHTML
-        +crossRevHTML
-        +(crossRevTotal>0?'<div style="text-align:right;font-size:11px;color:var(--success);font-family:monospace;margin-bottom:4px;font-weight:600">Total reversals: +'+fmt(crossRevTotal)+' IQD</div>':'')
-        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">'
-          +'<button type="button" class="btn btn-sm" onclick="payRows['+idx+'].extraDeductions.push({label:\'\',type:\'pct\',value:\'\',reversals:[]});renderPayRows()" style="font-size:11px;padding:3px 10px">+ Add Deduction</button>'
-          +(idx>0?'<button type="button" class="btn btn-sm" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5" onclick="openRevModal('+idx+')">↩ Reverse Previous Deduction</button>':'')
-        +'</div>'
-      +'</div>'
-      // Surplus credits
+      // ── Total Received summary (last thing before Attachments) ────────────
       +(function(){
-        var scRows=row.surplusCredits||[];
-        var scHTML='';
-        scRows.forEach(function(sc,si){
-          var amt=parseFloat(sc.amount)||0;
-          scHTML+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
-            +'<span style="color:var(--success);font-weight:700;font-size:14px;flex-shrink:0">+</span>'
-            +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Surplus credit description" value="'+esc(sc.note||'')+'" oninput="payRows['+idx+'].surplusCredits['+si+'].note=this.value"/>'
-            +'<input type="number" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success);font-weight:600" value="'+esc(sc.amount||'')+'" placeholder="Amount IQD" oninput="payRows['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPayRows()"/>'
-            +'<span style="font-size:12px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(amt)+' IQD</span>'
-            +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="payRows['+idx+'].surplusCredits.splice('+si+',1);renderPayRows()" title="Remove credit">✕</button>'
-          +'</div>';
-        });
-        if(scRows.length||true) return '<div style="padding:6px 14px 8px;border-bottom:1px solid var(--border2)">'
-          +(scRows.length?'<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">رصيد فائض — Surplus Credits</div>'+scHTML:'')
-          +'<button type="button" class="btn btn-sm" onclick="if(!payRows['+idx+'].surplusCredits)payRows['+idx+'].surplusCredits=[];payRows['+idx+'].surplusCredits.push({note:\'\',amount:\'\'});renderPayRows()" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5">+ Surplus Credit</button>'
+        var due=netFinal, rem=due-receivedTotal, fully=(receivedTotal>=due-0.5&&due>0);
+        var rcvPct=due>0?Math.round(receivedTotal/due*1000)/10:0;
+        var remPct=due>0?Math.round(Math.max(0,rem)/due*1000)/10:0;
+        return '<div style="padding:9px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:12px;background:#fafffb">'
+          +'<span style="color:var(--muted2)">Total Received: <b style="font-family:monospace;color:var(--success)">'+fmt(receivedTotal)+' '+CUR+'</b> <span style="color:var(--success);font-weight:600">('+rcvPct+'%)</span></span>'
+          +(fully
+            ?'<span style="color:var(--muted2)">Net Due: <b style="font-family:monospace;color:var(--text2)">'+fmt(due)+' '+CUR+'</b></span>'
+              +'<span style="color:var(--success);font-weight:700;background:#ecfdf3;border:1px solid #a6f4c5;border-radius:5px;padding:2px 10px">Fully Paid ✓</span>'
+              +(receivedTotal>due+0.5?'<span style="color:var(--danger);font-weight:600">Overpaid: '+fmt(receivedTotal-due)+' '+CUR+'</span>':'')
+            :'<span style="color:var(--danger);font-weight:700">Remaining: '+fmt(Math.max(0,rem))+' '+CUR+' <span style="font-weight:600">('+remPct+'%)</span></span>')
         +'</div>';
-        return '';
       })()
-      // Insurance release checkboxes
-      +'<div style="padding:8px 14px;border-bottom:1px solid var(--border2);display:flex;gap:20px;align-items:center;flex-wrap:wrap;font-size:12px;background:var(--surface)">'
-        +'<span style="font-size:11px;font-weight:600;color:var(--muted)">Insurance Release:</span>'
-        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer">'
-          +'<input type="checkbox" '+(row.releaseInitial?'checked':'')+' onchange="payRows['+idx+'].releaseInitial=this.checked;renderPayRows()" style="accent-color:var(--success)"/>'
-          +'الاستلام الأولي (Initial Handover) +'+fmt(insRequired*0.5)+' IQD'
-        +'</label>'
-        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer">'
-          +'<input type="checkbox" '+(row.releaseFinal?'checked':'')+' onchange="payRows['+idx+'].releaseFinal=this.checked;renderPayRows()" style="accent-color:var(--success)"/>'
-          +'الاستلام النهائي (Final Handover) +'+fmt(insRequired*0.5)+' IQD'
-        +'</label>'
-      +'</div>'
       // Attachments section
       +'<div style="padding:10px 14px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
@@ -2051,28 +2240,590 @@ function renderPayRows(){
   });
 
   // Update all summary elements
-  set('pay-s-work',fmt(totalWork)+' IQD');
-  set('pay-s-ins',fmt(totalIns)+' IQD');
-  set('pay-s-tax',fmt(totalTax)+' IQD');
-  set('pay-s-penalty',fmt(totalPenalty)+' IQD');
-  set('pay-s-extra',fmt(totalExtra)+' IQD');
-  set('pay-s-net',fmt(totalNet)+' IQD');
-  set('pay-ins-req',fmt(insRequired)+' IQD');
-  set('pay-ins-held',fmt(totalIns)+' IQD');
-  set('pay-ins-rel1',fmt(totalRelIni)+' IQD');
-  set('pay-ins-rel2',fmt(totalRelFin)+' IQD');
-  set('pay-ins-still',fmt(Math.max(0,totalIns-totalRelIni-totalRelFin))+' IQD');
+  set('pay-s-work',fmt(totalWork)+' '+CUR+'');
+  set('pay-s-ins',fmt(totalIns)+' '+CUR+'');
+  set('pay-s-tax',fmt(totalTax)+' '+CUR+'');
+  set('pay-s-penalty',fmt(totalPenalty)+' '+CUR+'');
+  set('pay-s-extra',fmt(totalExtra)+' '+CUR+'');
+  set('pay-s-net',fmt(totalNet)+' '+CUR+'');
+  set('pay-ins-req',fmt(insRequired)+' '+CUR+'');
+  set('pay-ins-held',fmt(totalIns)+' '+CUR+'');
+  set('pay-ins-rel1',fmt(totalRelIni)+' '+CUR+'');
+  set('pay-ins-rel2',fmt(totalRelFin)+' '+CUR+'');
+  set('pay-ins-still',fmt(Math.max(0,totalIns-totalRelIni-totalRelFin))+' '+CUR+'');
   set('pay-pen-end',contractEndDate||'—');
   set('pay-pen-days',payRows.reduce(function(a,r){return a+(parseFloat(r.penaltyDays)||0);},0));
-  set('pay-pen-applied',fmt(totalPenalty+totalPenaltyWaived)+' IQD');
-  set('pay-pen-waived',fmt(totalPenaltyWaived)+' IQD');
-  set('pay-pen-net',fmt(totalPenalty)+' IQD');
-  set('pay-f-contract',fmt(ct)+' IQD');
-  set('pay-f-work',fmt(totalWork)+' IQD');
-  set('pay-f-ded',fmt(totalIns+totalTax+totalPenalty+totalExtra)+' IQD');
-  set('pay-f-net',fmt(totalNet)+' IQD');
-  set('pay-f-remaining',fmt(Math.max(0,ct-prevCumulative))+' IQD');
+  set('pay-pen-applied',fmt(totalPenalty+totalPenaltyWaived)+' '+CUR+'');
+  set('pay-pen-waived',fmt(totalPenaltyWaived)+' '+CUR+'');
+  set('pay-pen-net',fmt(totalPenalty)+' '+CUR+'');
+  set('pay-f-contract',fmt(ct)+' '+CUR+'');
+  set('pay-f-work',fmt(totalWork)+' '+CUR+'');
+  set('pay-f-ded',fmt(totalIns+totalTax+totalPenalty+totalExtra)+' '+CUR+'');
+  set('pay-f-net',fmt(totalNet)+' '+CUR+'');
+  set('pay-f-remaining',fmt(Math.max(0,ct-prevCumulative))+' '+CUR+'');
+  // Cashflow summary for the project dashboard (total certified vs total received)
+  data.cashflowSummary={totalCertified:totalNet, totalReceived:totalReceived, payments:payRows.length};
+  // If the BOQ items modal is open, refresh its body with the freshly-built table.
+  if(_boqModalIdx!=null){ var _bm=document.getElementById('boq-items-modal'); if(_bm&&_bm.classList.contains('open')) renderBoqModalBody(); }
+  updateFinancialDashboard(); // keep the top strip in sync with every payment/installment change
+  renderContractType();       // refresh lock state (payments may now carry data)
   scheduleAutoSave();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PRIVATE CONTRACT PAYMENTS (Stage 2) — fully user-defined, no government rules
+// Stored in the same data.payments array; each row carries payment_mode:"private".
+// ══════════════════════════════════════════════════════════════════════════════
+function getPrivSettings(){
+  if(!data.privateSettings) data.privateSettings={};
+  var s=data.privateSettings;
+  if(!s.template) s.template='custom';
+  if(s.advanceEnabled===undefined) s.advanceEnabled=false;
+  if(s.advanceAmount===undefined) s.advanceAmount='';
+  if(s.advanceRecoveryPct===undefined) s.advanceRecoveryPct='20';
+  if(s.retentionEnabled===undefined) s.retentionEnabled=false;
+  if(s.retentionPct===undefined) s.retentionPct='5';
+  if(s.taxEnabled===undefined) s.taxEnabled=false;
+  if(s.taxRate===undefined) s.taxRate='';
+  if(!s.lumpSchedule) s.lumpSchedule=[];
+  return s;
+}
+// ── Currency (Fix 1) — symbol shown throughout all payment card amounts ───────
+function cur(){ return data.currency||'IQD'; }
+function curSym(){ var c=cur(); if(c==='custom') return (data.currency_custom||'').trim()||'IQD'; return ({IQD:'IQD',USD:'$',EUR:'€'})[c]||c; }
+function setCurrency(c){
+  if(['IQD','USD','EUR','custom'].indexOf(c)<0) return;
+  data.currency=c;
+  var ci=document.getElementById('cd-currency-custom');
+  if(ci) ci.style.display=(c==='custom')?'':'none';
+  renderContractType(); renderPayRows(); scheduleAutoSave();
+}
+function setCurrencyCustom(v){ data.currency_custom=v; renderPayRows(); scheduleAutoSave(); }
+// ── % allocation helpers (Fix 2) ─────────────────────────────────────────────
+function privCapped(){ var t=getPrivSettings().template; return t==='milestone'||t==='lumpsum'; }
+function privAllocatedPct(){ var s=getPrivSettings(); if(!privCapped()) return 0; return payRows.reduce(function(a,r){return a+(parseFloat(s.template==='milestone'?r.milestonePct:r.schedulePct)||0);},0); }
+// Cross-payment deduction registry for private contracts — mirrors the
+// government buildDeductionsRegistry but derives each deduction's gross from the
+// private net (subtotal − advance recovery − retention), not government rules.
+function buildPrivDeductionsRegistry(upToPayIdx){
+  var s=getPrivSettings();
+  var ct=getContractTotal();
+  var grossTotalAll=0; payRows.forEach(function(r){ grossTotalAll+=privGross(r); });
+  var retPct=parseFloat(s.retentionPct)||0;
+  var retRequired=s.retentionEnabled?(ct>0?ct*retPct/100:grossTotalAll*retPct/100):0;
+  var advTotal=s.advanceEnabled?(parseFloat(s.advanceAmount)||0):0;
+  var advRecPct=parseFloat(s.advanceRecoveryPct)||0;
+  var prevRecovered=0,retHeldSoFar=0;
+  var registry=[];
+  payRows.forEach(function(row,payIdx){
+    var gross=privGross(row), subtotal=privSubtotal(row);
+    var recovery=0;
+    if(s.advanceEnabled&&advTotal>0){ recovery=Math.min(gross*advRecPct/100,Math.max(0,advTotal-prevRecovered)); prevRecovered+=recovery; }
+    var retHeld=0;
+    if(s.retentionEnabled&&retPct>0){ retHeld=Math.min(gross*retPct/100,Math.max(0,retRequired-retHeldSoFar)); retHeldSoFar+=retHeld; }
+    if(payIdx>=upToPayIdx) return; // accumulators above still advance for ordering
+    var netPreExtra=subtotal-recovery-retHeld;
+    (row.extraDeductions||[]).forEach(function(ed,edIdx){
+      if(!ed.label&&!parseFloat(ed.value)) return;
+      var grossEd=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      if(grossEd<=0) return;
+      var totalReversed=0;
+      payRows.forEach(function(r){ (r.deductionReversals||[]).forEach(function(rv){ if(rv.sourcePayIdx===payIdx&&rv.sourceEdIdx===edIdx) totalReversed+=parseFloat(rv.amount)||0; }); });
+      var remaining=Math.max(0,grossEd-totalReversed);
+      if(remaining<=0.001) return;
+      registry.push({payIdx:payIdx,edIdx:edIdx,payNum:payIdx+1,label:ed.label||('Deduction '+(edIdx+1)),gross:grossEd,totalReversed:totalReversed,remaining:remaining});
+    });
+  });
+  return registry;
+}
+function setPrivTemplate(t){
+  var s=getPrivSettings();
+  if(s.template===t) return;
+  s.template=t;
+  renderPrivSettings();
+  renderPrivatePayRows();
+  scheduleAutoSave();
+}
+function togglePrivField(field,on){
+  getPrivSettings()[field]=on;
+  renderPrivSettings();      // structural change — rebuild bar (a click, no focus to lose)
+  renderPrivatePayRows();
+  scheduleAutoSave();
+}
+function setPrivField(field,val){
+  getPrivSettings()[field]=val;
+  renderPrivatePayRows();    // recompute cards only — keep focus in the settings input
+  scheduleAutoSave();
+}
+// ── Lump-sum installment schedule ────────────────────────────────────────────
+function addLumpRow(){ getPrivSettings().lumpSchedule.push({id:'ls'+Date.now(),label:'',pct:''}); renderPrivSettings(); scheduleAutoSave(); }
+function removeLumpRow(i){ getPrivSettings().lumpSchedule.splice(i,1); renderPrivSettings(); scheduleAutoSave(); }
+function setLumpField(i,f,v){ var ls=getPrivSettings().lumpSchedule[i]; if(ls) ls[f]=v; scheduleAutoSave(); }
+function generateLumpPayments(){
+  var s=getPrivSettings();
+  if(!s.lumpSchedule.length){ BINNA.toast('Add at least one schedule stage first','info',2200); return; }
+  var schedTotal=s.lumpSchedule.reduce(function(a,r){return a+(parseFloat(r.pct)||0);},0);
+  if(schedTotal>100){ BINNA.toast('Schedule total ('+(Math.round(schedTotal*10)/10)+'%) cannot exceed 100% of contract value','error',2800); return; }
+  if(!confirm('Create '+s.lumpSchedule.length+' payment card(s) from this schedule?')) return;
+  // Drop a single empty starter card so the schedule starts clean
+  if(payRows.length===1 && !hasPrivRowData(payRows[0])) payRows=[];
+  var ct=getContractTotal();
+  s.lumpSchedule.forEach(function(ls){
+    var pct=parseFloat(ls.pct)||0;
+    addPayRow({payment_mode:'private',status:'draft',desc:ls.label||'',scheduleLabel:ls.label||'',schedulePct:ls.pct||'',
+      summaryRows:[{id:'sr'+Date.now()+Math.random().toString(36).slice(2,6),label:'Contract Work Done / أعمال منجزة',amount:ct>0?Math.round(ct*pct/100):''}]});
+  });
+  BINNA.toast('Created '+s.lumpSchedule.length+' scheduled payment(s)','success',2400);
+}
+// ── Private settings bar ─────────────────────────────────────────────────────
+function renderPrivSettings(){
+  var el=document.getElementById('priv-settings'); if(!el) return;
+  var s=getPrivSettings();
+  var IN='border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif';
+  var tbtn=function(id,label){ return '<button type="button" class="ctype-btn'+(s.template===id?' active':'')+'" style="font-size:12px;padding:6px 13px" onclick="setPrivTemplate(\''+id+'\')">'+label+'</button>'; };
+  var html='<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px">';
+  // Template selector
+  html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Template</span>'
+    +tbtn('milestone','🏁 Milestone')+tbtn('monthly','🧾 Monthly Invoice')+tbtn('lumpsum','📦 Lump Sum')+tbtn('custom','✏ Custom')
+  +'</div>';
+  // Toggles: advance / retention / tax
+  html+='<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;font-size:12px">';
+  // Advance Payment
+  html+='<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.advanceEnabled?'checked':'')+' onchange="togglePrivField(\'advanceEnabled\',this.checked)"/> Advance Payment</label>'
+    +(s.advanceEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px;flex-wrap:wrap">'
+        +'<input type="number" min="0" placeholder="Advance amount '+curSym()+'" value="'+esc(s.advanceAmount)+'" style="'+IN+';width:160px;font-family:monospace" oninput="setPrivField(\'advanceAmount\',this.value)"/>'
+        +'<span style="color:var(--muted2)">recover</span>'
+        +'<input type="number" min="0" placeholder="%" value="'+esc(s.advanceRecoveryPct)+'" style="'+IN+';width:58px" oninput="setPrivField(\'advanceRecoveryPct\',this.value)"/>'
+        +'<span style="color:var(--muted2)">% / payment</span>'
+      +'</div>':'')
+  +'</div>';
+  // Retention
+  html+='<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.retentionEnabled?'checked':'')+' onchange="togglePrivField(\'retentionEnabled\',this.checked)"/> Retention</label>'
+    +(s.retentionEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px">'
+        +'<input type="number" min="0" placeholder="%" value="'+esc(s.retentionPct)+'" style="'+IN+';width:58px" oninput="setPrivField(\'retentionPct\',this.value)"/>'
+        +'<span style="color:var(--muted2)">% held per payment</span>'
+      +'</div>':'')
+  +'</div>';
+  // Tax (contract default)
+  html+='<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.taxEnabled?'checked':'')+' onchange="togglePrivField(\'taxEnabled\',this.checked)"/> Tax (default)</label>'
+    +(s.taxEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px">'
+        +'<input type="number" min="0" placeholder="%" value="'+esc(s.taxRate)+'" style="'+IN+';width:58px" oninput="setPrivField(\'taxRate\',this.value)"/>'
+        +'<span style="color:var(--muted2)">% on net work</span>'
+      +'</div>':'')
+  +'</div>';
+  html+='</div>';
+  // Lump-sum schedule editor
+  if(s.template==='lumpsum'){
+    var totalPct=s.lumpSchedule.reduce(function(a,r){return a+(parseFloat(r.pct)||0);},0);
+    html+='<div style="margin-top:12px;border-top:1px solid var(--border2);padding-top:10px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Installment Schedule</div>';
+    if(!s.lumpSchedule.length) html+='<div style="font-size:11.5px;color:var(--muted2);font-style:italic;margin-bottom:6px">No stages yet — e.g. 30% Mobilization · 40% Progress · 30% Completion</div>';
+    s.lumpSchedule.forEach(function(ls,i){
+      html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
+        +'<input placeholder="Stage (e.g. Mobilization)" value="'+esc(ls.label)+'" style="'+IN+';flex:1;min-width:0" oninput="setLumpField('+i+',\'label\',this.value)"/>'
+        +'<input type="number" min="0" placeholder="%" value="'+esc(ls.pct)+'" style="'+IN+';width:70px;text-align:right" oninput="setLumpField('+i+',\'pct\',this.value)" onchange="renderPrivSettings()"/>'
+        +'<span style="color:var(--muted2)">%</span>'
+        +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px;padding:1px 6px" onclick="removeLumpRow('+i+')">✕</button>'
+      +'</div>';
+    });
+    html+='<div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">'
+      +'<button type="button" class="btn btn-sm" onclick="addLumpRow()" style="font-size:11px;padding:3px 10px">+ Add Stage</button>'
+      +'<button type="button" class="btn btn-sm btn-primary" onclick="generateLumpPayments()" style="font-size:11px;padding:3px 10px">⚙ Generate Payments</button>'
+      +'<span style="font-size:11px;font-weight:600;color:'+(Math.abs(totalPct-100)<0.01?'var(--success)':'#b54708')+'">Total: '+totalPct+'%'+(Math.abs(totalPct-100)<0.01?' ✓':'')+'</span>'
+    +'</div></div>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+// ── Private calc helpers ─────────────────────────────────────────────────────
+function privGross(row){ var g=0; (row.summaryRows||[]).forEach(function(r){var a=parseFloat(r.amount)||0; if(a>0)g+=a;}); return g; }
+function privSubtotal(row){ var g=0; (row.summaryRows||[]).forEach(function(r){g+=parseFloat(r.amount)||0;}); return g; }
+function hasPrivRowData(row){
+  return (row.summaryRows&&row.summaryRows.some(function(s){return parseFloat(s.amount);}))
+      || (row.received&&row.received.length)
+      || (row.attachments&&row.attachments.length)
+      || (row.extraDeductions&&row.extraDeductions.length)
+      || (row.surplusCredits&&row.surplusCredits.length);
+}
+function privCountInvoices(){ return payRows.filter(function(r){return r.invoiceNo;}).length; }
+// ── Add / edit private payments ──────────────────────────────────────────────
+function addPrivatePay(){
+  var s=getPrivSettings();
+  if(privCapped() && privAllocatedPct()>=100){ BINNA.toast('Cannot exceed 100% of contract value','error',2600); return; }
+  var d={payment_mode:'private',status:'draft'};
+  if(s.template==='milestone'){
+    var nm=prompt('Milestone name:'); if(nm===null) return;
+    var pc=prompt('Completion % (optional):','')||'';
+    var pcNum=parseFloat(pc)||0;
+    if(pcNum>0 && privAllocatedPct()+pcNum>100){ BINNA.toast('Cannot exceed 100% of contract value','error',2600); return; }
+    d.milestoneName=nm||''; d.milestonePct=pc; d.desc=nm||'';
+  } else if(s.template==='monthly'){
+    d.invoiceNo='INV-'+String(privCountInvoices()+1).padStart(3,'0');
+    d.period='';
+  }
+  addPayRow(d); // renders via the guard
+}
+function addPrivRow(idx){ var row=payRows[idx]; if(!row) return; if(!row.summaryRows) row.summaryRows=[]; row.summaryRows.push({id:'sr'+Date.now(),label:'',amount:''}); renderPrivatePayRows(); }
+function removePrivRow(idx,ri){ var row=payRows[idx]; if(!row||!row.summaryRows) return; row.summaryRows.splice(ri,1); renderPrivatePayRows(); }
+// ── Private renderer ─────────────────────────────────────────────────────────
+function renderPrivatePayRows(){
+  var container=document.getElementById('priv-rows-container');
+  if(!container) return;
+  var s=getPrivSettings();
+  container.innerHTML='';
+  var ct=getContractTotal();
+  var CUR=curSym(); // currency symbol shown throughout private cards (Fix 1)
+  var IN='border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif';
+
+  // Pre-pass: gross work across all payments → retention base when no contract total
+  var grossTotalAll=0; payRows.forEach(function(r){ grossTotalAll+=privGross(r); });
+  var retPct=parseFloat(s.retentionPct)||0;
+  var retRequired = s.retentionEnabled ? (ct>0?ct*retPct/100:grossTotalAll*retPct/100) : 0;
+  var advTotal = s.advanceEnabled ? (parseFloat(s.advanceAmount)||0) : 0;
+  var advRecPct = parseFloat(s.advanceRecoveryPct)||0;
+
+  var prevRecovered=0, retHeldSoFar=0;
+  var totNet=0,totReceived=0,totWork=0;
+
+  payRows.forEach(function(row,idx){
+    row.payment_mode='private';
+    if(row.summaryRows==null) row.summaryRows = s.template==='custom' ? [] : [{id:'sr'+Date.now()+idx,label:'Contract Work Done / أعمال منجزة',amount:''}];
+
+    var gross=privGross(row), subtotal=privSubtotal(row);
+    totWork+=gross;
+
+    // Advance recovery (progressive, capped at remaining advance balance)
+    var recovery=0;
+    if(s.advanceEnabled && advTotal>0){
+      recovery=Math.min(gross*advRecPct/100, Math.max(0,advTotal-prevRecovered));
+      prevRecovered+=recovery;
+    }
+    // Retention held (capped at retention required)
+    var retHeld=0;
+    if(s.retentionEnabled && retPct>0){
+      retHeld=Math.min(gross*retPct/100, Math.max(0,retRequired-retHeldSoFar));
+      retHeldSoFar+=retHeld;
+    }
+    var relR1=row.relRet1?retRequired*0.5:0;
+    var relR2=row.relRet2?retRequired*0.5:0;
+    // ── Extra deductions (net of their inline reversals) — identical to gov ──
+    var netPreExtra=subtotal-recovery-retHeld;
+    var extraTotal=0;
+    (row.extraDeductions||[]).forEach(function(ed){
+      var grossEd=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      var revs=0;
+      (ed.reversals||[]).forEach(function(rv){
+        if(rv.type==='full') revs+=grossEd;
+        else if(rv.type==='pct') revs+=grossEd*(parseFloat(rv.value)||0)/100;
+        else revs+=parseFloat(rv.value)||0;
+      });
+      extraTotal+=Math.max(0,grossEd-revs);
+    });
+    var surplusTotal=0;
+    (row.surplusCredits||[]).forEach(function(sc){ surplusTotal+=parseFloat(sc.amount)||0; });
+    var crossRevTotal=0;
+    (row.deductionReversals||[]).forEach(function(rv){ crossRevTotal+=parseFloat(rv.amount)||0; });
+    var additions=surplusTotal+crossRevTotal;
+    // Tax on net work after deductions (credits/releases excluded)
+    var taxOn = row.privTaxEnabled!=null ? row.privTaxEnabled : s.taxEnabled;
+    var taxRate = (row.privTaxRate!==''&&row.privTaxRate!=null) ? (parseFloat(row.privTaxRate)||0) : (parseFloat(s.taxRate)||0);
+    var taxBase=Math.max(0, netPreExtra-extraTotal);
+    var tax = taxOn ? taxBase*taxRate/100 : 0;
+
+    var net = netPreExtra - extraTotal + additions - tax + relR1 + relR2;
+
+    // ── Extra-deduction editing markup, rendered as rows inside the table ───
+    var extraHTML='';
+    (row.extraDeductions||[]).forEach(function(ed,ei){
+      var edGross=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      var revTotal=0;
+      (ed.reversals||[]).forEach(function(rv){
+        if(rv.type==='full') revTotal+=edGross;
+        else if(rv.type==='pct') revTotal+=edGross*(parseFloat(rv.value)||0)/100;
+        else revTotal+=parseFloat(rv.value)||0;
+      });
+      var edNet=Math.max(0,edGross-revTotal);
+      var revHTML='';
+      (ed.reversals||[]).forEach(function(rv,ri){
+        var rvAmt;
+        if(rv.type==='full') rvAmt=edGross;
+        else if(rv.type==='pct') rvAmt=edGross*(parseFloat(rv.value)||0)/100;
+        else rvAmt=parseFloat(rv.value)||0;
+        revHTML+='<div style="display:flex;align-items:center;gap:7px;margin-top:5px;padding:5px 8px 5px 18px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:5px;font-size:11.5px">'
+          +'<span style="color:var(--success);font-weight:700;font-size:13px">↩</span>'
+          +'<input style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif" placeholder="Reversal reason / reference" value="'+esc(rv.note||'')+'" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].note=this.value"/>'
+          +'<select style="border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif" onchange="edRevTypeChange('+idx+','+ei+','+ri+',this.value)">'
+            +'<option value="full"'+(rv.type==='full'?' selected':'')+'>Reverse Exact (Full)</option>'
+            +'<option value="fixed"'+(rv.type==='fixed'||!rv.type?' selected':'')+'>Reverse Partial ('+CUR+')</option>'
+            +'<option value="pct"'+(rv.type==='pct'?' selected':'')+'>Reverse by % (of deduction)</option>'
+          +'</select>'
+          +(rv.type!=='full'?'<input type="number" min="0" style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(rv.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].value=this.value" onchange="renderPrivatePayRows()"/>':
+            '<span style="width:80px;font-size:11.5px;color:var(--success);font-family:monospace;text-align:right">= full</span>')
+          +'<span style="font-size:11.5px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(rvAmt)+' '+CUR+'</span>'
+          +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px;padding:1px 4px" onclick="payRows['+idx+'].extraDeductions['+ei+'].reversals.splice('+ri+',1);renderPrivatePayRows()" title="Remove reversal">✕</button>'
+        +'</div>';
+      });
+      extraHTML+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px">'
+        +'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff8f8;border:1px solid #fecdca;border-radius:6px">'
+          +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Deduction name" value="'+esc(ed.label||'')+'" oninput="payRows['+idx+'].extraDeductions['+ei+'].label=this.value"/>'
+          +'<select style="border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" onchange="payRows['+idx+'].extraDeductions['+ei+'].type=this.value;renderPrivatePayRows()">'
+            +'<option value="pct"'+(ed.type==='pct'?' selected':'')+'>% of net</option>'
+            +'<option value="fixed"'+(ed.type==='fixed'?' selected':'')+'>Fixed '+CUR+'</option>'
+          +'</select>'
+          +'<input type="number" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(ed.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].value=this.value" onchange="renderPrivatePayRows()"/>'
+          +'<span style="font-size:12px;color:var(--danger);font-family:monospace;min-width:90px;text-align:right">−'+fmt(edGross)+' '+CUR+'</span>'
+          +(revTotal>0?'<span style="font-size:11px;color:var(--success);font-family:monospace;white-space:nowrap">Net: −'+fmt(edNet)+' '+CUR+'</span>':'')
+          +'<button type="button" title="Add reversal / credit" onclick="addEdReversal('+idx+','+ei+')" style="border:1px solid #a6f4c5;background:#f0fbf4;color:var(--success);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 7px;white-space:nowrap;font-family:Inter,sans-serif">↩ Reverse</button>'
+          +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="payRows['+idx+'].extraDeductions.splice('+ei+',1);renderPrivatePayRows()" title="Remove deduction">✕</button>'
+        +'</div>'
+        +revHTML
+      +'</td></tr>';
+    });
+    var crossRevHTML='';
+    (row.deductionReversals||[]).forEach(function(rv,ri){
+      var amt=parseFloat(rv.amount)||0;
+      crossRevHTML+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+        +'<span style="color:var(--success);font-weight:700;font-size:13px;flex-shrink:0">↩</span>'
+        +'<span style="flex:1;font-size:12px;color:var(--text2)">'+esc(rv.note||'Reversal')+'</span>'
+        +'<span style="font-size:12px;color:var(--success);font-family:monospace;font-weight:700;white-space:nowrap">+'+fmt(amt)+' '+CUR+'</span>'
+        +'<button type="button" title="Remove reversal" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px" onclick="payRows['+idx+'].deductionReversals.splice('+ri+',1);renderPrivatePayRows()">✕</button>'
+      +'</div></td></tr>';
+    });
+    var surplusRows='';
+    (row.surplusCredits||[]).forEach(function(sc,si){
+      var amt=parseFloat(sc.amount)||0;
+      surplusRows+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+        +'<span style="color:var(--success);font-weight:700;font-size:14px;flex-shrink:0">+</span>'
+        +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Surplus credit description" value="'+esc(sc.note||'')+'" oninput="payRows['+idx+'].surplusCredits['+si+'].note=this.value"/>'
+        +'<input type="number" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success);font-weight:600" value="'+esc(sc.amount||'')+'" placeholder="Amount '+CUR+'" oninput="payRows['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPrivatePayRows()"/>'
+        +'<span style="font-size:12px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(amt)+' '+CUR+'</span>'
+        +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="payRows['+idx+'].surplusCredits.splice('+si+',1);renderPrivatePayRows()" title="Remove credit">✕</button>'
+      +'</div></td></tr>';
+    });
+    var receivedTotal=0; (row.received||[]).forEach(function(r){receivedTotal+=parseFloat(r.amount)||0;});
+    row._netDue=net; row._received=receivedTotal;
+    totNet+=net; totReceived+=receivedTotal;
+
+    // Header label by template
+    var hdr;
+    if(s.template==='milestone') hdr='🏁 '+esc(row.milestoneName||row.desc||'Milestone')+(row.milestonePct?' — '+esc(row.milestonePct)+'%':'');
+    else if(s.template==='monthly') hdr='🧾 '+esc(row.invoiceNo||'Invoice')+(row.period?' — '+esc(row.period):'');
+    else if(s.template==='lumpsum') hdr='📦 '+esc(row.scheduleLabel||row.desc||('Payment '+(idx+1)))+(row.schedulePct?' ('+esc(row.schedulePct)+'%)':'');
+    else hdr='Payment '+(idx+1);
+
+    // Template-specific third meta cell
+    var thirdCell;
+    if(s.template==='monthly'){
+      thirdCell='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Invoice / Period</div>'
+        +'<input placeholder="INV-001" value="'+esc(row.invoiceNo||'')+'" style="width:100%;'+IN+';margin-bottom:4px" oninput="payRows['+idx+'].invoiceNo=this.value" onchange="renderPrivatePayRows()"/>'
+        +'<input placeholder="June 2026" value="'+esc(row.period||'')+'" style="width:100%;'+IN+'" oninput="payRows['+idx+'].period=this.value" onchange="renderPrivatePayRows()"/>';
+    } else if(s.template==='milestone'){
+      thirdCell='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Completion %</div>'
+        +'<input type="number" min="0" max="100" placeholder="0" value="'+esc(row.milestonePct||'')+'" style="width:100%;'+IN+';font-family:monospace" oninput="payRows['+idx+'].milestonePct=this.value" onchange="renderPrivatePayRows()"/>';
+    } else {
+      thirdCell='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Reference</div>'
+        +'<input placeholder="Optional ref / note" value="'+esc(row.scheduleLabel||'')+'" style="width:100%;'+IN+'" oninput="payRows['+idx+'].scheduleLabel=this.value"/>';
+    }
+
+    // Payment Summary rows
+    var srows='';
+    (row.summaryRows||[]).forEach(function(sr,ri){
+      srows+='<tr class="pst-custom"><td class="pst-lbl"><input value="'+esc(sr.label||'')+'" placeholder="Row label…" style="border:none;background:transparent;width:72%;font-size:13px;font-family:Inter,sans-serif;color:var(--text2)" oninput="payRows['+idx+'].summaryRows['+ri+'].label=this.value;scheduleAutoSave()"/><button class="pst-x" onclick="removePrivRow('+idx+','+ri+')">×</button></td>'
+        +'<td class="pst-amt"><input type="number" value="'+esc(sr.amount||'')+'" placeholder="0" title="Positive = addition, negative = deduction" style="width:120px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payRows['+idx+'].summaryRows['+ri+'].amount=this.value" onchange="renderPrivatePayRows()"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">'+CUR+'</span></td></tr>';
+    });
+    // Auto rows
+    if(recovery>0) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">استرداد السلفة — Advance Payment Recovery <span style="font-size:10.5px;color:var(--muted2)">('+advRecPct+'%)</span></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(recovery)+' '+CUR+'</td></tr>';
+    if(retHeld>0) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">ضمان — Retention <span style="font-size:10.5px;color:var(--muted2)">('+retPct+'%)</span></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(retHeld)+' '+CUR+'</td></tr>';
+    // ── Extra deductions, cross-payment reversals & surplus credits (editable, in-table) ──
+    srows+=extraHTML+crossRevHTML+surplusRows;
+    if(relR1>0) srows+='<tr><td class="pst-lbl" style="color:var(--success)">Retention Release — Initial (50%)</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relR1)+' '+CUR+'</td></tr>';
+    if(relR2>0) srows+='<tr><td class="pst-lbl" style="color:var(--success)">Retention Release — Final (50%)</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relR2)+' '+CUR+'</td></tr>';
+    if(taxOn) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">Tax <input type="number" min="0" value="'+esc(row.privTaxRate!==''&&row.privTaxRate!=null?row.privTaxRate:(s.taxRate||''))+'" placeholder="'+(parseFloat(s.taxRate)||0)+'" style="width:48px;border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:12px;text-align:right;font-family:monospace" oninput="payRows['+idx+'].privTaxRate=this.value" onchange="renderPrivatePayRows()"/>% <button class="pst-x" title="Remove tax" onclick="payRows['+idx+'].privTaxEnabled=false;renderPrivatePayRows()">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(tax)+' '+CUR+'</td></tr>';
+    // Footer controls (above NET): add deduction / add surplus / reverse previous
+    srows+='<tr class="pst-foot"><td colspan="2" style="padding:8px 12px;background:var(--surface)">'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+        +'<button type="button" class="btn btn-sm" onclick="payRows['+idx+'].extraDeductions.push({label:\'\',type:\'pct\',value:\'\',reversals:[]});renderPrivatePayRows()" style="font-size:11px;padding:3px 10px">+ Add Deduction</button>'
+        +'<button type="button" class="btn btn-sm" onclick="if(!payRows['+idx+'].surplusCredits)payRows['+idx+'].surplusCredits=[];payRows['+idx+'].surplusCredits.push({note:\'\',amount:\'\'});renderPrivatePayRows()" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5">+ Add Surplus</button>'
+        +(idx>0?'<button type="button" class="btn btn-sm" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5" onclick="openRevModal('+idx+')">↩ Reverse Previous Deduction</button>':'')
+      +'</div>'
+    +'</td></tr>';
+    srows+='<tr class="pst-net"><td class="pst-lbl">NET TO CONTRACTOR / صافي الاستحقاق</td><td class="pst-amt">'+fmt(net)+' '+CUR+'</td></tr>';
+
+    var card=document.createElement('div');
+    card.style.cssText='background:var(--white);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden';
+    card.innerHTML=
+      // Header
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border2)">'
+        +'<span style="font-size:13px;font-weight:700;color:#c11574">'+hdr+'</span>'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<select style="font-size:11.5px;border:1px solid var(--border);border-radius:5px;padding:3px 7px;font-family:Inter,sans-serif" onchange="payRows['+idx+'].status=this.value;scheduleAutoSave()">'
+            +['draft|Draft','invoiced|Invoiced','approved|Approved','disputed|Disputed','paid|Paid ✓'].map(function(o){var p=o.split('|');return '<option value="'+p[0]+'"'+(row.status===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')
+          +'</select>'
+          +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px;padding:2px 6px" onclick="if(confirm(\'Delete this payment — are you sure?\')){payRows.splice('+idx+',1);renderPrivatePayRows();}">✕</button>'
+        +'</div>'
+      +'</div>'
+      // Meta row
+      +'<div style="display:grid;grid-template-columns:2fr 1fr 1.4fr;border-bottom:1px solid var(--border2)">'
+        +'<div style="padding:8px 12px;border-right:1px solid var(--border2)">'
+          +'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Description / Name</div>'
+          +'<input style="width:100%;border:none;outline:none;font-size:13px;font-family:Inter,sans-serif" placeholder="Payment description" value="'+esc(row.desc||'')+'" oninput="payRows['+idx+'].desc=this.value;scheduleAutoSave()"/>'
+        +'</div>'
+        +'<div style="padding:8px 12px;border-right:1px solid var(--border2)">'
+          +'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Date</div>'
+          +'<input type="text" maxlength="10" placeholder="DD/MM/YYYY" style="width:100%;border:none;outline:none;font-size:13px;font-family:Inter,sans-serif" value="'+esc(isoToDisp(row.date||todayISO()))+'" oninput="autoFmtDate(this)" onchange="var iso=dispToISO(this.value);if(iso)payRows['+idx+'].date=iso;scheduleAutoSave()"/>'
+        +'</div>'
+        +'<div style="padding:8px 12px">'+thirdCell+'</div>'
+      +'</div>'
+      // Payment Summary
+      +'<div style="padding:12px 14px;border-bottom:1px solid var(--border2)">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+          +'<span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Payment Summary</span>'
+          +'<div style="display:flex;gap:6px">'
+            +(!taxOn?'<button type="button" onclick="payRows['+idx+'].privTaxEnabled=true;renderPrivatePayRows()" style="font-size:11px;color:var(--danger);background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px 8px;font-family:Inter,sans-serif">+ Tax</button>':'')
+            +'<button type="button" onclick="addPrivRow('+idx+')" style="font-size:11px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px 8px;font-family:Inter,sans-serif">+ Add Row</button>'
+          +'</div>'
+        +'</div>'
+        +'<table class="pst"><tbody>'
+          +'<tr class="pst-hdr"><td colspan="2">'+hdr+'&nbsp;&nbsp;&nbsp;&nbsp;Date: '+esc(isoToDisp(row.date||todayISO()))+'</td></tr>'
+          +srows
+        +'</tbody></table>'
+      +'</div>'
+      // Extra Deductions & Surplus Credits now live INSIDE the Payment Summary
+      // table above (with the + Add buttons in the footer control row).
+      // Retention release checkboxes (only when retention is enabled)
+      +(s.retentionEnabled?'<div style="padding:8px 14px;border-bottom:1px solid var(--border2);display:flex;gap:20px;align-items:center;flex-wrap:wrap;font-size:12px;background:var(--surface)">'
+        +'<span style="font-size:11px;font-weight:600;color:var(--muted)">Retention Release:</span>'
+        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" '+(row.relRet1?'checked':'')+' onchange="payRows['+idx+'].relRet1=this.checked;renderPrivatePayRows()" style="accent-color:var(--success)"/> Initial 50% (+'+fmt(retRequired*0.5)+' '+CUR+')</label>'
+        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" '+(row.relRet2?'checked':'')+' onchange="payRows['+idx+'].relRet2=this.checked;renderPrivatePayRows()" style="accent-color:var(--success)"/> Final 50% (+'+fmt(retRequired*0.5)+' '+CUR+')</label>'
+      +'</div>':'')
+      // Amount Received
+      +'<div style="padding:10px 14px;border-bottom:1px solid var(--border2)">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+          +'<span style="font-size:11px;font-weight:600;color:var(--muted)">المبالغ المستلمة — Amount Received</span>'
+          +'<button type="button" class="btn btn-sm" onclick="addInstallment('+idx+')" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5">+ Add Installment</button>'
+        +'</div>'
+        +((row.received&&row.received.length)
+          ?row.received.map(function(rc,ri){
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+              +'<input type="text" maxlength="10" placeholder="DD/MM/YYYY" style="width:108px;'+IN+'" value="'+esc(isoToDisp(rc.date||todayISO()))+'" oninput="autoFmtDate(this)" onchange="var iso=dispToISO(this.value);if(iso)payRows['+idx+'].received['+ri+'].date=iso;renderPrivatePayRows()"/>'
+              +'<input type="number" min="0" style="width:130px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:monospace;color:var(--success);font-weight:600" placeholder="Amount '+CUR+'" value="'+esc(rc.amount||'')+'" oninput="payRows['+idx+'].received['+ri+'].amount=this.value" onchange="renderPrivatePayRows()"/>'
+              +'<span title="% of Net Due" style="font-size:11px;color:var(--muted2);min-width:52px;text-align:right;font-family:monospace">'+(net>0?(Math.round((parseFloat(rc.amount)||0)/net*1000)/10)+'%':'—')+'</span>'
+              +'<input style="flex:1;min-width:80px;'+IN+'" placeholder="Note (optional)" value="'+esc(rc.note||'')+'" oninput="payRows['+idx+'].received['+ri+'].note=this.value"/>'
+              +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="removeInstallment('+idx+','+ri+')" title="Remove installment">✕</button>'
+            +'</div>';
+          }).join('')
+          :'<div style="font-size:11.5px;color:var(--muted2);font-style:italic;padding:2px 0 6px">No payments received yet — click <b style="color:var(--success)">+ Add Installment</b>.</div>')
+      +'</div>'
+      // Total Received summary
+      +(function(){
+        var due=net, rem=due-receivedTotal, fully=(receivedTotal>=due-0.5&&due>0);
+        var rcvPct=due>0?Math.round(receivedTotal/due*1000)/10:0, remPct=due>0?Math.round(Math.max(0,rem)/due*1000)/10:0;
+        return '<div style="padding:9px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:12px;background:#fafffb">'
+          +'<span style="color:var(--muted2)">Total Received: <b style="font-family:monospace;color:var(--success)">'+fmt(receivedTotal)+' '+CUR+'</b> <span style="color:var(--success);font-weight:600">('+rcvPct+'%)</span></span>'
+          +(fully
+            ?'<span style="color:var(--muted2)">Net Due: <b style="font-family:monospace;color:var(--text2)">'+fmt(due)+' '+CUR+'</b></span><span style="color:var(--success);font-weight:700;background:#ecfdf3;border:1px solid #a6f4c5;border-radius:5px;padding:2px 10px">Fully Paid ✓</span>'+(receivedTotal>due+0.5?'<span style="color:var(--danger);font-weight:600">Overpaid: '+fmt(receivedTotal-due)+' '+CUR+'</span>':'')
+            :'<span style="color:var(--danger);font-weight:700">Remaining: '+fmt(Math.max(0,rem))+' '+CUR+' <span style="font-weight:600">('+remPct+'%)</span></span>')
+        +'</div>';
+      })()
+      // Attachments
+      +'<div style="padding:10px 14px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+          +'<span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">📎 Attachments</span>'
+          +'<label style="font-size:11.5px;color:var(--accent);cursor:pointer;border:1px solid var(--accent);border-radius:5px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px">+ Attach File<input type="file" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="display:none" onchange="payAttachFiles('+idx+',this)"/></label>'
+        +'</div>'
+        +((row.attachments&&row.attachments.length)
+          ?row.attachments.map(function(att,ai){
+            var icon=att.type&&att.type.startsWith('image/')?' 🖼':att.type==='application/pdf'?' 📄':' 📝';
+            var canView=att.type&&(att.type.startsWith('image/')||att.type==='application/pdf');
+            return '<div class="att-item"><span>'+icon+'</span><span style="flex:1;color:var(--text2)">'+esc(att.name)+'</span>'
+              +'<span style="font-size:10.5px;color:var(--muted2)">'+Math.round((att.size||0)/1024)+'KB</span>'
+              +(canView?'<a href="'+att.dataUrl+'" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:2px 7px">👁 View</a>':'')
+              +'<a href="'+att.dataUrl+'" download="'+esc(att.name)+'" style="font-size:11px;color:var(--text2);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:2px 7px">⬇ Download</a>'
+              +'<button type="button" onclick="payRemoveAttach('+idx+','+ai+')" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px;padding:1px 4px">✕</button></div>';
+          }).join('')
+          :'<div style="font-size:11.5px;color:var(--muted2);font-style:italic;padding:2px 0">No attachments yet — PDF, Word, or image files supported</div>')
+      +'</div>';
+
+    container.appendChild(card);
+  });
+
+  // Summary strip + dashboard cashflow (recomputed fresh from the saved JSON)
+  set('priv-s-count',payRows.length);
+  set('priv-s-work',fmt(totWork)+' '+CUR);
+  set('priv-s-net',fmt(totNet)+' '+CUR);
+  set('priv-s-received',fmt(totReceived)+' '+CUR);
+  data.cashflowSummary={totalCertified:totNet,totalReceived:totReceived,payments:payRows.length};
+
+  // ── % allocation cap for Milestone & Lump Sum templates (Fix 2) ───────────
+  var capped=(s.template==='milestone'||s.template==='lumpsum');
+  var allocated=capped?payRows.reduce(function(a,r){return a+(parseFloat(s.template==='milestone'?r.milestonePct:r.schedulePct)||0);},0):0;
+  var allocBar=document.getElementById('priv-alloc-bar');
+  if(allocBar){
+    if(capped){
+      var over=allocated>100, atCap=allocated>=100;
+      var col=over?'var(--danger)':(atCap?'var(--success)':'var(--accent)');
+      allocBar.style.display='';
+      allocBar.innerHTML='<div style="background:var(--white);border:1px solid '+(over?'var(--danger)':'var(--border)')+';border-radius:var(--radius);padding:9px 16px;margin-bottom:12px;font-size:12px;display:flex;align-items:center;gap:8px">Total Allocated: <b style="color:'+col+';font-family:monospace">'+(Math.round(allocated*10)/10)+'%</b> <span style="color:var(--muted2)">/ 100%</span>'+(over?'<span style="color:var(--danger);font-weight:600;margin-left:auto">⚠ Exceeds 100% of contract value</span>':(atCap?'<span style="color:var(--success);font-weight:600;margin-left:auto">✓ Fully allocated</span>':''))+'</div>';
+    } else { allocBar.style.display='none'; allocBar.innerHTML=''; }
+  }
+  var addDisabled=capped&&allocated>=100;
+  ['priv-add-top','priv-add-bottom'].forEach(function(id){var b=document.getElementById(id);if(b){b.disabled=addDisabled;b.style.opacity=addDisabled?'0.5':'';b.style.cursor=addDisabled?'not-allowed':'';b.title=addDisabled?'100% of contract value already allocated':'';}});
+
+  updateFinancialDashboard();
+  renderContractType(); // refresh lock state (payments may now carry data)
+  scheduleAutoSave();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BOQ ITEMS MODAL (government cards) — the full work-items table is rendered into a
+// large overlay; the card only shows a collapsed summary line. The table HTML is
+// built fresh on every renderPayRows() and stashed here so the modal can show it.
+// ══════════════════════════════════════════════════════════════════════════════
+var _boqTableHTML={}, _boqTotalStr={}, _boqCountNum={};
+var _boqModalIdx=null, _boqModalSnap=null;
+
+function _boqSnap(row){ return row?JSON.stringify({b:row.boqItems||[],m:row.manualItems||[]}):null; }
+function openBoqModal(idx){
+  if(!payRows[idx]) return;
+  _boqModalIdx=idx;
+  _boqModalSnap=_boqSnap(payRows[idx]); // for discard-on-cancel change detection
+  renderBoqModalBody();
+  var m=document.getElementById('boq-items-modal'); if(m) m.classList.add('open');
+  document.addEventListener('keydown',_boqModalEsc);
+}
+function renderBoqModalBody(){
+  if(_boqModalIdx==null) return;
+  var body=document.getElementById('boq-modal-body');
+  var title=document.getElementById('boq-modal-title');
+  if(body) body.innerHTML=_boqTableHTML[_boqModalIdx]||'<div style="padding:20px;color:var(--muted2)">No BOQ items.</div>';
+  if(title) title.textContent='Payment No. '+(_boqModalIdx+1)+' — BOQ Work Items  |  Total: '+(_boqTotalStr[_boqModalIdx]||('0 '+curSym()));
+}
+function _boqModalEsc(e){
+  if(e.key!=='Escape') return;
+  // If a nested modal (work-item picker or reversal) is open on top, let it own Escape.
+  var wim=document.getElementById('work-item-modal'), rm=document.getElementById('rev-modal');
+  if((wim&&wim.classList.contains('open'))||(rm&&rm.classList.contains('open'))) return;
+  closeBoqModalCancel();
+}
+function _boqModalClose(){
+  var m=document.getElementById('boq-items-modal'); if(m) m.classList.remove('open');
+  _boqModalIdx=null; _boqModalSnap=null;
+  document.removeEventListener('keydown',_boqModalEsc);
+}
+function closeBoqModalDone(){ _boqModalClose(); renderPayRows(); } // keep edits, refresh summary
+function closeBoqModalCancel(){
+  var row=payRows[_boqModalIdx];
+  if(row && _boqModalSnap!=null && _boqSnap(row)!==_boqModalSnap){
+    if(!confirm('Discard changes to BOQ work items?')) return; // X / Esc only confirms when dirty
+    var snap=JSON.parse(_boqModalSnap);
+    row.boqItems=snap.b; row.manualItems=snap.m;
+  }
+  _boqModalClose();
+  renderPayRows();
 }
 
 function setPayBoqQty(payIdx,boqId,qty){
@@ -2665,11 +3416,11 @@ function updateSummaries(){
   set('vo-updated',fmt(contractTotal)+' IQD');
 
   // Payment tab reference bar update
-  var ct2=contractTotal;
-  set('pay-contract-ref',fmt(ct2)+' IQD');
-  set('pay-threshold-ref',fmt(ct2*0.5)+' IQD');
-  set('pay-ins-required',fmt(ct2*0.05)+' IQD');
-  set('pay-f-contract',fmt(ct2)+' IQD');
+  var ct2=contractTotal, _cur=curSym();
+  set('pay-contract-ref',fmt(ct2)+' '+_cur);
+  set('pay-threshold-ref',fmt(ct2*0.5)+' '+_cur);
+  set('pay-ins-required',fmt(ct2*0.05)+' '+_cur);
+  set('pay-f-contract',fmt(ct2)+' '+_cur);
   var _prc=document.getElementById('pay-rows-container');
   if(_prc&&_prc.children.length>=0) renderPayRows();
 
@@ -3379,6 +4130,27 @@ function toggleSidebar() {
 </div>
 
 <!-- ADD WORK ITEMS MODAL -->
+<!-- BOQ Work Items modal (government cards) — 90vw × 85vh, fixed header/footer -->
+<div class="overlay" id="boq-items-modal">
+  <div class="modal" style="width:90vw;height:85vh;max-height:85vh">
+    <div class="mhead" style="flex-shrink:0">
+      <div>
+        <div class="mtitle" id="boq-modal-title">BOQ Work Items</div>
+        <div class="msubtitle">Quantities, rates and completed amounts for this payment</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" class="btn btn-sm btn-primary" onclick="closeBoqModalDone()" style="font-size:12px">✓ Done</button>
+        <button class="closex" type="button" title="Close without saving" onclick="closeBoqModalCancel()">✕</button>
+      </div>
+    </div>
+    <div id="boq-modal-body" style="flex:1;min-height:0;overflow:auto;padding:14px 4px"></div>
+    <div style="flex-shrink:0;border-top:1px solid var(--border2);padding:10px 16px;display:flex;justify-content:flex-end;gap:8px;background:var(--surface)">
+      <button type="button" class="btn btn-sm" onclick="closeBoqModalCancel()" style="font-size:12px">Cancel</button>
+      <button type="button" class="btn btn-sm btn-primary" onclick="closeBoqModalDone()" style="font-size:12px">✓ Done</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="work-item-modal" style="align-items:flex-start;padding-top:30px">
   <div class="modal" style="width:960px;max-height:88vh;display:flex;flex-direction:column">
     <div class="mhead" style="flex-shrink:0">
@@ -3504,6 +4276,38 @@ function addPayCustomRow(idx){
 function deletePayCustomRow(idx, ci){
   var row=payRows[idx]; if(!row||!row.customSummaryRows) return;
   row.customSummaryRows.splice(ci,1);
+  renderPayRows();
+}
+
+// ── EDITABLE SUMMARY ROW LABELS ───────────────────────────────────────────────
+// Renders a label cell that shows `def` as a gray placeholder (UI only) until the
+// user types a custom label (black). Print uses the custom label if filled, else
+// the default — always in black (see .pst-lbl-print / @media print).
+function pstLbl(idx, key, def){
+  var custom=((payRows[idx]||{}).sumLabels||{})[key]||'';
+  return '<input class="pst-lbl-in" value="'+esc(custom)+'" placeholder="'+esc(def)+'" '
+      +'oninput="setSumLabel('+idx+',\''+key+'\',this)"/>'
+    +'<span class="pst-lbl-print" data-def="'+esc(def)+'">'+esc(custom||def)+'</span>';
+}
+function setSumLabel(idx, key, el){
+  var row=payRows[idx]; if(!row) return;
+  if(!row.sumLabels) row.sumLabels={};
+  row.sumLabels[key]=el.value;
+  var span=el.nextElementSibling;
+  if(span&&span.classList.contains('pst-lbl-print')) span.textContent=el.value||span.getAttribute('data-def')||'';
+  scheduleAutoSave(); // no re-render — keep input focus while typing
+}
+
+// ── AMOUNT RECEIVED (استلام الدفعة) ───────────────────────────────────────────
+function addInstallment(idx){
+  var row=payRows[idx]; if(!row) return;
+  if(!row.received) row.received=[];
+  row.received.push({date:todayISO(),amount:'',note:''});
+  renderPayRows();
+}
+function removeInstallment(idx, ri){
+  var row=payRows[idx]; if(!row||!row.received) return;
+  row.received.splice(ri,1);
   renderPayRows();
 }
 

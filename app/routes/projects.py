@@ -196,6 +196,8 @@ def project_stats(project_id):
     #   cashflow  → income + expenses transaction count     → Financial card
     stats['financial'] = 0
     stats['cashflow']  = 0
+    stats['certified'] = 0
+    stats['received']  = 0
     fin = FinancialData.query.filter_by(project_id=project_id).first()
     if fin and fin.data:
         try:
@@ -203,9 +205,31 @@ def project_stats(project_id):
             payments = fdata.get('payments') or []
             stats['financial'] = len(payments) if payments else len(fdata.get('boq') or [])
             stats['cashflow']  = len(fdata.get('income') or []) + len(fdata.get('expenses') or [])
+
+            # Contract cashflow — recompute fresh from the saved payment JSON on
+            # every request (never trust a cached summary that may be stale):
+            #   certified = Σ each payment's net due (_netDue)
+            #   received  = Σ all installment amounts under payments[].received[]
+            def _num(x):
+                try:
+                    return float(x)
+                except (ValueError, TypeError):
+                    return 0.0
+            certified = sum(_num(p.get('_netDue')) for p in payments)
+            received  = sum(_num(r.get('amount'))
+                            for p in payments for r in (p.get('received') or []))
+            # Fall back to the stored summary for data saved before per-row fields existed
+            if certified == 0 and received == 0:
+                cf = fdata.get('cashflowSummary') or {}
+                certified = _num(cf.get('totalCertified'))
+                received  = _num(cf.get('totalReceived'))
+            stats['certified'] = round(certified)
+            stats['received']  = round(received)
         except (ValueError, TypeError):
             stats['financial'] = 0
             stats['cashflow']  = 0
+            stats['certified'] = 0
+            stats['received']  = 0
 
     # Gantt: total task count
     stats['gantt'] = 0
