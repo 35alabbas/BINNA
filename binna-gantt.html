@@ -1963,23 +1963,37 @@ function openEditSelected() {
   openEdit(selIds.values().next().value);
 }
 
-function indentTask() {
+// Shift the selected row AND its whole subtree by `delta` levels. Hierarchy is
+// stored in `level` (what collapse + container recalc read); the legacy
+// `textIndent` is cosmetic-only, so we fold it into `level` here (effLevel) to
+// keep a single source of truth — the displayed indent (level+textIndent) is
+// preserved except for the intended one-step shift.
+function _shiftSubtree(delta) {
   if (!selId) { BINNA.toast('Select a task first', 'info', 2000); return; }
-  var t = tasks.find(function(x){ return x.id === selId; });
-  if (!t) return;
+  var gi = tasks.findIndex(function(x){ return x.id === selId; });
+  if (gi < 0) return;
+  var selEff = _effLevel(tasks[gi]);
+
+  if (delta > 0) {
+    // Can only indent under a preceding row that is at least as deep (a parent/peer).
+    var prevEff = gi > 0 ? _effLevel(tasks[gi - 1]) : -1;
+    if (gi === 0 || prevEff < selEff) { BINNA.toast('Nothing to indent under', 'info', 1500); return; }
+  } else if (selEff <= 0) {
+    BINNA.toast('Already at top level', 'info', 1500); return;
+  }
+
   _pushUndo();
-  t.textIndent = (t.textIndent || 0) + 1;
-  save(); render();
+  // Block = selected row + every following row drawn deeper than it (its subtree).
+  for (var i = gi; i < tasks.length; i++) {
+    if (i > gi && _effLevel(tasks[i]) <= selEff) break;   // peer/ancestor — stop
+    tasks[i].level = Math.max(0, _effLevel(tasks[i]) + delta);
+    tasks[i].textIndent = 0;                              // fold cosmetic indent into level
+  }
+  save(); render();   // save() persists to DB via BINNA.saveGantt
 }
 
-function outdentTask() {
-  if (!selId) { BINNA.toast('Select a task first', 'info', 2000); return; }
-  var t = tasks.find(function(x){ return x.id === selId; });
-  if (!t || (t.textIndent || 0) <= 0) { BINNA.toast('Already at minimum indent', 'info', 1500); return; }
-  _pushUndo();
-  t.textIndent = (t.textIndent || 0) - 1;
-  save(); render();
-}
+function indentTask()  { _shiftSubtree(1); }
+function outdentTask() { _shiftSubtree(-1); }
 
 function moveTask(dir) {
   if (!selId) { alert('Select a task first.'); return; }
