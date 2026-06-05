@@ -379,9 +379,22 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
     <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px" id="dgd-title"></div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5" id="dgd-msg"></div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button id="dgd-only"  class="btn" style="justify-content:center;padding:10px;font-size:13px;text-align:center;white-space:normal;height:auto;line-height:1.4"></button>
+      <button id="dgd-only"  class="btn btn-primary" style="justify-content:center;padding:10px;font-size:13px;text-align:center;white-space:normal;height:auto;line-height:1.4"></button>
       <button id="dgd-all"   class="btn btn-red" style="justify-content:center;padding:10px;font-size:13px;text-align:center;white-space:normal;height:auto;line-height:1.4"></button>
       <button class="btn" onclick="document.getElementById('dgd').style.display='none'" style="justify-content:center;padding:9px;color:var(--muted)">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic confirm dialog -->
+<div id="cfm" onclick="if(event.target===this)document.getElementById('cfm').style.display='none'"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;align-items:center;justify-content:center">
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:26px 26px 20px;max-width:400px;width:calc(100% - 32px);box-shadow:0 20px 48px rgba(0,0,0,.18)">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px" id="cfm-title"></div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5;white-space:pre-line" id="cfm-msg"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="document.getElementById('cfm').style.display='none'" style="padding:9px 16px;color:var(--muted)">Cancel</button>
+      <button id="cfm-ok" class="btn btn-red" style="padding:9px 16px">Delete</button>
     </div>
   </div>
 </div>
@@ -1692,15 +1705,18 @@ function deleteFromModal() {
     closeModal();
     _showDelGroupDlg(t.id);
   } else {
-    if (!confirm('Delete "' + t.name + '"?')) return;
-    _pushUndo();
-    var ct = 1 + count;
-    var removedIds = new Set(tasks.slice(idx, idx + ct).map(function(x){ return x.id; }));
-    tasks.splice(idx, ct);
-    tasks.forEach(function(x){ x.preds = (x.preds||[]).filter(function(p){ return !removedIds.has(p.id); }); });
-    selIds.delete(editId); if (selId === editId) selId = null;
-    closeModal();
-    save(); render();
+    var delId = editId, delCt = 1 + count, delName = t.name;
+    _confirmDlg('Delete Task', 'Delete "' + delName + '"?', 'Delete', function() {
+      var i2 = tasks.findIndex(function(x){ return x.id === delId; });
+      if (i2 < 0) return;
+      _pushUndo();
+      var removedIds = new Set(tasks.slice(i2, i2 + delCt).map(function(x){ return x.id; }));
+      tasks.splice(i2, delCt);
+      tasks.forEach(function(x){ x.preds = (x.preds||[]).filter(function(p){ return !removedIds.has(p.id); }); });
+      selIds.delete(delId); if (selId === delId) selId = null;
+      if (editId === delId) closeModal();
+      save(); render();
+    });
   }
 }
 
@@ -1708,6 +1724,12 @@ function deleteSelected() { deleteAllSelected(); } // kept for backward compat
 
 function deleteAllSelected() {
   if (!selIds.size) return;
+  // Single selected row that contains children → offer the 3-way delete-options modal
+  if (selIds.size === 1) {
+    var onlyId = selId || Array.from(selIds)[0];
+    var oi = tasks.findIndex(function(x){ return x.id === onlyId; });
+    if (oi >= 0 && _countDescendants(oi) > 0) { _showDelGroupDlg(onlyId); return; }
+  }
   // Build full delete set (selected items + all their descendants)
   var toDelete = new Set();
   selIds.forEach(function(id) {
@@ -1726,20 +1748,23 @@ function deleteAllSelected() {
     var t = tasks.find(function(x){ return x.id === id; });
     if (t) names.push('"' + t.name + '"');
   });
-  var msg;
+  var msg, title;
   if (selIds.size === 1) {
+    title = 'Delete Task';
     msg = 'Delete ' + names[0] + '?';
     if (extra > 0) msg += '\n\nThis will also delete ' + extra + ' task' + (extra !== 1 ? 's' : '') + ' contained inside.';
   } else {
+    title = 'Delete Items';
     msg = 'Delete ' + selIds.size + ' selected items?\n\n' + names.slice(0, 5).join('\n') + (names.length > 5 ? '\n…' : '');
     if (extra > 0) msg += '\n\nPlus ' + extra + ' additional contained task' + (extra !== 1 ? 's' : '') + '.';
   }
-  if (!confirm(msg)) return;
-  _pushUndo();
-  tasks = tasks.filter(function(t){ return !toDelete.has(t.id); });
-  tasks.forEach(function(t){ t.preds = (t.preds||[]).filter(function(p){ return !toDelete.has(p.id); }); });
-  selIds.clear(); selId = null; _multiMode = false;
-  save(); render();
+  _confirmDlg(title, msg, 'Delete', function() {
+    _pushUndo();
+    tasks = tasks.filter(function(t){ return !toDelete.has(t.id); });
+    tasks.forEach(function(t){ t.preds = (t.preds||[]).filter(function(p){ return !toDelete.has(p.id); }); });
+    selIds.clear(); selId = null; _multiMode = false;
+    save(); render();
+  });
 }
 
 function removeTask(id) {
@@ -1750,12 +1775,16 @@ function removeTask(id) {
   if (count > 0) {
     _showDelGroupDlg(id);
   } else {
-    if (!confirm('Delete "' + t.name + '"?')) return;
-    _pushUndo();
-    tasks.splice(idx, 1 + count);
-    tasks.forEach(function(x){ x.preds = (x.preds||[]).filter(function(p){ return p.id !== id; }); });
-    selIds.delete(id); if (selId === id) selId = null;
-    save(); render();
+    var delCt = 1 + count, delName = t.name;
+    _confirmDlg('Delete Task', 'Delete "' + delName + '"?', 'Delete', function() {
+      var i2 = tasks.findIndex(function(x){ return x.id === id; });
+      if (i2 < 0) return;
+      _pushUndo();
+      tasks.splice(i2, delCt);
+      tasks.forEach(function(x){ x.preds = (x.preds||[]).filter(function(p){ return p.id !== id; }); });
+      selIds.delete(id); if (selId === id) selId = null;
+      save(); render();
+    });
   }
 }
 
@@ -1769,12 +1798,27 @@ function _countDescendants(idx) {
   return n;
 }
 
+// Generic 2-button confirm modal (replaces native confirm() for delete actions)
+function _confirmDlg(title, msg, okLabel, onOk) {
+  document.getElementById('cfm-title').textContent = title;
+  document.getElementById('cfm-msg').textContent   = msg;
+  var ok = document.getElementById('cfm-ok');
+  ok.textContent = okLabel || 'Delete';
+  ok.onclick = function() {
+    document.getElementById('cfm').style.display = 'none';
+    onOk();
+  };
+  document.getElementById('cfm').style.display = 'flex';
+}
+
 function _showDelGroupDlg(id) {
   var idx = tasks.findIndex(function(x){ return x.id === id; });
   if (idx < 0) return;
+  var t = tasks[idx];
+  var count = _countDescendants(idx);
   document.getElementById('dgd-title').textContent = 'Delete Options';
   document.getElementById('dgd-msg').textContent   =
-    'This item contains sub-tasks. What would you like to do?';
+    '"' + t.name + '" contains ' + count + ' task' + (count !== 1 ? 's' : '') + '. What would you like to do?';
 
   var onlyBtn = document.getElementById('dgd-only');
   onlyBtn.textContent = 'Delete Group Only';
