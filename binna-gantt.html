@@ -306,8 +306,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   <button class="tb-btn" type="button" onclick="zoomChart(1)"  title="Zoom in timeline"  style="font-weight:700">+</button>
   <div class="tb-sep"></div>
   <button class="tb-btn" type="button" id="fs-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (Esc to exit)">⛶ Full</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" type="button" id="del-btn" style="color:var(--danger);display:none" onclick="deleteSelected()">🗑 Delete</button>
 </div>
 
 <div class="stats-wrap">
@@ -1937,7 +1935,6 @@ function scrollToSelected() {
 function updateSelToolbar() {
   var tb  = document.getElementById('sel-toolbar');
   var cnt = document.getElementById('sel-count');
-  var dbt = document.getElementById('del-btn');
   var ebt = document.getElementById('sel-edit-btn');
   if (!tb) return;
   var n = selIds.size;
@@ -1956,7 +1953,6 @@ function updateSelToolbar() {
   }
   if (acts) acts.style.display = n ? 'flex' : 'none';
   if (ebt) ebt.style.display = (n === 1) ? 'inline-flex' : 'none';
-  if (dbt) dbt.style.display = n ? 'inline-flex' : 'none';
 }
 
 function openEditSelected() {
