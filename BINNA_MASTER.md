@@ -23,7 +23,8 @@
 ### Stack
 - Flask app-factory: `create_app` in `app/__init__.py`
 - Flask-SQLAlchemy, Flask-JWT-Extended, Flask-CORS
-- Flask-Migrate is **installed but there is NO migrations folder** — the schema is created via `db.create_all()` at startup, **not** `flask db upgrade`. New models/columns appear after a DB recreate, not a migration.
+- Flask-Migrate is **installed but there is NO migrations folder** — the schema is created via `db.create_all()` at startup, **not** `flask db upgrade`. `create_all()` only adds missing *tables*, never new *columns* on existing tables.
+- **⚠️ NEVER drop/recreate the DB to pick up a new column — that destroys all production data.** Instead, new columns are added in place by the idempotent `_ensure_schema()` auto-migration in `run.py` (`ALTER TABLE … ADD COLUMN`), which runs after `create_all()` on every boot and self-heals on deploy. **When a model gains a column, append it to the `additions` list in `_ensure_schema()`.** (See the 2026-06-06 incident in the Session Log.)
 - **DB:** SQLite locally (`binna.db`, git-ignored) · PostgreSQL on Render (`config.py` rewrites `postgres://` → `postgresql+psycopg://`)
 - **Deploy:** push to `main` = live production deploy
 
@@ -99,6 +100,7 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 | 2026-06-06 | Private payment template order + Decimal Places (`binna-contract.html`) | (1) Template selector reordered to **Lump Sum / Monthly Invoice / Milestone / Other (Custom)** (display only; internal ids unchanged). (2) New **Decimal Places** row (0/1/2) in Contract Details next to Currency → `data.decimalPlaces` (default 0). `fmt()` now delegates to decimal-aware `fmtN()`, so all money (gov + private cards, BOQ/VO totals, income/expense, contract-page dashboard strip) honors it; `fmtQty()` switched to its own integer formatter so quantities stay clean. Selector locks once `hasPaymentData()`. The cross-page `project.html` dashboard cards are server-fed and still format independently (not yet wired). |
 | 2026-06-06 | Gantt Stoppages (فترات التوقف) | New `GanttData.stoppages` column + GET/PUT wiring (resilient to a not-yet-recreated DB). Toolbar **⛔ Stoppages** opens `#stoppages-modal` (name/start/end/type CRUD). Engine: **non-destructive** derived effective dates (`computeEffMap`/`effMap`) — stored task dates stay planned; a render-time pass skips non-working stoppage days. Visuals: hatched pause segments inside spanning bars (`barHatch`) + red-tinted stoppage columns on header & chart (`unitStop`). Empty stoppages = zero behavior change. Left table shows planned dates; chart bars show stoppage-adjusted span. |
 | 2026-06-06 | Gantt predecessor arrow routing fix | Rewrote only the path geometry in `renderDeps()` to orthogonal elbow connectors that exit the predecessor's right tip and arrive at the successor's left tip, routing through inter-row space. Normal case: stub → single vertical in the gap → horizontal approach. Tight/overlap case: drop a half-row into the inter-row gap → route left clear of bars → rise to tip. Kept in-content `#dep-svg` (scrolls with bars, zoom-accurate via `barPos`); did **not** adopt the spec's `getBoundingClientRect`/fixed-overlay/`data-task-id` approach (unnecessary here). |
+| 2026-06-06 | Schema auto-heal (`run.py` `_ensure_schema()`) | **Incident fix.** Adding `GanttData.stoppages` to the model without the column existing on live Postgres made every `SELECT` on GanttData fail → all Gantt charts appeared empty (data was never deleted, only unreadable). Added an idempotent post-`create_all()` auto-migration that `ALTER TABLE … ADD COLUMN`s any missing columns in place (verified: existing rows preserved). Establishes the project's standard for column additions — **never drop/recreate the DB.** |
 
 ---
 
@@ -136,14 +138,21 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Gov surplus/cross-reversal math** keeps the pre-existing `max(0, deductions − credits)` netting (credits can only offset deductions), whereas private treats surplus/reversals as purely additive. Left as-is to avoid changing established gov certificate math.
 - **Print:** the Payment Summary `.pst` table now contains editable inputs; footer control rows are hidden in print (`.pst-foot`), but deduction/penalty inputs still print as boxes rather than clean certificate text.
 - **Subcontractor** backend model still not architected (carried over).
-- **No migrations:** new blob keys (`contract_type`, `currency`, `privateSettings`, etc.) need no DB change (they live inside the `FinancialData.data` JSON), but remember the project still has **no migrations folder**.
-- **DB recreate pending (Render):** the new `GanttData.stoppages` column only materializes after a Postgres drop + redeploy. Until then, stoppage edits won't persist (task autosave is unaffected — PUT rolls back to tasks-only). The decimal-places/currency keys need no DB change (they live in `FinancialData.data`).
+- **No migrations:** new blob keys (`contract_type`, `currency`, `privateSettings`, `decimalPlaces`, etc.) need no DB change (they live inside the `FinancialData.data` JSON). The project still has **no migrations folder** — column additions go through `_ensure_schema()` (see Stack).
+- **`GanttData.stoppages` column:** added automatically by `_ensure_schema()` on deploy — **no manual action, and DO NOT drop/recreate the DB.** (PUT still has a tasks-only rollback as a belt-and-braces fallback.)
 - **`project.html` dashboard currency/decimals:** cross-page cards are server-fed and still hardcode `IQD` / format independently — extendable on request.
 
 ## Session Log — 2026-06-06 (session 2)
 
-> Files: `app/models.py`, `app/routes/gantt.py`, `static/js/binna-api.js`, `binna-contract.html`, `binna-gantt.html`. Committed + pushed (live deploy).
+> Files: `app/models.py`, `app/routes/gantt.py`, `static/js/binna-api.js`, `binna-contract.html`, `binna-gantt.html`, `run.py`. Committed + pushed (live deploy). Final commit `da5987c`.
 
 - **Contract:** private template order (Lump Sum / Monthly Invoice / Milestone / Other) + **Decimal Places** setting (`data.decimalPlaces`, 0/1/2) via decimal-aware `fmt()`→`fmtN()`; locks after payment data.
-- **Gantt Stoppages:** new `stoppages` column + API, modal CRUD, non-destructive derived effective dates, hatched bars + tinted timeline columns. **Requires a Render DB recreate to persist.**
+- **Gantt Stoppages:** new `stoppages` column + API, modal CRUD, non-destructive derived effective dates, hatched bars + tinted timeline columns.
 - **Gantt arrows:** orthogonal elbow routing in `renderDeps()` (right tip → left tip, inter-row only) — no bar-body crossings in normal/tight cases.
+
+### ⚠️ Incident — "Gantt data gone" (resolved, no data lost)
+- **Symptom:** after deploying the `stoppages` column, every Gantt chart loaded empty.
+- **Cause:** `db.create_all()` doesn't add columns to existing tables, so live Postgres lacked `stoppages`; SQLAlchemy still put it in every `SELECT`, so reads 500'd. **Rows were never deleted — only unreadable.**
+- **Wrong turn:** the original spec (and my first note) said "recreate the DB." That would have **permanently destroyed all data** — do not do this.
+- **Fix:** `_ensure_schema()` in `run.py` adds missing columns in place on boot (commit `da5987c`); reload restored all tasks.
+- **Standing rule:** non-destructive migrations only; never drop/recreate the DB. Saved as a permanent guardrail.
