@@ -469,6 +469,7 @@ class GanttData(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, unique=True)
     tasks      = db.Column(db.Text)                                    # JSON array
+    stoppages  = db.Column(db.Text, default='[]')                      # JSON array of project-level stoppage periods
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     updated_at = db.Column(db.DateTime, default=_now, onupdate=_now)
 

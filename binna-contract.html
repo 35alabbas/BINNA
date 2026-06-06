@@ -317,6 +317,15 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
             </select>
             <input id="cd-currency-custom" placeholder="Code or symbol — e.g. GBP, SAR, ₺, £" oninput="setCurrencyCustom(this.value)" class="cell-in" style="display:none;flex:1;min-width:140px"/>
           </div></td></tr>
+        <tr><td class="row-num">⤷</td><td><input class="cell-in label" readonly value="Decimal Places / المنازل العشرية"/></td>
+          <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="decimalPlaces-sel" onchange="setDecimalPlaces(this.value)" class="cell-in" style="width:auto;flex:0 0 auto;cursor:pointer">
+              <option value="0">0 — No decimals (1,500)</option>
+              <option value="1">1 decimal place (1,500.0)</option>
+              <option value="2">2 decimal places (1,500.00)</option>
+            </select>
+            <span id="decimalPlaces-lock" style="display:none;font-size:11px;color:var(--muted2)">🔒 Cannot change after payment data exists.</span>
+          </div></td></tr>
 
         <tr><td class="row-num">5</td><td><input class="cell-in label" readonly value="Contract Value / قيمة العقد الأصلية"/></td>
           <td><div style="display:flex;gap:5px;align-items:center">
@@ -1224,6 +1233,11 @@ function renderContractType(){
   if(curSel) curSel.value=cur();
   var curCustom=document.getElementById('cd-currency-custom');
   if(curCustom){ curCustom.style.display=(cur()==='custom')?'':'none'; curCustom.value=data.currency_custom||''; }
+  // Decimal Places selector — locks once real payment data exists (same trigger as contract type)
+  var dpSel=document.getElementById('decimalPlaces-sel');
+  if(dpSel){ dpSel.value=String(dp()); dpSel.disabled=locked; dpSel.style.opacity=locked?'0.6':'1'; dpSel.title=locked?'Cannot change after payment data exists':''; }
+  var dpLock=document.getElementById('decimalPlaces-lock');
+  if(dpLock) dpLock.style.display=locked?'inline':'none';
   var gov=document.getElementById('pay-gov-content');
   var ph=document.getElementById('pay-private-content');
   if(gov&&ph){
@@ -2299,6 +2313,20 @@ function setCurrency(c){
   renderContractType(); renderPayRows(); scheduleAutoSave();
 }
 function setCurrencyCustom(v){ data.currency_custom=v; renderPayRows(); scheduleAutoSave(); }
+// ── Decimal Places ────────────────────────────────────────────────────────────
+function setDecimalPlaces(v){
+  if(hasPaymentData()){ BINNA.toast('Decimal places cannot be changed after payment data exists','info',2800); renderContractType(); return; }
+  var n=parseInt(v,10); if(isNaN(n)||n<0||n>2) n=0;
+  data.decimalPlaces=n;
+  // Re-render every money display so the new precision applies everywhere
+  try{ updateContractTotals(); }catch(e){}
+  try{ recalcBoq(); }catch(e){}
+  try{ recalcVo(); }catch(e){}
+  try{ renderPayRows(); }catch(e){}
+  try{ recalcExpenses(); }catch(e){}
+  try{ updateFinancialDashboard(); }catch(e){}
+  scheduleAutoSave();
+}
 // ── % allocation helpers (Fix 2) ─────────────────────────────────────────────
 function privCapped(){ var t=getPrivSettings().template; return t==='milestone'||t==='lumpsum'; }
 function privAllocatedPct(){ var s=getPrivSettings(); if(!privCapped()) return 0; return payRows.reduce(function(a,r){return a+(parseFloat(s.template==='milestone'?r.milestonePct:r.schedulePct)||0);},0); }
@@ -2385,7 +2413,7 @@ function renderPrivSettings(){
   // Template selector
   html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
     +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Template</span>'
-    +tbtn('milestone','🏁 Milestone')+tbtn('monthly','🧾 Monthly Invoice')+tbtn('lumpsum','📦 Lump Sum')+tbtn('custom','✏ Custom')
+    +tbtn('lumpsum','📦 Lump Sum')+tbtn('monthly','🧾 Monthly Invoice')+tbtn('milestone','🏁 Milestone')+tbtn('custom','✏ Other (Custom)')
   +'</div>';
   // Toggles: advance / retention / tax
   html+='<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;font-size:12px">';
@@ -3457,7 +3485,10 @@ function delRow(btn,recalcFn){
 }
 
 function set(id,val){var el=document.getElementById(id);if(el)el.textContent=val;}
-function fmt(n){return Math.round(n).toLocaleString('en-US');}
+// Decimal places — lives in the FinancialData.data blob (data.decimalPlaces, default 0)
+function dp(){var n=parseInt(data.decimalPlaces,10);return isNaN(n)?0:Math.min(2,Math.max(0,n));}
+function fmtN(val){var d=dp();return Number(val||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function fmt(n){return fmtN(n);} // money formatter — honors data.decimalPlaces
 function esc(s){return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
 // ── LUMP SUM HELPERS ──────────────────────────────────────────────────────────
@@ -3473,7 +3504,7 @@ function fmtQty(v){
   var s=String(v||'').trim();
   if(!s||s==='0') return '0';
   var n=parseFloat(s);
-  return isNaN(n)?s:fmt(n);
+  return isNaN(n)?s:Math.round(n).toLocaleString('en-US'); // quantities stay integer, independent of money decimals
 }
 
 // ── UNIT SELECT HELPERS ───────────────────────────────────────────────────────

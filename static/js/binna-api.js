@@ -186,7 +186,7 @@ const BINNA = {
 
   // ── Gantt API ─────────────────────────────────────────────────────────────
   async fetchGantt(pid)       { return this.get(`/projects/${pid}/gantt`); },
-  async saveGantt(pid, tasks) { return this.put(`/projects/${pid}/gantt`, { tasks }); },
+  async saveGantt(pid, tasks, stoppages) { return this.put(`/projects/${pid}/gantt`, stoppages === undefined ? { tasks } : { tasks, stoppages }); },
 
   // ── Uploads API ───────────────────────────────────────────────────────────
   async uploadFile(pid, formData) { return this.upload(`/projects/${pid}/uploads`, formData); },

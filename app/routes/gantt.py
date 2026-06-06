@@ -203,14 +203,21 @@ def get_gantt(project_id):
 
     gd = GanttData.query.filter_by(project_id=project_id).first()
     if not gd or not gd.tasks:
-        return jsonify({'tasks': []}), 200
+        return jsonify({'tasks': [], 'stoppages': []}), 200
 
     try:
         tasks = json.loads(gd.tasks)
     except (ValueError, TypeError):
         tasks = []
 
-    return jsonify({'tasks': tasks}), 200
+    # Stoppages may be missing on an old DB that predates the column.
+    stoppages = []
+    try:
+        stoppages = json.loads(getattr(gd, 'stoppages', None) or '[]')
+    except (ValueError, TypeError):
+        stoppages = []
+
+    return jsonify({'tasks': tasks, 'stoppages': stoppages}), 200
 
 
 @gantt_bp.route('', methods=['PUT'])
@@ -225,6 +232,9 @@ def save_gantt(project_id):
     tasks = body.get('tasks', [])
     if not isinstance(tasks, list):
         tasks = []
+    stoppages = body.get('stoppages', None)
+    if stoppages is not None and not isinstance(stoppages, list):
+        stoppages = []
 
     # Circular dependency guard — abort before touching the DB or recalc().
     # A cyclic predecessor chain (e.g. linking a task to its own descendant)
@@ -246,5 +256,21 @@ def save_gantt(project_id):
     gd.tasks      = json.dumps(tasks, ensure_ascii=False)
     gd.updated_by = uid
     gd.updated_at = datetime.now(timezone.utc)
-    db.session.commit()
+    if stoppages is not None:
+        gd.stoppages = json.dumps(stoppages, ensure_ascii=False)
+
+    try:
+        db.session.commit()
+    except Exception:
+        # Old DB without the `stoppages` column — never let it break task autosave.
+        db.session.rollback()
+        gd = GanttData.query.filter_by(project_id=project_id).first()
+        if not gd:
+            gd = GanttData(project_id=project_id, updated_by=uid)
+            db.session.add(gd)
+        gd.tasks      = json.dumps(tasks, ensure_ascii=False)
+        gd.updated_by = uid
+        gd.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+
     return jsonify({'ok': True, 'count': len(tasks)}), 200

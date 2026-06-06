@@ -52,9 +52,10 @@ Access control helpers in `projects.py`:
 
 - **Relational, countable per project:** `DCLetter`, `Archive`, `Submittal` (has `module_type` ∈ {dwg, fir, mir, ms, rfi}), `DailyReport`, `LabTest`.
 - **JSON blobs (NOT relational), one row per project (`unique=True`):**
-  - `FinancialData.data` (Text) → JSON: `{contractDetails:{}, boq:[], vo:[], payments:[], income:[], expenses:[], incomeCategories:[], expenseCategories:[], usdRate:1300, contract_type:'government'|'private', currency:'IQD'|'USD'|'EUR'|'custom', currency_custom:'', privateSettings:{}, cashflowSummary:{totalCertified,totalReceived,payments}}`
+  - `FinancialData.data` (Text) → JSON: `{contractDetails:{}, boq:[], vo:[], payments:[], income:[], expenses:[], incomeCategories:[], expenseCategories:[], usdRate:1300, contract_type:'government'|'private', currency:'IQD'|'USD'|'EUR'|'custom', currency_custom:'', decimalPlaces:0, privateSettings:{}, cashflowSummary:{totalCertified,totalReceived,payments}}`
     - `payments[]` items now carry (added 2026-06-06): government fields (`boqItems`, `extraDeductions`, `surplusCredits`, `deductionReversals`, `penaltyDays/penaltyWaived/_penaltyOpen`, `releaseInitial/releaseFinal`, `received[]`, `attachments[]`, `_netDue/_received`) **and** private fields (`payment_mode:'private'`, `summaryRows[]`, `milestoneName/milestonePct`, `invoiceNo/period`, `scheduleLabel/schedulePct`, `privTaxEnabled/privTaxRate`, `relRet1/relRet2`).
   - `GanttData.tasks` (Text) → JSON array of tasks
+  - `GanttData.stoppages` (Text, default `'[]'`) → JSON array of **project-level** stoppage periods `{id,name,start,end,type:'holiday'|'weather'|'decision'|'other'}`. New column (added 2026-06-06) — needs a Render DB recreate to materialize; GET has a `getattr` fallback → `[]` and PUT rolls back to tasks-only if the column is missing.
   - ⚠️ Any aggregation over financial/gantt data must `json.loads()` and compute in Python — there are no payment/task columns to `SUM`/`JOIN`.
 
 ### Conventions
@@ -95,12 +96,15 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 | 2026-06-06 | Deductions/Surplus/Insurance/Penalty moved into the Payment Summary table | Both card types: editable deduction/surplus/reversal rows render **inside** the `.pst` table with a footer control row (`+ Add Deduction / + Add Surplus / Reverse Previous`). Gov-only: Insurance Release checkboxes + Daily Penalty became conditional in-table rows (penalty has an inline delay-days/waiver editor + `+ Daily Penalty` opener). All controls preserved (user chose "keep everything, just relocate"). |
 | 2026-06-06 | % allocation caps (private Milestone/Lump Sum) | "Total Allocated: X% / 100%" bar; `addPrivatePay()` and `generateLumpPayments()` block exceeding 100%; both **+ Add Payment** buttons disable at 100%. |
 | 2026-06-06 | BOQ work-items popup modal (gov only) | The long inline BOQ table is replaced by a collapsed summary line ("📋 BOQ Items — X items \| Total: Y") + **View / Edit Items**. Full table opens in a 90vw×85vh overlay (`#boq-items-modal`) with fixed header/footer, Escape-to-close, no outside-click close, **Done** (keep) / **✕** (discard w/ confirm if dirty). Table HTML is stashed in `_boqTableHTML[idx]` each render; modal body refreshes from it. |
+| 2026-06-06 | Private payment template order + Decimal Places (`binna-contract.html`) | (1) Template selector reordered to **Lump Sum / Monthly Invoice / Milestone / Other (Custom)** (display only; internal ids unchanged). (2) New **Decimal Places** row (0/1/2) in Contract Details next to Currency → `data.decimalPlaces` (default 0). `fmt()` now delegates to decimal-aware `fmtN()`, so all money (gov + private cards, BOQ/VO totals, income/expense, contract-page dashboard strip) honors it; `fmtQty()` switched to its own integer formatter so quantities stay clean. Selector locks once `hasPaymentData()`. The cross-page `project.html` dashboard cards are server-fed and still format independently (not yet wired). |
+| 2026-06-06 | Gantt Stoppages (فترات التوقف) | New `GanttData.stoppages` column + GET/PUT wiring (resilient to a not-yet-recreated DB). Toolbar **⛔ Stoppages** opens `#stoppages-modal` (name/start/end/type CRUD). Engine: **non-destructive** derived effective dates (`computeEffMap`/`effMap`) — stored task dates stay planned; a render-time pass skips non-working stoppage days. Visuals: hatched pause segments inside spanning bars (`barHatch`) + red-tinted stoppage columns on header & chart (`unitStop`). Empty stoppages = zero behavior change. Left table shows planned dates; chart bars show stoppage-adjusted span. |
+| 2026-06-06 | Gantt predecessor arrow routing fix | Rewrote only the path geometry in `renderDeps()` to orthogonal elbow connectors that exit the predecessor's right tip and arrive at the successor's left tip, routing through inter-row space. Normal case: stub → single vertical in the gap → horizontal approach. Tight/overlap case: drop a half-row into the inter-row gap → route left clear of bars → rise to tip. Kept in-content `#dep-svg` (scrolls with bars, zoom-accurate via `barPos`); did **not** adopt the spec's `getBoundingClientRect`/fixed-overlay/`data-task-id` approach (unnecessary here). |
 
 ---
 
 ## Session Log — 2026-06-05 → 2026-06-06
 
-> All work this session is in two root frontend files (`binna-gantt.html`, `binna-contract.html`) plus the earlier `app/routes/projects.py` `/stats` recompute and `templates/project.html` cashflow display. **Not yet committed/pushed** at time of writing — awaiting Mohammed's go-ahead.
+> All work from the 06-05→06-06 session is in two root frontend files (`binna-gantt.html`, `binna-contract.html`) plus the earlier `app/routes/projects.py` `/stats` recompute and `templates/project.html` cashflow display. **Committed and pushed** (commit `3a3b803`, live on binnapm.com).
 
 ### Bugs fixed
 - **Gantt collapse/expand** swallowing sibling groups → forward-descendant `visible()` using effective level (`level + textIndent`).
@@ -133,4 +137,13 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Print:** the Payment Summary `.pst` table now contains editable inputs; footer control rows are hidden in print (`.pst-foot`), but deduction/penalty inputs still print as boxes rather than clean certificate text.
 - **Subcontractor** backend model still not architected (carried over).
 - **No migrations:** new blob keys (`contract_type`, `currency`, `privateSettings`, etc.) need no DB change (they live inside the `FinancialData.data` JSON), but remember the project still has **no migrations folder**.
-- **Uncommitted:** all of today's work is local — push to `main` is the live deploy.
+- **DB recreate pending (Render):** the new `GanttData.stoppages` column only materializes after a Postgres drop + redeploy. Until then, stoppage edits won't persist (task autosave is unaffected — PUT rolls back to tasks-only). The decimal-places/currency keys need no DB change (they live in `FinancialData.data`).
+- **`project.html` dashboard currency/decimals:** cross-page cards are server-fed and still hardcode `IQD` / format independently — extendable on request.
+
+## Session Log — 2026-06-06 (session 2)
+
+> Files: `app/models.py`, `app/routes/gantt.py`, `static/js/binna-api.js`, `binna-contract.html`, `binna-gantt.html`. Committed + pushed (live deploy).
+
+- **Contract:** private template order (Lump Sum / Monthly Invoice / Milestone / Other) + **Decimal Places** setting (`data.decimalPlaces`, 0/1/2) via decimal-aware `fmt()`→`fmtN()`; locks after payment data.
+- **Gantt Stoppages:** new `stoppages` column + API, modal CRUD, non-destructive derived effective dates, hatched bars + tinted timeline columns. **Requires a Render DB recreate to persist.**
+- **Gantt arrows:** orthogonal elbow routing in `renderDeps()` (right tip → left tip, inter-row only) — no bar-body crossings in normal/tight cases.

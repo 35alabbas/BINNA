@@ -140,6 +140,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .gbar.gbar-milestone-span{height:5px;top:50%;transform:translateY(-50%);opacity:.4;border-radius:1px;position:absolute}
 .gbar.is-critical{box-shadow:0 0 0 2px #dc2626}
 .gbar.is-selected{outline:2px solid var(--accent);outline-offset:1px;filter:brightness(.9)}
+/* Stoppages — hatched pause overlay on bars + tinted timeline columns */
+.gbar-stop{position:absolute;top:0;bottom:0;z-index:2;background:repeating-linear-gradient(45deg,#ccc,#ccc 3px,transparent 3px,transparent 8px);border-left:1px solid rgba(120,120,120,.5);border-right:1px solid rgba(120,120,120,.5);cursor:help}
+.gcell.stop{background:rgba(255,100,100,.15)}
+.ch-unit.stop{background:rgba(255,100,100,.15)}
 /* MILESTONE DIAMOND */
 .ms-diamond{position:absolute;z-index:3;cursor:pointer;top:50%;transform:translateY(-50%)}
 .ms-diamond-inner{width:14px;height:14px;transform:rotate(45deg);border-radius:2px}
@@ -305,6 +309,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   <button class="tb-btn" type="button" onclick="zoomChart(-1)" title="Zoom out timeline" style="font-weight:700">−</button>
   <button class="tb-btn" type="button" onclick="zoomChart(1)"  title="Zoom in timeline"  style="font-weight:700">+</button>
   <div class="tb-sep"></div>
+  <button class="tb-btn" type="button" id="btn-stoppages" onclick="openStoppagesModal()" title="Manage project stoppages (holidays, weather, administrative holds)">⛔ Stoppages</button>
+  <div class="tb-sep"></div>
   <button class="tb-btn" type="button" id="fs-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (Esc to exit)">⛶ Full</button>
 </div>
 
@@ -393,6 +399,41 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="document.getElementById('cfm').style.display='none'" style="padding:9px 16px;color:var(--muted)">Cancel</button>
       <button id="cfm-ok" class="btn btn-red" style="padding:9px 16px">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stoppages dialog -->
+<div id="stoppages-modal" onclick="if(event.target===this)closeStoppagesModal()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:401;align-items:center;justify-content:center">
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:24px 24px 18px;max-width:560px;width:calc(100% - 32px);max-height:88vh;overflow:auto;box-shadow:0 20px 48px rgba(0,0,0,.18)">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">⛔ Stoppages — <span dir="rtl">فترات التوقف</span></div>
+
+    <div style="display:grid;grid-template-columns:90px 1fr;gap:8px 10px;align-items:center;font-size:13px">
+      <label style="color:var(--muted)">Name</label>
+      <input type="text" id="stop-name" placeholder="e.g. Eid Al-Adha, Weather Hold…" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
+      <label style="color:var(--muted)">Start Date</label>
+      <input type="date" id="stop-start" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
+      <label style="color:var(--muted)">End Date</label>
+      <input type="date" id="stop-end" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
+      <label style="color:var(--muted)">Type</label>
+      <select id="stop-type" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        <option value="holiday">Holiday — عطلة</option>
+        <option value="weather">Weather — أحوال جوية</option>
+        <option value="decision">Administrative — قرار إداري</option>
+        <option value="other">Other — أخرى</option>
+      </select>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-primary" id="stop-add-btn" type="button" onclick="addStoppage()" style="padding:7px 14px">+ Add Stoppage</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin:16px 0 12px"></div>
+
+    <div id="stop-list" style="display:flex;flex-direction:column;gap:6px"></div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:18px">
+      <button class="btn" type="button" onclick="closeStoppagesModal()" style="padding:8px 16px;color:var(--muted)">Close</button>
     </div>
   </div>
 </div>
@@ -530,6 +571,9 @@ const PANEL_W_KEY = 'gantt_panel_w';
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let tasks     = [];
+let stoppages = [];          // project-level stoppage periods (holidays, weather, admin holds)
+let effMap    = {};          // id → {s,e} effective (stoppage-adjusted) dates, derived per render, never persisted
+let _editStopId = null;      // id of stoppage currently being edited in the modal
 let scale     = 'week';
 let selId     = null;
 let selIds    = new Set();  // multi-select set
@@ -595,7 +639,8 @@ function save() {
   _saveTimer = setTimeout(async function() {
     try {
       const snapshot = JSON.parse(JSON.stringify(tasks));
-      await BINNA.saveGantt(PROJECT_ID, snapshot);
+      const stopSnap = JSON.parse(JSON.stringify(stoppages));
+      await BINNA.saveGantt(PROJECT_ID, snapshot, stopSnap);
     } catch(err) {
       BINNA.toast('Autosave failed: ' + (err.error || 'Unknown error'), 'error');
     }
@@ -623,9 +668,11 @@ window.addEventListener('DOMContentLoaded', async function() {
   try {
     const resp = await BINNA.fetchGantt(PROJECT_ID);
     tasks = (resp.tasks || []).map(sanitizeTask);
+    stoppages = (resp.stoppages || []).map(sanitizeStoppage);
   } catch(err) {
     BINNA.toast('Could not load Gantt: ' + (err.error || 'Unknown error'), 'error');
     tasks = [];
+    stoppages = [];
   }
   render();
   setTimeout(scrollToToday, 300);
@@ -668,6 +715,162 @@ function sanitizeTask(t) {
     color:      t.color      || COLORS[0],
     notes:      t.notes      || '',
   };
+}
+
+function sanitizeStoppage(s) {
+  s = s || {};
+  var start = s.start || iso(new Date());
+  var end   = s.end || start;
+  if (end < start) { var tmp = start; start = end; end = tmp; }   // normalize reversed range
+  return {
+    id:    s.id   || ('s' + Date.now() + Math.round(Math.random() * 1e6)),
+    name:  s.name || 'Stoppage',
+    start: start,
+    end:   end,
+    type:  ['holiday','weather','decision','other'].indexOf(s.type) >= 0 ? s.type : 'other',
+  };
+}
+
+// ── STOPPAGES: effective (stoppage-adjusted) dates ─────────────────────────────
+// Non-destructive: stored task start/end are the user's PLANNED working dates and
+// are never mutated by stoppage logic (mutating them caused the historical drift
+// bug). Each render derives effMap[id] = {s,e} = the calendar span once non-working
+// stoppage days are skipped. With no stoppages, effMap is empty and every renderer
+// falls back to the stored dates — i.e. zero behaviour change when the feature is unused.
+function _stopAt(d) {
+  // Return the stoppage whose [start,end] contains date d (00:00), else null.
+  for (var i = 0; i < stoppages.length; i++) {
+    var s = stoppages[i];
+    var ss = new Date(s.start + 'T00:00:00'), se = new Date(s.end + 'T00:00:00');
+    if (d >= ss && d <= se) return s;
+  }
+  return null;
+}
+function _pushOutOfStoppage(d) {
+  // If d lands inside a stoppage, move it to the first working day after it. Loops
+  // for back-to-back stoppages; guard prevents any pathological infinite loop.
+  var g = 0, s;
+  d = new Date(d);
+  while ((s = _stopAt(d)) && g++ < 2000) {
+    d = new Date(s.end + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+function _addWorkingDays(start, n) {
+  // Date of the n-th working (non-stoppage) day counting from `start` (assumed a
+  // working day). Returns that working day's date — used as the effective end.
+  var d = new Date(start), last = new Date(start), counted = 0, g = 0;
+  while (counted < n && g++ < 100000) {
+    if (!_stopAt(d)) { counted++; last = new Date(d); }
+    d.setDate(d.getDate() + 1);
+  }
+  return last;
+}
+function _effLeaf(t) {
+  var planStart = new Date(t.start + 'T00:00:00');
+  var s = _pushOutOfStoppage(planStart);            // start moves past a stoppage it begins in
+  var workLen = dur(t);                              // planned working-day length (>=1)
+  var e = _addWorkingDays(s, workLen);              // end pushed forward by any spanned stoppage days
+  return { s: iso(s), e: iso(e) };
+}
+function computeEffMap() {
+  effMap = {};
+  if (!stoppages.length) return;                    // fast path — fall back to stored dates everywhere
+  // Reverse pass mirrors _recalcContainers: containers roll up from children's effective dates.
+  for (var gi = tasks.length - 1; gi >= 0; gi--) {
+    var g = tasks[gi], gL = g.level || 0, children = [];
+    for (var ci = gi + 1; ci < tasks.length; ci++) {
+      var cL = tasks[ci].level || 0;
+      if (cL <= gL) break;
+      if (cL === gL + 1) children.push(tasks[ci]);
+    }
+    if (g.type !== 'task' && children.length) {
+      var ss = children.map(function(c){ return effMap[c.id] ? effMap[c.id].s : c.start; });
+      var ee = children.map(function(c){ return effMap[c.id] ? effMap[c.id].e : (c.end || c.start); });
+      effMap[g.id] = { s: ss.reduce(function(a,b){ return b < a ? b : a; }), e: ee.reduce(function(a,b){ return b > a ? b : a; }) };
+    } else {
+      effMap[g.id] = _effLeaf(g);
+    }
+  }
+}
+function effStart(t) { var e = effMap[t.id]; return e ? e.s : t.start; }
+function effEnd(t)   { var e = effMap[t.id]; return e ? e.e : (t.end || t.start); }
+
+// ── STOPPAGES: modal + CRUD ────────────────────────────────────────────────────
+var STOP_TYPE_LABELS = { holiday:'Holiday — عطلة', weather:'Weather — أحوال جوية', decision:'Administrative — قرار إداري', other:'Other — أخرى' };
+
+function openStoppagesModal() {
+  resetStoppageForm();
+  renderStoppageList();
+  document.getElementById('stoppages-modal').style.display = 'flex';
+}
+function closeStoppagesModal() {
+  document.getElementById('stoppages-modal').style.display = 'none';
+  _editStopId = null;
+}
+function resetStoppageForm() {
+  document.getElementById('stop-name').value = '';
+  document.getElementById('stop-start').value = '';
+  document.getElementById('stop-end').value = '';
+  document.getElementById('stop-type').value = 'holiday';
+  var b = document.getElementById('stop-add-btn'); if (b) b.textContent = '+ Add Stoppage';
+  _editStopId = null;
+}
+function addStoppage() {
+  var name  = document.getElementById('stop-name').value.trim();
+  var start = document.getElementById('stop-start').value;
+  var end   = document.getElementById('stop-end').value || start;
+  var type  = document.getElementById('stop-type').value;
+  if (!name)  { BINNA.toast('Enter a stoppage name', 'error'); return; }
+  if (!start) { BINNA.toast('Pick a start date', 'error'); return; }
+  if (end < start) { var tmp = start; start = end; end = tmp; }
+  if (_editStopId) {
+    var s = stoppages.find(function(x){ return x.id === _editStopId; });
+    if (s) { s.name = name; s.start = start; s.end = end; s.type = type; }
+  } else {
+    stoppages.push(sanitizeStoppage({ name: name, start: start, end: end, type: type }));
+  }
+  resetStoppageForm();
+  renderStoppageList();
+  stoppagesChanged();
+}
+function editStoppage(id) {
+  var s = stoppages.find(function(x){ return x.id === id; }); if (!s) return;
+  document.getElementById('stop-name').value  = s.name;
+  document.getElementById('stop-start').value = s.start;
+  document.getElementById('stop-end').value   = s.end;
+  document.getElementById('stop-type').value  = s.type;
+  _editStopId = id;
+  var b = document.getElementById('stop-add-btn'); if (b) b.textContent = '✓ Save Changes';
+  document.getElementById('stop-name').focus();
+}
+function deleteStoppage(id) {
+  stoppages = stoppages.filter(function(x){ return x.id !== id; });
+  if (_editStopId === id) resetStoppageForm();
+  renderStoppageList();
+  stoppagesChanged();
+}
+// Re-render the chart (bars + shading recompute) and persist.
+function stoppagesChanged() { render(); save(); }
+function renderStoppageList() {
+  var el = document.getElementById('stop-list'); if (!el) return;
+  if (!stoppages.length) {
+    el.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px">No stoppages added yet.</div>';
+    return;
+  }
+  var sorted = stoppages.slice().sort(function(a,b){ return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+  el.innerHTML = sorted.map(function(s) {
+    var range = s.start === s.end ? disp(s.start) : disp(s.start) + ' → ' + disp(s.end);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:#fafbff">'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:600;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(s.name) + '</div>'
+        + '<div style="font-size:11.5px;color:var(--muted)">' + range + ' · ' + escHtml(STOP_TYPE_LABELS[s.type] || s.type) + '</div>'
+      + '</div>'
+      + '<button class="tb-btn" type="button" style="font-size:11px" onclick="editStoppage(\'' + s.id + '\')">✏ Edit</button>'
+      + '<button class="tb-btn" type="button" style="font-size:11px;color:var(--danger);border-color:#fecdca" onclick="deleteStoppage(\'' + s.id + '\')">🗑 Delete</button>'
+    + '</div>';
+  }).join('');
 }
 
 // ── SAMPLE DATA ───────────────────────────────────────────────────────────────
@@ -819,6 +1022,7 @@ function toggleCriticalPath() {
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function render() {
   recalc();  // push-only: containers + forward predecessor scheduling
+  computeEffMap();  // derive stoppage-adjusted display dates (no-op when no stoppages)
   computeCritical();
   var vis = visible();
   if (!tasks.length) {
@@ -867,7 +1071,7 @@ function visible() {
 
 function dateRange() {
   var dates = [];
-  tasks.forEach(function(t){ dates.push(new Date(t.start + 'T00:00:00')); dates.push(new Date((t.end||t.start) + 'T00:00:00')); });
+  tasks.forEach(function(t){ dates.push(new Date(effStart(t) + 'T00:00:00')); dates.push(new Date(effEnd(t) + 'T00:00:00')); });
   var min = new Date(Math.min.apply(null, dates));
   var max = new Date(Math.max.apply(null, dates));
   var pad = scale==='day' ? 3 : scale==='week' ? 7 : 14;
@@ -931,11 +1135,41 @@ function renderHeader(units, cw) {
              : scale==='week' ? (today >= u.date && today <= u.end)
              : (today.getMonth() === u.date.getMonth() && today.getFullYear() === u.date.getFullYear());
     var isWE = scale === 'day' && u.isWE;
+    var isStop = unitStop(u);
     var lbl  = (i % interval === 0) ? u.label : '';
-    bot += '<div class="ch-unit '+(isWE?'we':'')+' '+(isTd?'td':'')+'" style="width:'+cw+'px">'+lbl+'</div>';
+    bot += '<div class="ch-unit '+(isWE?'we':'')+' '+(isTd?'td':'')+' '+(isStop?'stop':'')+'" style="width:'+cw+'px">'+lbl+'</div>';
   });
 
   document.getElementById('chart-header').innerHTML = '<div class="ch-top">'+top+'</div><div class="ch-units">'+bot+'</div>';
+}
+
+// True when a timeline unit (day / week / month) overlaps any stoppage period.
+function unitStop(u) {
+  if (!stoppages.length) return false;
+  var us = u.date, ue = u.end || u.date;
+  return stoppages.some(function(s) {
+    var ss = new Date(s.start + 'T00:00:00'), se = new Date(s.end + 'T00:00:00');
+    return us <= se && ss <= ue;
+  });
+}
+
+// Hatched pause segments drawn inside a task bar for each stoppage it spans.
+// Coordinates are relative to the bar's own left edge (bp.l).
+function barHatch(t, bp, units, cw, min) {
+  if (!stoppages.length) return '';
+  var bs = new Date(effStart(t) + 'T00:00:00'), be = new Date(effEnd(t) + 'T00:00:00');
+  var out = '';
+  stoppages.forEach(function(s) {
+    var ss = new Date(s.start + 'T00:00:00'), se = new Date(s.end + 'T00:00:00');
+    var ovS = ss > bs ? ss : bs, ovE = se < be ? se : be;
+    if (ovS > ovE) return;                                    // no overlap with this bar
+    var hl = dateOff(ovS, units, cw, min) - bp.l;
+    var hr = dateOff(ovE, units, cw, min) + cw - bp.l;
+    var w = hr - hl;
+    if (w <= 0) return;
+    out += '<div class="gbar-stop" style="left:'+hl+'px;width:'+w+'px" title="Stoppage: '+escHtml(s.name)+' ('+disp(s.start)+' → '+disp(s.end)+')"></div>';
+  });
+  return out;
 }
 
 function renderChart(vis, units, cw, min, totalW) {
@@ -947,13 +1181,13 @@ function renderChart(vis, units, cw, min, totalW) {
     var isM  = t.type === 'milestone';
     var rowCls = isM ? 'is-milestone' : isG ? 'is-group' : isSG ? 'is-subgroup' : '';
     var cells = '';
-    units.forEach(function(u){ var isTd=unitToday(u,today),isWE=scale==='day'&&u.isWE; cells += '<div class="gcell '+(isWE?'we':'')+' '+(isTd?'td':'')+'" style="width:'+cw+'px"></div>'; });
+    units.forEach(function(u){ var isTd=unitToday(u,today),isWE=scale==='day'&&u.isWE,isStop=unitStop(u); cells += '<div class="gcell '+(isWE?'we':'')+' '+(isTd?'td':'')+' '+(isStop?'stop':'')+'" style="width:'+cw+'px"></div>'; });
     var bar = '';
     var bp = barPos(t, units, cw, min);
     if (bp) {
       if (isM) {
         // Span band + diamond at end
-        var mpos = t.end ? dateOff(new Date(t.end + 'T00:00:00'), units, cw, min) : bp.l;
+        var mpos = dateOff(new Date(effEnd(t) + 'T00:00:00'), units, cw, min);
         var spanBar = '<div style="position:absolute;left:'+bp.l+'px;width:'+Math.max(bp.w,2)+'px;top:11px;height:6px;background:rgba(15,42,94,.12);border:1px solid rgba(15,42,94,.25);border-radius:1px;pointer-events:none"></div>';
         var diamond = '<div class="ms-diamond" style="left:'+(mpos-7)+'px" onclick="openEdit(\''+t.id+'\')" onmouseenter="showTip(event,\''+t.id+'\')" onmouseleave="hideTip()">'
           +'<div class="ms-diamond-inner '+(t.isCritical?'is-critical':'')+' '+(selIds.has(t.id)?'is-selected':'')+'" style="background:'+(t.color||'#0f2a5e')+'"></div></div>';
@@ -962,7 +1196,7 @@ function renderChart(vis, units, cw, min, totalW) {
         var fw = Math.max(0, bp.w * (t.pct || 0) / 100);
         var barCls = 'gbar' + (isG?' gbar-group':isSG?' gbar-subgroup':'') + (t.isCritical?' is-critical':'') + (selIds.has(t.id)?' is-selected':'');
         bar = '<div class="gbar-wrap" style="left:'+bp.l+'px;width:'+Math.max(bp.w,4)+'px" onclick="openEdit(\''+t.id+'\')" onmouseenter="showTip(event,\''+t.id+'\')" onmouseleave="hideTip()">'
-          +'<div class="'+barCls+'" style="background:'+(t.color||COLORS[0])+'"><div class="gbar-fill" style="width:'+fw+'px"></div></div></div>';
+          +'<div class="'+barCls+'" style="background:'+(t.color||COLORS[0])+'"><div class="gbar-fill" style="width:'+fw+'px"></div>'+barHatch(t, bp, units, cw, min)+'</div></div>';
       }
     }
     html += '<div class="chart-row '+rowCls+'" style="width:'+totalW+'px">'+cells+bar+'</div>';
@@ -1070,18 +1304,31 @@ function renderDeps(vis, units, cw, min) {
       var x2 = tb.l;                  // left edge of task bar
       var y2 = rowCenters[ti] !== undefined ? rowCenters[ti] : (ti * _rowH + _rowH/2 + hdrH);
 
+      // Orthogonal elbow connectors that route through inter-row space only and
+      // never cross a bar body. Exit the predecessor's right tip, arrive at the
+      // successor's left tip.
+      var h = Math.max(8, Math.round(_rowH * 0.5));
       var path;
-      if (x2 >= x1 + 10) {
-        // Normal L-shape: right → down/up → right to target
-        var mx = x1 + Math.max(8, Math.round((x2 - x1) / 2));
-        path = 'M'+x1+','+y1+' H'+mx+' V'+y2+' H'+(x2-4);
+      if (x2 >= x1 + 12) {
+        // Normal case: stub right out of the predecessor, single vertical in the
+        // gap just past it, then horizontal along the (empty) approach to B's left tip.
+        path = 'M'+(x1+2)+','+y1
+             + ' L'+(x1+10)+','+y1
+             + ' L'+(x1+10)+','+y2
+             + ' L'+(x2-2)+','+y2;
       } else {
-        // Backward dependency: go right past both bars, then come back
-        var ox = Math.max(x1, x2) + 24;
-        path = 'M'+x1+','+y1+' H'+ox+' V'+y2+' H'+(x2-4);
+        // Overlap/tight case: B starts at/over A's end. Drop into the inter-row gap
+        // below A, route left clear of both bars, then rise to B's left tip.
+        var gapY = y1 + h;
+        path = 'M'+(x1+2)+','+y1
+             + ' L'+(x1+10)+','+y1
+             + ' L'+(x1+10)+','+gapY
+             + ' L'+(x2-10)+','+gapY
+             + ' L'+(x2-10)+','+y2
+             + ' L'+(x2-2)+','+y2;
       }
       paths += '<path d="'+path+'" fill="none" stroke="'+clr+'" stroke-width="'+sw
-             + '" stroke-dasharray="'+(isCrit?'none':'none')+'" marker-end="'+marker
+             + '" marker-end="'+marker
              + '" stroke-linejoin="round" stroke-linecap="round"/>';
     });
   });
@@ -1095,9 +1342,9 @@ function renderDeps(vis, units, cw, min) {
 
 // ── BAR POSITION ──────────────────────────────────────────────────────────────
 function barPos(t, units, cw, min) {
-  if (!t.start) return null;
-  var l = dateOff(new Date(t.start + 'T00:00:00'), units, cw, min);
-  var r = dateOff(new Date((t.end||t.start) + 'T00:00:00'), units, cw, min) + cw;
+  var s = effStart(t); if (!s) return null;
+  var l = dateOff(new Date(s + 'T00:00:00'), units, cw, min);
+  var r = dateOff(new Date(effEnd(t) + 'T00:00:00'), units, cw, min) + cw;
   return {l: l, w: Math.max(r - l, 4)};
 }
 
