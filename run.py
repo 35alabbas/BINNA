@@ -12,19 +12,50 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 if sys.stderr.encoding and sys.stderr.encoding.lower() != 'utf-8':
     sys.stderr.reconfigure(encoding='utf-8')
 
+from sqlalchemy import inspect, text
+
 from app import create_app, db
 
 app = create_app(os.environ.get('FLASK_ENV', 'development'))
 
+
+def _ensure_schema():
+    """Lightweight, non-destructive auto-migration.
+
+    db.create_all() only creates missing *tables* — it never adds a new *column*
+    to a table that already exists. When a model gains a column, every SELECT
+    SQLAlchemy emits will reference it and fail on a DB that predates it (the
+    existing rows are still there, just unreadable). This adds any such missing
+    columns in place via ALTER TABLE — no data is dropped. Idempotent: each
+    column is checked before being added, so it is safe to run on every boot.
+    """
+    insp = inspect(db.engine)
+    tables = insp.get_table_names()
+    # (table, column, DDL type/default) — extend this list when models gain columns.
+    additions = [
+        ('gantt_data', 'stoppages', "TEXT DEFAULT '[]'"),
+    ]
+    for table, column, ddl in additions:
+        if table not in tables:
+            continue  # create_all() will build the whole table fresh
+        existing = [c['name'] for c in insp.get_columns(table)]
+        if column in existing:
+            continue
+        with db.engine.begin() as conn:
+            conn.execute(text('ALTER TABLE {} ADD COLUMN {} {}'.format(table, column, ddl)))
+
+
 # Create tables on startup — runs for both gunicorn and direct python run.py
 with app.app_context():
     db.create_all()
+    _ensure_schema()
 
 
 @app.cli.command('init-db')
 def init_db():
     """Create all database tables."""
     db.create_all()
+    _ensure_schema()
     print('[OK] Database tables created.')
 
 
