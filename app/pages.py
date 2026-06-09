@@ -4,7 +4,7 @@ All authentication / authorisation is handled client-side (JWT in localStorage).
 Flask simply serves the HTML; the JS on each page calls the API.
 """
 import os
-from flask import Blueprint, render_template, redirect, send_from_directory, abort
+from flask import Blueprint, render_template, send_from_directory, abort
 
 pages_bp = Blueprint('pages', __name__)
 
@@ -14,8 +14,8 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ── SPA pages ─────────────────────────────────────────────────────────────────
 
 @pages_bp.route('/')
-def index():
-    return redirect('/dashboard')
+def landing():
+    return render_template('index.html')
 
 
 @pages_bp.route('/login')
