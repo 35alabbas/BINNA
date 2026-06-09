@@ -156,3 +156,8 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Wrong turn:** the original spec (and my first note) said "recreate the DB." That would have **permanently destroyed all data** — do not do this.
 - **Fix:** `_ensure_schema()` in `run.py` adds missing columns in place on boot (commit `da5987c`); reload restored all tasks.
 - **Standing rule:** non-destructive migrations only; never drop/recreate the DB. Saved as a permanent guardrail.
+
+## Landing Page
+- Status: OFFLINE (/ redirects to /login)
+- Backup: C:/BINNA/index.html
+- To go live: change redirect('/login') to render_template('index.html')
