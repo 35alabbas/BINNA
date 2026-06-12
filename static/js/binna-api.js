@@ -188,6 +188,18 @@ const BINNA = {
   async fetchGantt(pid)       { return this.get(`/projects/${pid}/gantt`); },
   async saveGantt(pid, tasks, stoppages) { return this.put(`/projects/${pid}/gantt`, stoppages === undefined ? { tasks } : { tasks, stoppages }); },
 
+  // ── Subcontractor Module API (Phase 1) ────────────────────────────────────
+  async fetchParties(pid)            { return this.get(`/projects/${pid}/parties`); },
+  async createParty(pid, d)          { return this.post(`/projects/${pid}/parties`, d); },
+  async updateParty(pid, id, d)      { return this.put(`/projects/${pid}/parties/${id}`, d); },
+  async deleteParty(pid, id)         { return this.del(`/projects/${pid}/parties/${id}`); },
+  async fetchSubcontracts(pid)       { return this.get(`/projects/${pid}/subcontracts`); },
+  async createSubcontract(pid, d)    { return this.post(`/projects/${pid}/subcontracts`, d); },
+  async getSubcontract(pid, id)      { return this.get(`/projects/${pid}/subcontracts/${id}`); },
+  async updateSubcontract(pid, id, d){ return this.put(`/projects/${pid}/subcontracts/${id}`, d); },
+  async deleteSubcontract(pid, id)   { return this.del(`/projects/${pid}/subcontracts/${id}`); },
+  async subcontractsSummary(pid)     { return this.get(`/projects/${pid}/subcontracts/summary`); },
+
   // ── Uploads API ───────────────────────────────────────────────────────────
   async uploadFile(pid, formData) { return this.upload(`/projects/${pid}/uploads`, formData); },
 

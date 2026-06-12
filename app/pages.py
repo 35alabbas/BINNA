@@ -46,12 +46,19 @@ _LEGACY_MODULES = frozenset({
 })
 
 
+# Some module keys map to a differently-named root HTML file. The Subcontractor
+# card (key 'sub') now opens the Phase-1 module page binna-subcontract.html;
+# existing sidebar links to /legacy/sub keep working unchanged.
+_LEGACY_FILE_OVERRIDE = {'sub': 'subcontract'}
+
+
 @pages_bp.route('/legacy/<module_name>')
 def legacy_module(module_name):
     """Serve the original standalone HTML files directly from the project root."""
     if module_name not in _LEGACY_MODULES:
         abort(404)
-    return send_from_directory(_ROOT, f'binna-{module_name}.html')
+    fname = _LEGACY_FILE_OVERRIDE.get(module_name, module_name)
+    return send_from_directory(_ROOT, f'binna-{fname}.html')
 
 
 # ── 404 handler ───────────────────────────────────────────────────────────────

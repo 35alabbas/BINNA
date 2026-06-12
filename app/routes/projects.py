@@ -24,6 +24,7 @@ from app.models import (
     LabTest,
     Project,
     ProjectMember,
+    Subcontract,
     Submittal,
     User,
 )
@@ -239,6 +240,47 @@ def project_stats(project_id):
             stats['gantt'] = len(json.loads(gantt.tasks) or [])
         except (ValueError, TypeError):
             stats['gantt'] = 0
+
+    # Subcontractor card — active count + total Balance Payable (money still owed
+    # to subcontractors/suppliers). Computed in Python from each payment blob
+    # (no columns to SUM); resilient per-contract via try/except.
+    def _snum(x):
+        try:
+            return float(x)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _row_net(row):
+        if row.get('_net') is not None:
+            return _snum(row.get('_net'))
+        return sum(_snum(sr.get('amount')) for sr in (row.get('summaryRows') or [])
+                   if _snum(sr.get('amount')) > 0)
+
+    sub_count   = 0
+    sub_payable = 0.0
+    for sub in Subcontract.query.filter_by(project_id=project_id).all():
+        if sub.status == 'active':
+            sub_count += 1
+        try:
+            blob = json.loads(sub.data) if sub.data else {}
+            if sub.kind == 'open_supply':
+                committed = sum(_snum(i.get('amount')) for i in (blob.get('invoices') or []))
+                paid = sum(_snum(sp.get('amount')) for sp in (blob.get('supplyPayments') or [])
+                           if sp.get('paid') or (sp.get('certificate') or {}).get('status') == 'paid')
+                sub_payable += committed - paid
+            else:
+                certified = paid = 0.0
+                for p in (blob.get('payments') or []):
+                    net = _row_net(p)
+                    status = (p.get('certificate') or {}).get('status', 'draft')
+                    if status in ('certified', 'signed', 'paid'):
+                        certified += net
+                    if p.get('paid') or status == 'paid':
+                        paid += net
+                sub_payable += certified - paid
+        except (ValueError, TypeError, AttributeError):
+            continue
+    stats['subcontracts'] = {'count': sub_count, 'payable': round(sub_payable)}
 
     return jsonify({'stats': stats})
 

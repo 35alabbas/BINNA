@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINNA — Subcontractor Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/static/js/binna-api.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
+  --border:#d0d5dd;--border2:#e4e7ec;
+  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
+  --accent:#1a56db;--accent-light:#eff4ff;
+  --success:#027a48;--danger:#b42318;--warning:#b54708;
+  --radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-.3px;text-decoration:none;display:inline-flex;align-items:center}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:7px}
+#sidebar-toggle-btn{background:transparent;border:1px solid transparent;border-radius:5px;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0}
+#sidebar-toggle-btn:hover{background:var(--surface);border-color:var(--border)}
+.proj-badge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:500}
+.proj-badge b{color:var(--accent);margin-right:4px}
+.module-tag{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--surface)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#1648b8}
+.btn-danger{color:var(--danger);border-color:#fecdca}
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;transition:width .22s ease;overflow:hidden;min-width:0}
+.sidebar.collapsed{width:0;padding:0;border-right:none}
+.sidebar-section{padding:6px 20px 4px;font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--muted2);text-transform:uppercase;margin-top:8px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:2px solid transparent;font-weight:400;text-decoration:none}
+.sidebar-item:hover{background:var(--surface);color:var(--text)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);border-left:2px solid var(--accent)}
+.sidebar-item .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+.main{flex:1;overflow-y:auto;padding:22px 26px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:9px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.strip{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.metric{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;min-width:150px;flex:1}
+.metric .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600;margin-bottom:5px}
+.metric .v{font-size:18px;font-weight:700;font-family:monospace}
+table.data{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+table.data th{background:var(--surface);text-align:left;padding:9px 12px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border2)}
+table.data td{padding:9px 12px;font-size:12.5px;border-bottom:1px solid var(--border2);color:var(--text2)}
+table.data tr:last-child td{border-bottom:none}
+table.data tbody tr.clickable{cursor:pointer}
+table.data tbody tr.clickable:hover{background:var(--accent-light)}
+.mono{font-family:monospace}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600}
+.badge-role{background:var(--accent-light);color:var(--accent);border:1px solid #c7d7fd}
+.badge-active{background:#ecfdf3;color:var(--success);border:1px solid #a6f4c5}
+.badge-closed{background:#f2f4f7;color:var(--muted);border:1px solid var(--border)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600}
+.chip-draft{background:#f2f4f7;color:var(--muted)}
+.chip-certified{background:#eff4ff;color:var(--accent)}
+.chip-signed{background:#fef0c7;color:var(--warning)}
+.chip-paid{background:#ecfdf3;color:var(--success)}
+.in{border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:12.5px;font-family:Inter,sans-serif;width:100%}
+input[type=number].in,.mono-in{font-family:monospace}
+.modal-bg{position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--white);border-radius:12px;width:100%;max-width:520px;max-height:88vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--border2);font-size:15px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.modal-b{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.modal-f{padding:14px 20px;border-top:1px solid var(--border2);display:flex;justify-content:flex-end;gap:8px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.x-btn{border:none;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border2)}
+table.pst{width:100%;border-collapse:collapse;font-size:13px}
+table.pst td{padding:5px 12px;border-bottom:1px solid var(--border2)}
+table.pst .pst-hdr td{background:var(--surface);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+table.pst .pst-lbl{color:var(--text2)}
+table.pst .pst-amt{text-align:right;font-family:monospace;width:170px}
+table.pst .pst-net td{background:#fafffb;font-weight:700;color:var(--text);font-size:14px;border-top:2px solid var(--border)}
+table.pst .pst-net .pst-amt{color:var(--accent)}
+.pst-x{border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px;margin-left:6px}
+.att-item{display:flex;align-items:center;gap:8px;padding:5px 9px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;margin-bottom:5px;font-size:11.5px}
+.sec{padding:11px 14px;border-bottom:1px solid var(--border2)}
+.sec-t{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.empty{text-align:center;padding:48px 20px;color:var(--muted2)}
+.empty .ico{font-size:46px;margin-bottom:14px;opacity:.8}
+/* Certificate print */
+#cert-print{position:fixed;inset:0;background:#fff;z-index:900;overflow:auto;display:none}
+#cert-print.open{display:block}
+.cert-toolbar{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;justify-content:flex-end;gap:8px}
+.cert-doc{max-width:780px;margin:24px auto;background:#fff;border:1px solid var(--border2);padding:42px 48px;font-size:13px;color:#101828}
+.cert-doc h1{font-size:20px;text-align:center;margin-bottom:4px}
+.cert-doc .cert-sub{text-align:center;color:var(--muted);margin-bottom:22px}
+.cert-doc table{width:100%;border-collapse:collapse;margin:14px 0}
+.cert-doc table td{padding:7px 10px;border:1px solid #d0d5dd}
+.cert-line{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e4e7ec}
+.cert-net{display:flex;justify-content:space-between;padding:11px 0;font-weight:700;font-size:16px;border-top:2px solid #101828;margin-top:6px}
+.cert-words{margin:14px 0;padding:10px 12px;background:#f7f8fa;border:1px solid #e4e7ec;border-radius:6px;font-style:italic}
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:34px;margin-top:46px}
+.sig-block{text-align:center}
+.sig-img{max-height:78px;margin-bottom:6px}
+.sig-line{border-top:1px solid #101828;margin-top:54px;padding-top:6px;font-size:12px;color:var(--muted)}
+@media print{
+  body *{visibility:hidden}
+  #cert-print,#cert-print *{visibility:visible}
+  #cert-print{position:absolute;inset:0}
+  .cert-toolbar{display:none}
+  .cert-doc{border:none;margin:0;max-width:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+    <a href="/dashboard" class="logo">BINNA <span>Construction PM</span></a>
+    <div style="width:1px;height:24px;background:var(--border)"></div>
+    <div class="proj-badge"><b data-proj-code>…</b><span data-proj-name></span></div>
+    <div class="module-tag">SUB — Subcontractor Management</div>
+  </div>
+  <div class="topbar-right">
+    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">Project</div>
+  <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
+  <a class="sidebar-item" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
+  <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
+  <a class="sidebar-item" href="/legacy/financial"><span class="dot"></span> Financial</a>
+  <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
+  <a class="sidebar-item active" href="/legacy/sub"><span class="dot"></span> Subcontractor Mgmt</a>
+  <div class="sidebar-section">Consultant</div>
+  <a class="sidebar-item" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
+  <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
+  <a class="sidebar-item" href="/legacy/mir"><span class="dot"></span> MIR</a>
+  <a class="sidebar-item" href="/legacy/ms"><span class="dot"></span> Method Statements</a>
+  <a class="sidebar-item" href="/legacy/rfi"><span class="dot"></span> RFI</a>
+  <a class="sidebar-item" href="/legacy/lbt"><span class="dot"></span> Lab Tests</a>
+  <div style="margin-top:auto">
+    <div style="padding:12px 20px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted2)">BINNA v2.0</div>
+    </div>
+  </div>
+</div>
+
+<div class="main" id="main"><!-- views injected here --></div>
+</div>
+
+<!-- Certificate print overlay -->
+<div id="cert-print">
+  <div class="cert-toolbar">
+    <button class="btn btn-sm" onclick="closeCertPrint()">✕ Close</button>
+    <button class="btn btn-sm btn-primary" onclick="window.print()">🖨 Print</button>
+  </div>
+  <div class="cert-doc" id="cert-doc"></div>
+</div>
+
+<!-- Signature modal -->
+<div class="modal-bg" id="sig-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-h">Sign Certificate Online <button class="x-btn" onclick="closeSig()">×</button></div>
+    <div class="modal-b">
+      <div class="field"><label>Signer name</label><input class="in" id="sig-name" placeholder="Name of the person signing"/></div>
+      <div style="font-size:11px;color:var(--muted)">Draw signature below (mouse or touch):</div>
+      <canvas id="sig-canvas" width="430" height="170" style="border:1px dashed var(--border);border-radius:8px;background:#fff;touch-action:none;width:100%"></canvas>
+    </div>
+    <div class="modal-f">
+      <button class="btn btn-sm" onclick="clearSig()">Clear</button>
+      <button class="btn btn-sm btn-primary" onclick="saveSig()">Save Signature</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic modal (new subcontract / party) -->
+<div class="modal-bg" id="gen-modal">
+  <div class="modal" id="gen-modal-box">
+    <div class="modal-h" id="gen-modal-h">Title <button class="x-btn" onclick="closeGen()">×</button></div>
+    <div class="modal-b" id="gen-modal-b"></div>
+    <div class="modal-f" id="gen-modal-f"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+if (!BINNA.requireProject()) throw 0;
+const PID = BINNA.getProjectId();
+const esc = BINNA.esc;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let view = 'dashboard';            // dashboard | parties | contract
+let parties = [];
+let subsMeta = [];
+let summary = null;
+let sub = null;                    // full current subcontract (with .data blob)
+let saveTimer = null;
+
+const ROLE_LABELS = {main_contractor:'Main Contractor',consultant:'Consultant',client:'Client',subcontractor:'Subcontractor',supplier:'Supplier'};
+const KIND_LABELS = {lump_sum:'Lump Sum',milestone:'Milestone',monthly:'Monthly',custom:'Custom',open_supply:'Open Supply'};
+
+// ── Generic helpers ───────────────────────────────────────────────────────────
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('collapsed'); }
+function num(x){ const n=parseFloat(x); return isNaN(n)?0:n; }
+function todayISO(){ return new Date().toISOString().split('T')[0]; }
+function isoToDisp(s){ if(!s) return ''; const p=String(s).split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:''; }
+function dispToISO(s){ if(!s||s.length!==10) return ''; const p=s.split('/'); return (p.length===3&&p[2].length===4)?p[2]+'-'+p[1]+'-'+p[0]:''; }
+function autoFmtDate(el){ let v=el.value.replace(/\D/g,''); if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2); if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5); el.value=v.slice(0,10); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function dp(){ return sub&&sub.data ? Math.max(0,Math.min(2,parseInt(sub.data.decimalPlaces,10)||0)) : 0; }
+function fmt(v){ const d=dp(); return Number(v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function curSymOf(blob){ const c=(blob&&blob.currency)||'IQD'; if(c==='custom') return (blob.currency_custom||'').trim()||'IQD'; return ({IQD:'IQD',USD:'$',EUR:'€'})[c]||c; }
+function CUR(){ return curSymOf(sub&&sub.data); }
+
+// ── Amount in words (English) ─────────────────────────────────────────────────
+function inWords(n){
+  n=Math.round(num(n));
+  if(n===0) return 'Zero';
+  const neg=n<0; n=Math.abs(n);
+  const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function three(x){
+    let s='';
+    if(x>=100){ s+=ones[Math.floor(x/100)]+' Hundred'; x%=100; if(x)s+=' '; }
+    if(x>=20){ s+=tens[Math.floor(x/10)]; x%=10; if(x)s+='-'+ones[x]; }
+    else if(x>0){ s+=ones[x]; }
+    return s;
+  }
+  const scales=[['Billion',1e9],['Million',1e6],['Thousand',1e3]];
+  let out='';
+  for(const [name,val] of scales){
+    if(n>=val){ out+=three(Math.floor(n/val))+' '+name+' '; n%=val; }
+  }
+  if(n>0) out+=three(n);
+  return (neg?'Minus ':'')+out.trim();
+}
+function currencyWord(blob){
+  const c=(blob&&blob.currency)||'IQD';
+  if(c==='IQD') return 'Iraqi Dinars';
+  if(c==='USD') return 'US Dollars';
+  if(c==='EUR') return 'Euros';
+  return (blob&&blob.currency_custom)||'';
+}
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function scheduleSave(){ if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(saveNow,700); }
+async function saveNow(){
+  if(!sub) return;
+  try{ await BINNA.updateSubcontract(PID, sub.id, {data:sub.data}); }
+  catch(e){ BINNA.toast(e.error||'Save failed','error'); }
+}
+
+// ── Uploads ───────────────────────────────────────────────────────────────────
+async function uploadInput(inputEl){
+  const f=inputEl.files&&inputEl.files[0]; if(!f) return null;
+  const fd=new FormData(); fd.append('file',f);
+  try{ const r=await BINNA.uploadFile(PID, fd); return {file:r.file_name, original:r.original_name, date:todayISO()}; }
+  catch(e){ BINNA.toast(e.error||'Upload failed','error'); return null; }
+}
+async function downloadStored(stored, original){
+  try{
+    const res=await fetch('/api/v1/uploads/'+stored,{headers:{Authorization:'Bearer '+BINNA.getToken()}});
+    if(!res.ok) throw 0;
+    const blob=await res.blob(); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=original||stored; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(e){ BINNA.toast('Download failed','error'); }
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────────
+async function loadAll(){
+  try{
+    const [pr,sr,sm]=await Promise.all([
+      BINNA.fetchParties(PID), BINNA.fetchSubcontracts(PID), BINNA.subcontractsSummary(PID)
+    ]);
+    parties=pr.parties||[]; subsMeta=sr.subcontracts||[]; summary=sm;
+  }catch(e){ BINNA.toast(e.error||'Load failed','error'); }
+}
+
+// ── Top-level render ──────────────────────────────────────────────────────────
+function render(){
+  const m=document.getElementById('main');
+  if(view==='contract' && sub){ renderContract(m); return; }
+  let tabs='<div class="tabs">'
+    +'<div class="tab'+(view==='dashboard'?' active':'')+'" onclick="switchView(\'dashboard\')">📊 Dashboard</div>'
+    +'<div class="tab'+(view==='parties'?' active':'')+'" onclick="switchView(\'parties\')">🏢 Parties Directory</div>'
+  +'</div>';
+  m.innerHTML=tabs+'<div id="view-body"></div>';
+  const b=document.getElementById('view-body');
+  if(view==='parties') renderParties(b); else renderDashboard(b);
+}
+async function switchView(v){ view=v; if(v!=='contract'){ await loadAll(); } render(); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VIEW 1 — DASHBOARD
+// ══════════════════════════════════════════════════════════════════════════════
+function renderDashboard(b){
+  const t=(summary&&summary.totals)||{committed:0,certified:0,paid:0,retained:0,balance:0};
+  const byCur=(summary&&summary.by_currency)||{};
+  const curKeys=Object.keys(byCur);
+  const multi=curKeys.length>1;
+  const M=(label,val,color)=>'<div class="metric"><div class="l">'+label+'</div><div class="v"'+(color?' style="color:'+color+'"':'')+'>'+Math.round(val).toLocaleString('en-US')+'</div></div>';
+  let strip='<div class="strip">'
+    +M('Committed',t.committed)
+    +M('Certified',t.certified,'var(--accent)')
+    +M('Paid',t.paid,'var(--success)')
+    +M('Retained',t.retained,'var(--warning)')
+    +M('Balance Payable',t.balance,'var(--danger)')
+  +'</div>';
+  if(multi){
+    strip+='<div style="font-size:11.5px;color:var(--muted);margin:-8px 0 14px">⚠ Mixed currencies — totals above are an unconverted sum. Per-currency Balance Payable: '
+      +curKeys.map(c=>'<b>'+esc(c)+' '+Math.round(byCur[c].balance).toLocaleString('en-US')+'</b>').join(' · ')+'</div>';
+  }
+  let head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+    +'<div style="font-size:15px;font-weight:700">Subcontracts &amp; Supply Agreements</div>'
+    +'<button class="btn btn-sm btn-primary" onclick="openNewSubModal()">+ New Subcontract</button></div>';
+  const rows=(summary&&summary.contracts)||[];
+  let table;
+  if(!rows.length){
+    table='<div class="empty"><div class="ico">🏗️</div><div style="font-size:15px;font-weight:600;color:var(--text2)">No subcontracts yet</div>'
+      +'<div style="margin-top:6px">Create your first agreement with a subcontractor or supplier.</div></div>';
+  }else{
+    const sym=c=>(c==='custom'?'':c);
+    table='<table class="data"><thead><tr>'
+      +'<th>Ref</th><th>Party</th><th>Kind</th><th style="text-align:right">Committed</th><th style="text-align:right">Certified</th>'
+      +'<th style="text-align:right">Paid</th><th style="text-align:right">Balance Payable</th><th>Status</th><th>Cert</th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      const cu=(r.currency==='custom'?(r.currency_custom||''):r.currency)||'';
+      const fM=v=>Math.round(v).toLocaleString('en-US');
+      table+='<tr class="clickable" onclick="openContract('+r.id+')">'
+        +'<td class="mono">'+esc(r.ref)+'</td>'
+        +'<td>'+esc(r.party&&r.party.name||'')+'</td>'
+        +'<td>'+esc(KIND_LABELS[r.kind]||r.kind)+'</td>'
+        +'<td style="text-align:right" class="mono">'+fM(r.committed)+' '+esc(cu)+'</td>'
+        +'<td style="text-align:right;color:var(--accent)" class="mono">'+fM(r.certified)+'</td>'
+        +'<td style="text-align:right" class="mono">'+fM(r.paid)+'</td>'
+        +'<td style="text-align:right;font-weight:700" class="mono">'+fM(r.balance)+' '+esc(cu)+'</td>'
+        +'<td><span class="badge badge-'+(r.status==='active'?'active':'closed')+'">'+esc(r.status)+'</span></td>'
+        +'<td>'+(r.signed?'<span title="'+r.signed+' signed">✅ '+r.signed+'</span>':'')+(r.unsigned?' <span style="color:var(--muted2)" title="'+r.unsigned+' unsigned">'+r.unsigned+'</span>':'')+'</td>'
+      +'</tr>';
+    });
+    table+='</tbody></table>';
+  }
+  b.innerHTML=strip+head+table;
+}
+
+// ── New subcontract modal ─────────────────────────────────────────────────────
+function openNewSubModal(){
+  if(!parties.length){ BINNA.toast('Add a party first','info'); switchView('parties'); return; }
+  const popt=parties.map(p=>'<option value="'+p.id+'">'+esc(p.name)+' ('+esc(ROLE_LABELS[p.role]||p.role)+')</option>').join('');
+  genModal('New Subcontract',
+    '<div class="field"><label>Party</label><div style="display:flex;gap:8px">'
+      +'<select class="in" id="ns-party">'+popt+'</select>'
+      +'<button class="btn btn-sm" onclick="openNewPartyModal(true)" title="Add new party">+ New</button></div></div>'
+    +'<div class="field"><label>Title / Scope</label><input class="in" id="ns-title" placeholder="e.g. Electrical works — Block A"/></div>'
+    +'<div class="field"><label>Kind</label><select class="in" id="ns-kind">'
+      +Object.keys(KIND_LABELS).map(k=>'<option value="'+k+'">'+KIND_LABELS[k]+'</option>').join('')
+    +'</select></div>',
+    [{label:'Create',primary:true,fn:createSub}]);
+}
+async function createSub(){
+  const party_id=parseInt(document.getElementById('ns-party').value,10);
+  const title=document.getElementById('ns-title').value.trim();
+  const kind=document.getElementById('ns-kind').value;
+  try{
+    const r=await BINNA.createSubcontract(PID,{party_id,title,kind});
+    closeGen();
+    BINNA.toast('Subcontract '+r.subcontract.ref+' created','success');
+    sub=r.subcontract; view='contract'; render();
+  }catch(e){ BINNA.toast(e.error||'Create failed','error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VIEW 2 — PARTIES DIRECTORY
+// ══════════════════════════════════════════════════════════════════════════════
+function renderParties(b){
+  let head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+    +'<div style="font-size:15px;font-weight:700">Parties Directory</div>'
+    +'<button class="btn btn-sm btn-primary" onclick="openNewPartyModal()">+ New Party</button></div>';
+  let table='<table class="data"><thead><tr><th>Name</th><th>Role</th><th>Contact</th><th>Phone</th><th>Email</th><th>Docs</th><th></th></tr></thead><tbody>';
+  parties.forEach(p=>{
+    table+='<tr>'
+      +'<td><b>'+esc(p.name)+'</b>'+(p.name_ar?'<div style="font-size:11px;color:var(--muted)" dir="rtl">'+esc(p.name_ar)+'</div>':'')+'</td>'
+      +'<td><span class="badge badge-role">'+esc(ROLE_LABELS[p.role]||p.role)+'</span>'+(p.is_default?' <span style="font-size:10px;color:var(--muted2)">default</span>':'')+'</td>'
+      +'<td>'+esc(p.contact_name||'—')+'</td>'
+      +'<td>'+esc(p.phone||'—')+'</td>'
+      +'<td>'+esc(p.email||'—')+'</td>'
+      +'<td><a onclick="openPartyDocs('+p.id+')" style="color:var(--accent);cursor:pointer">📎 '+(p.documents?p.documents.length:0)+'</a></td>'
+      +'<td style="text-align:right;white-space:nowrap">'
+        +'<button class="btn btn-sm" onclick="openEditPartyModal('+p.id+')">Edit</button> '
+        +'<button class="btn btn-sm btn-danger" onclick="deleteParty('+p.id+')">Delete</button></td>'
+    +'</tr>';
+  });
+  table+='</tbody></table>';
+  b.innerHTML=head+table;
+}
+function partyFormFields(p){
+  p=p||{};
+  return '<div class="field"><label>Name (EN)</label><input class="in" id="pf-name" value="'+esc(p.name||'')+'"/></div>'
+    +'<div class="field"><label>Name (AR)</label><input class="in" id="pf-name-ar" dir="rtl" value="'+esc(p.name_ar||'')+'"/></div>'
+    +'<div class="field"><label>Role</label><select class="in" id="pf-role">'
+      +Object.keys(ROLE_LABELS).map(r=>'<option value="'+r+'"'+(p.role===r?' selected':'')+'>'+ROLE_LABELS[r]+'</option>').join('')
+    +'</select></div>'
+    +'<div class="field"><label>Contact Name</label><input class="in" id="pf-contact" value="'+esc(p.contact_name||'')+'"/></div>'
+    +'<div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Phone</label><input class="in" id="pf-phone" value="'+esc(p.phone||'')+'"/></div>'
+    +'<div class="field" style="flex:1"><label>Email</label><input class="in" id="pf-email" value="'+esc(p.email||'')+'"/></div></div>'
+    +'<div class="field"><label>Notes</label><textarea class="in" id="pf-notes" rows="2">'+esc(p.notes||'')+'</textarea></div>';
+}
+function readPartyForm(){
+  return {
+    name:document.getElementById('pf-name').value.trim(),
+    name_ar:document.getElementById('pf-name-ar').value.trim(),
+    role:document.getElementById('pf-role').value,
+    contact_name:document.getElementById('pf-contact').value.trim(),
+    phone:document.getElementById('pf-phone').value.trim(),
+    email:document.getElementById('pf-email').value.trim(),
+    notes:document.getElementById('pf-notes').value.trim(),
+  };
+}
+function openNewPartyModal(fromSub){
+  genModal('New Party', partyFormFields(), [{label:'Create',primary:true,fn:()=>createParty(fromSub)}]);
+}
+async function createParty(fromSub){
+  const d=readPartyForm();
+  if(!d.name){ BINNA.toast('Name is required','error'); return; }
+  try{
+    const r=await BINNA.createParty(PID,d);
+    parties.push(r.party);
+    closeGen();
+    BINNA.toast('Party added','success');
+    if(fromSub){ openNewSubModal(); setTimeout(()=>{const s=document.getElementById('ns-party'); if(s)s.value=r.party.id;},50); }
+    else render();
+  }catch(e){ BINNA.toast(e.error||'Create failed','error'); }
+}
+function openEditPartyModal(id){
+  const p=parties.find(x=>x.id===id); if(!p) return;
+  genModal('Edit Party', partyFormFields(p), [{label:'Save',primary:true,fn:()=>updatePartyDo(id)}]);
+}
+async function updatePartyDo(id){
+  const d=readPartyForm();
+  if(!d.name){ BINNA.toast('Name is required','error'); return; }
+  try{
+    const r=await BINNA.updateParty(PID,id,d);
+    const i=parties.findIndex(x=>x.id===id); if(i>=0) parties[i]=r.party;
+    closeGen(); BINNA.toast('Party updated','success'); render();
+  }catch(e){ BINNA.toast(e.error||'Save failed','error'); }
+}
+async function deleteParty(id){
+  const p=parties.find(x=>x.id===id); if(!p) return;
+  if(!confirm('Delete party "'+p.name+'"?')) return;
+  try{
+    await BINNA.deleteParty(PID,id);
+    parties=parties.filter(x=>x.id!==id);
+    BINNA.toast('Party deleted','success'); render();
+  }catch(e){ BINNA.toast(e.error||'Delete failed','error'); }   // 409 surfaced here
+}
+// Party documents
+function openPartyDocs(id){
+  const p=parties.find(x=>x.id===id); if(!p) return;
+  const docs=p.documents||[];
+  let body='<div id="pd-list">'+partyDocsList(docs)+'</div>'
+    +'<label class="btn btn-sm" style="align-self:flex-start;margin-top:8px">+ Upload Document<input type="file" style="display:none" onchange="addPartyDoc('+id+',this)"/></label>';
+  genModal('Documents — '+esc(p.name), body, []);
+}
+function partyDocsList(docs){
+  if(!docs.length) return '<div style="font-size:12px;color:var(--muted2);font-style:italic">No documents yet.</div>';
+  return docs.map((d,i)=>'<div class="att-item"><span>📄</span><span style="flex:1">'+esc(d.label||d.original||d.file)+'</span>'
+    +'<span style="font-size:10.5px;color:var(--muted2)">'+esc(d.date||'')+'</span>'
+    +'<a onclick="downloadStored(\''+esc(d.file)+'\',\''+esc(d.original||'')+'\')" style="color:var(--accent);cursor:pointer">⬇</a>'
+    +'<button class="x-btn" style="font-size:14px;color:var(--danger)" onclick="removePartyDoc('+i+')">✕</button></div>').join('');
+}
+let _pdPartyId=null;
+async function addPartyDoc(id,input){
+  _pdPartyId=id;
+  const up=await uploadInput(input); if(!up) return;
+  const p=parties.find(x=>x.id===id); if(!p) return;
+  const label=prompt('Document label (optional):',up.original)||up.original;
+  p.documents=p.documents||[]; p.documents.push({file:up.file,original:up.original,label:label,date:todayISO()});
+  await BINNA.updateParty(PID,id,{documents:p.documents});
+  document.getElementById('pd-list').innerHTML=partyDocsList(p.documents);
+  render();
+}
+async function removePartyDoc(i){
+  const p=parties.find(x=>x.id===_pdPartyId); if(!p) return;
+  p.documents.splice(i,1);
+  await BINNA.updateParty(PID,_pdPartyId,{documents:p.documents});
+  document.getElementById('pd-list').innerHTML=partyDocsList(p.documents);
+  render();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VIEW 3 — CONTRACT PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+async function openContract(id){
+  try{
+    const r=await BINNA.getSubcontract(PID,id);
+    sub=r.subcontract;
+    ensureBlob();
+    view='contract'; render();
+  }catch(e){ BINNA.toast(e.error||'Load failed','error'); }
+}
+function ensureBlob(){
+  if(!sub.data||typeof sub.data!=='object') sub.data={};
+  const d=sub.data;
+  if(!d.currency) d.currency='IQD';
+  if(d.currency_custom==null) d.currency_custom='';
+  if(d.decimalPlaces==null) d.decimalPlaces=0;
+  if(!d.settings) d.settings={};
+  const s=d.settings;
+  if(s.advanceEnabled==null) s.advanceEnabled=false;
+  if(s.advanceAmount==null) s.advanceAmount='';
+  if(s.advanceRecoveryPct==null) s.advanceRecoveryPct='20';
+  if(s.retentionEnabled==null) s.retentionEnabled=false;
+  if(s.retentionPct==null) s.retentionPct='5';
+  if(s.taxEnabled==null) s.taxEnabled=false;
+  if(s.taxRate==null) s.taxRate='';
+  if(s.contractValue==null) s.contractValue='';
+  if(sub.kind==='open_supply'){ if(!d.invoices)d.invoices=[]; if(!d.supplyPayments)d.supplyPayments=[]; }
+  else { if(!d.payments)d.payments=[]; }
+}
+function payments(){ return sub.data.payments||[]; }
+function settings(){ return sub.data.settings; }
+function hasRealData(){
+  return payments().some(p=>(p.summaryRows||[]).some(sr=>num(sr.amount))||num(p._net))
+    || (sub.data.invoices||[]).some(i=>num(i.amount))
+    || (sub.data.supplyPayments||[]).some(sp=>num(sp.amount));
+}
+
+function renderContract(m){
+  ensureBlob();
+  const d=sub.data, s=settings();
+  const party=parties.find(p=>p.id===(sub.party&&sub.party.id||sub.party_id))||sub.party||{};
+  const locked=hasRealData();
+  let h='<div style="margin-bottom:14px"><a class="btn btn-sm" onclick="backToDash()" style="cursor:pointer">← Back to Dashboard</a></div>';
+  // Header card
+  h+='<div class="card"><div class="sec" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">'
+    +'<div><div style="font-size:17px;font-weight:700">'+esc(sub.ref)+' <span style="font-size:13px;color:var(--muted);font-weight:500">'+esc(KIND_LABELS[sub.kind]||sub.kind)+(locked?' 🔒':'')+'</span></div>'
+      +'<input class="in" style="margin-top:6px;width:360px;max-width:100%" placeholder="Title / scope" value="'+esc(sub.title||'')+'" onchange="updateMeta(\'title\',this.value)"/>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Party: <b>'+esc((sub.party&&sub.party.name)||party.name||'')+'</b> · '+esc(ROLE_LABELS[(sub.party&&sub.party.role)||party.role]||'')+'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +'<label style="font-size:11px;color:var(--muted)">Currency '
+        +'<select class="in" style="width:auto;display:inline-block" '+(locked?'disabled':'')+' onchange="setCurrency(this.value)">'
+          +['IQD','USD','EUR','custom'].map(c=>'<option value="'+c+'"'+(d.currency===c?' selected':'')+'>'+c+'</option>').join('')
+        +'</select></label>'
+      +(d.currency==='custom'?'<input class="in" style="width:70px" placeholder="Sym" value="'+esc(d.currency_custom)+'" '+(locked?'disabled':'')+' onchange="setCurrencyCustom(this.value)"/>':'')
+      +'<label style="font-size:11px;color:var(--muted)">Decimals '
+        +'<select class="in" style="width:auto;display:inline-block" '+(locked?'disabled':'')+' onchange="setDecimals(this.value)">'
+          +[0,1,2].map(n=>'<option value="'+n+'"'+(d.decimalPlaces===n?' selected':'')+'>'+n+'</option>').join('')
+        +'</select></label>'
+      +'<label style="font-size:11px;color:var(--muted)">Status '
+        +'<select class="in" style="width:auto;display:inline-block" onchange="updateMeta(\'status\',this.value)">'
+          +['active','closed'].map(st=>'<option value="'+st+'"'+(sub.status===st?' selected':'')+'>'+st+'</option>').join('')
+        +'</select></label>'
+    +'</div>'
+  +'</div>';
+  // Contract documents
+  h+='<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span class="sec-t">📁 Contract Documents</span>'
+    +'<label class="btn btn-sm" style="margin:0">+ Upload<input type="file" style="display:none" onchange="addContractDoc(this)"/></label></div>'
+    +'<div id="contract-docs">'+contractDocsList()+'</div></div>';
+  h+='</div>'; // close header card
+
+  // Mini strip (this contract)
+  h+='<div id="mini-strip"></div>';
+
+  // Body by kind
+  if(sub.kind==='open_supply'){ h+='<div id="supply-body"></div>'; }
+  else {
+    // settings bar + alloc bar + payments
+    h+='<div id="pay-settings"></div><div id="alloc-bar"></div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 12px">'
+        +'<div style="font-size:14px;font-weight:700">Payments</div>'
+        +'<button class="btn btn-sm btn-primary" id="pay-add-top" onclick="addPayment()">+ Add Payment</button></div>'
+      +'<div id="pay-rows"></div>';
+  }
+  m.innerHTML=h;
+
+  if(sub.kind==='open_supply') renderSupply();
+  else { renderPaySettings(); renderPayRows(); }
+}
+function backToDash(){ sub=null; switchView('dashboard'); }
+
+async function updateMeta(field,val){
+  try{
+    const body={}; body[field]=val;
+    const r=await BINNA.updateSubcontract(PID,sub.id,body);
+    sub.title=r.subcontract.title; sub.status=r.subcontract.status;
+    if(field==='status'){ BINNA.toast('Status: '+val,'success'); }
+  }catch(e){ BINNA.toast(e.error||'Save failed','error'); }
+}
+function setCurrency(c){ sub.data.currency=c; scheduleSave(); render(); }
+function setCurrencyCustom(v){ sub.data.currency_custom=v; scheduleSave(); render(); }
+function setDecimals(v){ if(hasRealData()){ BINNA.toast('Decimals locked after data','info'); return; } sub.data.decimalPlaces=parseInt(v,10)||0; scheduleSave(); render(); }
+
+// Contract documents
+function contractDocsList(){
+  const docs=sub.documents||[];
+  if(!docs.length) return '<div style="font-size:12px;color:var(--muted2);font-style:italic">No contract documents (signed contract, LOA, guarantees…).</div>';
+  return docs.map((dc,i)=>'<div class="att-item"><span>📄</span><span style="flex:1">'+esc(dc.label||dc.original||dc.file)+'</span>'
+    +'<span style="font-size:10.5px;color:var(--muted2)">'+esc(dc.date||'')+'</span>'
+    +'<a onclick="downloadStored(\''+esc(dc.file)+'\',\''+esc(dc.original||'')+'\')" style="color:var(--accent);cursor:pointer">⬇</a>'
+    +'<button class="x-btn" style="font-size:14px;color:var(--danger)" onclick="removeContractDoc('+i+')">✕</button></div>').join('');
+}
+async function addContractDoc(input){
+  const up=await uploadInput(input); if(!up) return;
+  const label=prompt('Document label (optional):',up.original)||up.original;
+  sub.documents=sub.documents||[]; sub.documents.push({file:up.file,original:up.original,label:label,date:todayISO()});
+  await BINNA.updateSubcontract(PID,sub.id,{documents:sub.documents});
+  document.getElementById('contract-docs').innerHTML=contractDocsList();
+}
+async function removeContractDoc(i){
+  sub.documents.splice(i,1);
+  await BINNA.updateSubcontract(PID,sub.id,{documents:sub.documents});
+  document.getElementById('contract-docs').innerHTML=contractDocsList();
+}
+
+// ── Payment settings bar (advance / retention / tax / contract value) ─────────
+function renderPaySettings(){
+  const el=document.getElementById('pay-settings'); if(!el) return;
+  const s=settings();
+  const IN='border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif';
+  let h='<div class="card" style="margin-bottom:14px"><div style="padding:12px 16px">';
+  h+='<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;font-size:12px">';
+  // Contract value
+  h+='<div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600;color:var(--text2)">Contract Value</span>'
+    +'<input type="number" min="0" placeholder="Total '+CUR()+'" value="'+esc(s.contractValue)+'" style="'+IN+';width:150px;font-family:monospace" oninput="setSet(\'contractValue\',this.value)"/></div>';
+  // Advance
+  h+='<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.advanceEnabled?'checked':'')+' onchange="toggleSet(\'advanceEnabled\',this.checked)"/> Advance Payment</label>'
+    +(s.advanceEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px;flex-wrap:wrap">'
+      +'<input type="number" min="0" placeholder="Advance '+CUR()+'" value="'+esc(s.advanceAmount)+'" style="'+IN+';width:150px;font-family:monospace" oninput="setSet(\'advanceAmount\',this.value)"/>'
+      +'<span style="color:var(--muted2)">recover</span>'
+      +'<input type="number" min="0" placeholder="%" value="'+esc(s.advanceRecoveryPct)+'" style="'+IN+';width:54px" oninput="setSet(\'advanceRecoveryPct\',this.value)"/>'
+      +'<span style="color:var(--muted2)">% / payment</span></div>':'')
+  +'</div>';
+  // Retention
+  h+='<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.retentionEnabled?'checked':'')+' onchange="toggleSet(\'retentionEnabled\',this.checked)"/> Retention</label>'
+    +(s.retentionEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px"><input type="number" min="0" placeholder="%" value="'+esc(s.retentionPct)+'" style="'+IN+';width:54px" oninput="setSet(\'retentionPct\',this.value)"/><span style="color:var(--muted2)">% held / payment (released 50/50)</span></div>':'')
+  +'</div>';
+  // Tax
+  h+='<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.taxEnabled?'checked':'')+' onchange="toggleSet(\'taxEnabled\',this.checked)"/> Tax (default)</label>'
+    +(s.taxEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px"><input type="number" min="0" placeholder="%" value="'+esc(s.taxRate)+'" style="'+IN+';width:54px" oninput="setSet(\'taxRate\',this.value)"/><span style="color:var(--muted2)">% on net work</span></div>':'')
+  +'</div>';
+  h+='</div></div></div>';
+  el.innerHTML=h;
+}
+function setSet(f,v){ settings()[f]=v; scheduleSave(); renderPayRows(); refreshMini(); }
+function toggleSet(f,on){ settings()[f]=on; scheduleSave(); renderPaySettings(); renderPayRows(); refreshMini(); }
+
+// ── Allocation cap (lump_sum & milestone) ─────────────────────────────────────
+function capped(){ return sub.kind==='lump_sum'||sub.kind==='milestone'; }
+function allocatedPct(){ if(!capped()) return 0; const f=sub.kind==='milestone'?'milestonePct':'schedulePct'; return payments().reduce((a,r)=>a+num(r[f]),0); }
+
+// ── Calc (mirrors the contract private renderer, payable wording) ─────────────
+function grossOf(row){ let g=0; (row.summaryRows||[]).forEach(r=>{const a=num(r.amount); if(a>0)g+=a;}); return g; }
+function subtotalOf(row){ let g=0; (row.summaryRows||[]).forEach(r=>g+=num(r.amount)); return g; }
+
+function computeAll(){
+  const s=settings(); const ct=num(s.contractValue);
+  let grossAll=0; payments().forEach(r=>grossAll+=grossOf(r));
+  const retPct=num(s.retentionPct);
+  const retRequired=s.retentionEnabled?(ct>0?ct*retPct/100:grossAll*retPct/100):0;
+  const advTotal=s.advanceEnabled?num(s.advanceAmount):0;
+  const advRecPct=num(s.advanceRecoveryPct);
+  let prevRecovered=0, retHeldSoFar=0;
+  const out=[];
+  payments().forEach(row=>{
+    const gross=grossOf(row), subtotal=subtotalOf(row);
+    let recovery=0;
+    if(s.advanceEnabled&&advTotal>0){ recovery=Math.min(gross*advRecPct/100,Math.max(0,advTotal-prevRecovered)); prevRecovered+=recovery; }
+    let retHeld=0;
+    if(s.retentionEnabled&&retPct>0){ retHeld=Math.min(gross*retPct/100,Math.max(0,retRequired-retHeldSoFar)); retHeldSoFar+=retHeld; }
+    const relR1=row.relRet1?retRequired*0.5:0, relR2=row.relRet2?retRequired*0.5:0;
+    const netPreExtra=subtotal-recovery-retHeld;
+    let extraTotal=0;
+    (row.extraDeductions||[]).forEach(ed=>{
+      const grossEd=ed.type==='pct'?netPreExtra*num(ed.value)/100:num(ed.value);
+      let revs=0; (ed.reversals||[]).forEach(rv=>{ if(rv.type==='full')revs+=grossEd; else if(rv.type==='pct')revs+=grossEd*num(rv.value)/100; else revs+=num(rv.value); });
+      extraTotal+=Math.max(0,grossEd-revs);
+    });
+    let surplus=0; (row.surplusCredits||[]).forEach(sc=>surplus+=num(sc.amount));
+    let crossRev=0; (row.deductionReversals||[]).forEach(rv=>crossRev+=num(rv.amount));
+    const taxOn=row.privTaxEnabled!=null?row.privTaxEnabled:s.taxEnabled;
+    const taxRate=(row.privTaxRate!==''&&row.privTaxRate!=null)?num(row.privTaxRate):num(s.taxRate);
+    const taxBase=Math.max(0,netPreExtra-extraTotal);
+    const tax=taxOn?taxBase*taxRate/100:0;
+    const net=netPreExtra-extraTotal+surplus+crossRev-tax+relR1+relR2;
+    // persist for server summary
+    row._net=net; row._retHeld=retHeld; row._retReleased=relR1+relR2;
+    out.push({gross,subtotal,recovery,retHeld,relR1,relR2,extraTotal,surplus,crossRev,taxOn,taxRate,tax,net,retRequired,advRecPct,retPct});
+  });
+  return out;
+}
+
+function refreshMini(){
+  const el=document.getElementById('mini-strip'); if(!el) return;
+  let committed,certified=0,paid=0,retained=0;
+  if(sub.kind==='open_supply'){
+    const inv=(sub.data.invoices||[]).reduce((a,i)=>a+num(i.amount),0);
+    const pays=sub.data.supplyPayments||[];
+    committed=inv;
+    pays.forEach(sp=>{ const st=(sp.certificate||{}).status||'draft'; const amt=num(sp.amount);
+      if(rank(st)>=1)certified+=amt; if(sp.paid||st==='paid')paid+=amt; });
+    retained=0;
+  }else{
+    const c=computeAll(); const s=settings(); const ctv=num(s.contractValue);
+    let alloc=0; c.forEach(x=>alloc+=x.net);
+    committed=ctv>0?ctv:alloc;
+    payments().forEach((p,i)=>{ const st=(p.certificate||{}).status||'draft';
+      if(rank(st)>=1)certified+=c[i].net; if(p.paid||st==='paid')paid+=c[i].net; retained+=c[i].retHeld-c[i].relR1-c[i].relR2; });
+  }
+  const balance=(sub.kind==='open_supply')?(committed-paid):(certified-paid);
+  const cu=CUR();
+  const M=(l,v,col)=>'<div class="metric"><div class="l">'+l+'</div><div class="v"'+(col?' style="color:'+col+'"':'')+'>'+fmt(v)+' '+cu+'</div></div>';
+  el.innerHTML='<div class="strip">'+M('Committed',committed)+M('Certified',certified,'var(--accent)')+M('Paid',paid,'var(--success)')+M('Retained',retained,'var(--warning)')+M('Balance Payable',balance,'var(--danger)')+'</div>';
+}
+function rank(st){ return ({draft:0,certified:1,signed:2,paid:3})[st]||0; }
+
+// ── Add payment ───────────────────────────────────────────────────────────────
+function addPayment(){
+  if(capped()&&allocatedPct()>=100){ BINNA.toast('Cannot exceed 100% of contract value','error'); return; }
+  const row={payment_mode:'sub',status:'draft',date:todayISO(),summaryRows:[{id:'sr'+Date.now(),label:'Work Done / أعمال منجزة',amount:''}],
+    extraDeductions:[],surplusCredits:[],deductionReversals:[],received:[],attachments:[],
+    request:{has:false,refNo:'',date:'',attachment:null},
+    certificate:{status:'draft',certNo:'',date:'',preparedBy:{name:'',title:''},signature:null,signedCopy:null},
+    paid:false,paidDate:''};
+  if(sub.kind==='milestone'){ const nm=prompt('Milestone name:'); if(nm===null) return; row.milestoneName=nm||''; row.desc=nm||''; row.milestonePct=''; }
+  else if(sub.kind==='monthly'){ row.invoiceNo='INV-'+pad2(payments().filter(p=>p.invoiceNo).length+1); row.period=''; }
+  else if(sub.kind==='lump_sum'){ row.scheduleLabel=''; row.schedulePct=''; }
+  payments().push(row);
+  scheduleSave(); renderPayRows(); refreshMini();
+}
+function addSummaryRow(idx){ const r=payments()[idx]; if(!r.summaryRows)r.summaryRows=[]; r.summaryRows.push({id:'sr'+Date.now(),label:'',amount:''}); renderPayRows(); }
+function removeSummaryRow(idx,ri){ payments()[idx].summaryRows.splice(ri,1); scheduleSave(); renderPayRows(); refreshMini(); }
+function delPayment(idx){ if(!confirm('Delete this payment — are you sure?')) return; payments().splice(idx,1); scheduleSave(); renderPayRows(); refreshMini(); }
+
+// ── Render payment cards ──────────────────────────────────────────────────────
+function renderPayRows(){
+  const container=document.getElementById('pay-rows'); if(!container) return;
+  const s=settings(), cu=CUR();
+  const IN='border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif';
+  const comp=computeAll();
+  container.innerHTML='';
+  if(!payments().length){ container.innerHTML='<div class="empty" style="padding:30px"><div>No payments yet — click <b>+ Add Payment</b>.</div></div>'; }
+
+  payments().forEach((row,idx)=>{
+    const c=comp[idx];
+    let hdr;
+    if(sub.kind==='milestone') hdr='🏁 '+esc(row.milestoneName||row.desc||'Milestone')+(row.milestonePct?' — '+esc(row.milestonePct)+'%':'');
+    else if(sub.kind==='monthly') hdr='🧾 '+esc(row.invoiceNo||'Invoice')+(row.period?' — '+esc(row.period):'');
+    else if(sub.kind==='lump_sum') hdr='📦 '+esc(row.scheduleLabel||row.desc||('Payment '+(idx+1)))+(row.schedulePct?' ('+esc(row.schedulePct)+'%)':'');
+    else hdr='Payment '+(idx+1);
+
+    // third meta cell
+    let third;
+    if(sub.kind==='monthly') third='<div class="l" style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Invoice / Period</div>'
+      +'<input placeholder="INV-001" value="'+esc(row.invoiceNo||'')+'" style="width:100%;'+IN+';margin-bottom:4px" oninput="payments()['+idx+'].invoiceNo=this.value;scheduleSave()" onchange="renderPayRows()"/>'
+      +'<input placeholder="June 2026" value="'+esc(row.period||'')+'" style="width:100%;'+IN+'" oninput="payments()['+idx+'].period=this.value;scheduleSave()"/>';
+    else if(sub.kind==='milestone') third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Completion %</div>'
+      +'<input type="number" min="0" max="100" placeholder="0" value="'+esc(row.milestonePct||'')+'" style="width:100%;'+IN+';font-family:monospace" oninput="payments()['+idx+'].milestonePct=this.value;scheduleSave()" onchange="renderPayRows()"/>';
+    else if(sub.kind==='lump_sum') third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Stage % (of contract)</div>'
+      +'<input type="number" min="0" placeholder="0" value="'+esc(row.schedulePct||'')+'" style="width:100%;'+IN+';font-family:monospace" oninput="payments()['+idx+'].schedulePct=this.value;scheduleSave()" onchange="renderPayRows()"/>';
+    else third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Reference</div>'
+      +'<input placeholder="Optional ref" value="'+esc(row.scheduleLabel||'')+'" style="width:100%;'+IN+'" oninput="payments()['+idx+'].scheduleLabel=this.value;scheduleSave()"/>';
+
+    // summary rows
+    let srows='';
+    (row.summaryRows||[]).forEach((sr,ri)=>{
+      srows+='<tr><td class="pst-lbl"><input value="'+esc(sr.label||'')+'" placeholder="Row label…" style="border:none;background:transparent;width:72%;font-size:13px;font-family:Inter,sans-serif;color:var(--text2)" oninput="payments()['+idx+'].summaryRows['+ri+'].label=this.value;scheduleSave()"/><button class="pst-x" onclick="removeSummaryRow('+idx+','+ri+')">×</button></td>'
+        +'<td class="pst-amt"><input type="number" value="'+esc(sr.amount||'')+'" placeholder="0" title="Positive = addition, negative = deduction" style="width:120px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payments()['+idx+'].summaryRows['+ri+'].amount=this.value" onchange="renderPayRows();refreshMini()"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">'+cu+'</span></td></tr>';
+    });
+    if(c.recovery>0) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">استرداد السلفة — Advance Recovery <span style="font-size:10.5px;color:var(--muted2)">('+c.advRecPct+'%)</span></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(c.recovery)+' '+cu+'</td></tr>';
+    if(c.retHeld>0) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">ضمان — Retention <span style="font-size:10.5px;color:var(--muted2)">('+c.retPct+'%)</span></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(c.retHeld)+' '+cu+'</td></tr>';
+    // extra deductions
+    (row.extraDeductions||[]).forEach((ed,ei)=>{
+      const netPreExtra=c.subtotal-c.recovery-c.retHeld;
+      const edGross=ed.type==='pct'?netPreExtra*num(ed.value)/100:num(ed.value);
+      let revHTML='';
+      (ed.reversals||[]).forEach((rv,ri)=>{
+        let rvAmt= rv.type==='full'?edGross : rv.type==='pct'?edGross*num(rv.value)/100 : num(rv.value);
+        revHTML+='<div style="display:flex;align-items:center;gap:7px;margin-top:5px;padding:5px 8px 5px 18px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:5px;font-size:11.5px">'
+          +'<span style="color:var(--success);font-weight:700">↩</span>'
+          +'<input style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 7px" placeholder="Reversal reason" value="'+esc(rv.note||'')+'" oninput="payments()['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].note=this.value;scheduleSave()"/>'
+          +'<select style="border:1px solid var(--border);border-radius:4px;padding:3px 7px" onchange="payments()['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].type=this.value;renderPayRows();refreshMini()">'
+            +'<option value="full"'+(rv.type==='full'?' selected':'')+'>Full</option><option value="fixed"'+(rv.type==='fixed'||!rv.type?' selected':'')+'>Partial '+cu+'</option><option value="pct"'+(rv.type==='pct'?' selected':'')+'>% of deduction</option></select>'
+          +(rv.type!=='full'?'<input type="number" min="0" style="width:70px;border:1px solid var(--border);border-radius:4px;padding:3px 7px" value="'+esc(rv.value||'')+'" oninput="payments()['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].value=this.value" onchange="renderPayRows();refreshMini()"/>':'<span style="width:70px;color:var(--success);text-align:right">full</span>')
+          +'<span style="color:var(--success);font-family:monospace;min-width:70px;text-align:right">+'+fmt(rvAmt)+'</span>'
+          +'<button class="x-btn" style="font-size:13px;color:var(--danger)" onclick="payments()['+idx+'].extraDeductions['+ei+'].reversals.splice('+ri+',1);renderPayRows();refreshMini()">✕</button></div>';
+      });
+      srows+='<tr><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff8f8;border:1px solid #fecdca;border-radius:6px">'
+        +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px" placeholder="Deduction name" value="'+esc(ed.label||'')+'" oninput="payments()['+idx+'].extraDeductions['+ei+'].label=this.value;scheduleSave()"/>'
+        +'<select style="border:1px solid var(--border);border-radius:5px;padding:4px 8px" onchange="payments()['+idx+'].extraDeductions['+ei+'].type=this.value;renderPayRows();refreshMini()"><option value="pct"'+(ed.type==='pct'?' selected':'')+'>% of net</option><option value="fixed"'+(ed.type==='fixed'?' selected':'')+'>Fixed '+cu+'</option></select>'
+        +'<input type="number" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-family:monospace;text-align:right" value="'+esc(ed.value||'')+'" placeholder="0" oninput="payments()['+idx+'].extraDeductions['+ei+'].value=this.value" onchange="renderPayRows();refreshMini()"/>'
+        +'<span style="color:var(--danger);font-family:monospace;min-width:80px;text-align:right">−'+fmt(edGross)+'</span>'
+        +'<button type="button" onclick="addEdReversal('+idx+','+ei+')" style="border:1px solid #a6f4c5;background:#f0fbf4;color:var(--success);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 7px">↩</button>'
+        +'<button class="x-btn" style="font-size:14px;color:var(--danger)" onclick="payments()['+idx+'].extraDeductions.splice('+ei+',1);renderPayRows();refreshMini()">✕</button>'
+        +'</div>'+revHTML+'</td></tr>';
+    });
+    // cross-payment reversals
+    (row.deductionReversals||[]).forEach((rv,ri)=>{
+      srows+='<tr><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+        +'<span style="color:var(--success);font-weight:700">↩</span><span style="flex:1;font-size:12px">'+esc(rv.note||'Reversal')+'</span>'
+        +'<span style="color:var(--success);font-family:monospace;font-weight:700">+'+fmt(num(rv.amount))+' '+cu+'</span>'
+        +'<button class="x-btn" style="font-size:13px;color:var(--danger)" onclick="payments()['+idx+'].deductionReversals.splice('+ri+',1);renderPayRows();refreshMini()">✕</button></div></td></tr>';
+    });
+    // surplus credits
+    (row.surplusCredits||[]).forEach((sc,si)=>{
+      srows+='<tr><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
+        +'<span style="color:var(--success);font-weight:700">+</span>'
+        +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px" placeholder="Surplus credit description" value="'+esc(sc.note||'')+'" oninput="payments()['+idx+'].surplusCredits['+si+'].note=this.value;scheduleSave()"/>'
+        +'<input type="number" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;color:var(--success);font-family:monospace;text-align:right" value="'+esc(sc.amount||'')+'" placeholder="Amount" oninput="payments()['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPayRows();refreshMini()"/>'
+        +'<span style="color:var(--success);font-family:monospace;min-width:70px;text-align:right">+'+fmt(num(sc.amount))+'</span>'
+        +'<button class="x-btn" style="font-size:14px;color:var(--danger)" onclick="payments()['+idx+'].surplusCredits.splice('+si+',1);renderPayRows();refreshMini()">✕</button></div></td></tr>';
+    });
+    if(c.relR1>0) srows+='<tr><td class="pst-lbl" style="color:var(--success)">Retention Release — Initial (50%)</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(c.relR1)+' '+cu+'</td></tr>';
+    if(c.relR2>0) srows+='<tr><td class="pst-lbl" style="color:var(--success)">Retention Release — Final (50%)</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(c.relR2)+' '+cu+'</td></tr>';
+    if(c.taxOn) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">Tax <input type="number" min="0" value="'+esc(row.privTaxRate!==''&&row.privTaxRate!=null?row.privTaxRate:(s.taxRate||''))+'" placeholder="'+num(s.taxRate)+'" style="width:46px;border:1px solid var(--border);border-radius:4px;padding:1px 4px;text-align:right;font-family:monospace" oninput="payments()['+idx+'].privTaxRate=this.value" onchange="renderPayRows();refreshMini()"/>% <button class="pst-x" onclick="payments()['+idx+'].privTaxEnabled=false;renderPayRows();refreshMini()">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(c.tax)+' '+cu+'</td></tr>';
+    // footer controls
+    srows+='<tr><td colspan="2" style="padding:8px 12px;background:var(--surface)"><div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button class="btn btn-sm" onclick="payments()['+idx+'].extraDeductions.push({label:\'\',type:\'pct\',value:\'\',reversals:[]});renderPayRows()" style="font-size:11px;padding:3px 10px">+ Add Deduction</button>'
+      +'<button class="btn btn-sm" onclick="if(!payments()['+idx+'].surplusCredits)payments()['+idx+'].surplusCredits=[];payments()['+idx+'].surplusCredits.push({note:\'\',amount:\'\'});renderPayRows()" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5">+ Add Surplus</button>'
+      +(idx>0?'<button class="btn btn-sm" style="font-size:11px;padding:3px 10px;color:var(--success);border-color:#a6f4c5" onclick="openRevModal('+idx+')">↩ Reverse Previous Deduction</button>':'')
+    +'</div></td></tr>';
+    srows+='<tr class="pst-net"><td class="pst-lbl">NET PAYABLE / صافي المستحق للمقاول</td><td class="pst-amt">'+fmt(c.net)+' '+cu+'</td></tr>';
+
+    const taxBtn=!c.taxOn?'<button type="button" onclick="payments()['+idx+'].privTaxEnabled=true;renderPayRows();refreshMini()" style="font-size:11px;color:var(--danger);background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px 8px">+ Tax</button>':'';
+
+    const card=document.createElement('div');
+    card.className='card';
+    card.innerHTML=
+      '<div class="card-h"><span style="font-size:13px;font-weight:700;color:#c11574">'+hdr+'</span>'
+        +'<div style="display:flex;gap:8px;align-items:center">'
+          +'<button class="x-btn" style="font-size:14px;color:var(--danger)" onclick="delPayment('+idx+')">✕</button></div></div>'
+      // meta
+      +'<div style="display:grid;grid-template-columns:2fr 1fr 1.4fr;border-bottom:1px solid var(--border2)">'
+        +'<div style="padding:8px 12px;border-right:1px solid var(--border2)"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Description</div>'
+          +'<input style="width:100%;border:none;outline:none;font-size:13px;font-family:Inter,sans-serif" placeholder="Payment description" value="'+esc(row.desc||'')+'" oninput="payments()['+idx+'].desc=this.value;scheduleSave()"/></div>'
+        +'<div style="padding:8px 12px;border-right:1px solid var(--border2)"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Date</div>'
+          +'<input type="text" maxlength="10" placeholder="DD/MM/YYYY" style="width:100%;border:none;outline:none;font-size:13px" value="'+esc(isoToDisp(row.date||todayISO()))+'" oninput="autoFmtDate(this)" onchange="var iso=dispToISO(this.value);if(iso){payments()['+idx+'].date=iso;scheduleSave()}"/></div>'
+        +'<div style="padding:8px 12px">'+third+'</div></div>'
+      // their request (collapsible)
+      +reqHTML(row,idx)
+      // payment summary
+      +'<div class="sec"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span class="sec-t">Payment Summary</span>'
+        +'<div style="display:flex;gap:6px">'+taxBtn+'<button onclick="addSummaryRow('+idx+')" style="font-size:11px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px 8px">+ Add Row</button></div></div>'
+        +'<table class="pst"><tbody><tr class="pst-hdr"><td colspan="2">'+hdr+'&nbsp;&nbsp;&nbsp;Date: '+esc(isoToDisp(row.date||todayISO()))+'</td></tr>'+srows+'</tbody></table></div>'
+      // retention release toggles
+      +(s.retentionEnabled?'<div class="sec" style="background:var(--surface);display:flex;gap:20px;flex-wrap:wrap;align-items:center"><span class="sec-t">Retention Release:</span>'
+        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px"><input type="checkbox" '+(row.relRet1?'checked':'')+' onchange="payments()['+idx+'].relRet1=this.checked;renderPayRows();refreshMini()"/> Initial 50% (+'+fmt(c.retRequired*0.5)+' '+cu+')</label>'
+        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px"><input type="checkbox" '+(row.relRet2?'checked':'')+' onchange="payments()['+idx+'].relRet2=this.checked;renderPayRows();refreshMini()"/> Final 50% (+'+fmt(c.retRequired*0.5)+' '+cu+')</label></div>':'')
+      // certificate bar
+      +certBar(row,idx,'pay',c.net)
+      // attachments
+      +attachSection(row,idx)
+    ;
+    container.appendChild(card);
+  });
+
+  // alloc bar
+  const ab=document.getElementById('alloc-bar');
+  if(ab){
+    if(capped()){
+      const al=allocatedPct(); const over=al>100, atc=al>=100;
+      const col=over?'var(--danger)':(atc?'var(--success)':'var(--accent)');
+      ab.innerHTML='<div class="card" style="padding:9px 16px;margin-bottom:12px;font-size:12px;display:flex;align-items:center;gap:8px">Total Allocated: <b style="color:'+col+';font-family:monospace">'+(Math.round(al*10)/10)+'%</b> <span style="color:var(--muted2)">/ 100%</span>'+(over?'<span style="color:var(--danger);font-weight:600;margin-left:auto">⚠ Exceeds 100%</span>':(atc?'<span style="color:var(--success);font-weight:600;margin-left:auto">✓ Fully allocated</span>':''))+'</div>';
+    }else ab.innerHTML='';
+  }
+  const addDisabled=capped()&&allocatedPct()>=100;
+  const tb=document.getElementById('pay-add-top'); if(tb){ tb.disabled=addDisabled; tb.title=addDisabled?'100% allocated':''; }
+  refreshMini();
+  scheduleSave();
+}
+
+// ── Their request collapsible ─────────────────────────────────────────────────
+function reqHTML(row,idx){
+  const r=row.request||(row.request={has:false,refNo:'',date:'',attachment:null});
+  let h='<div class="sec" style="background:#fcfcfd"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2)">'
+    +'<input type="checkbox" '+(r.has?'checked':'')+' onchange="payments()['+idx+'].request.has=this.checked;renderPayRows()"/> 📨 Their Payment Request received</label>';
+  if(r.has){
+    h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-left:24px">'
+      +'<input class="in" style="width:160px" placeholder="Request Ref No." value="'+esc(r.refNo||'')+'" oninput="payments()['+idx+'].request.refNo=this.value;scheduleSave()"/>'
+      +'<input class="in" style="width:130px" maxlength="10" placeholder="DD/MM/YYYY" value="'+esc(isoToDisp(r.date))+'" oninput="autoFmtDate(this)" onchange="var iso=dispToISO(this.value);if(iso){payments()['+idx+'].request.date=iso;scheduleSave()}"/>'
+      +(r.attachment?'<span class="att-item" style="margin:0"><span>📄</span>'+esc(r.attachment.original||r.attachment.file)+' <a onclick="downloadStored(\''+esc(r.attachment.file)+'\',\''+esc(r.attachment.original||'')+'\')" style="color:var(--accent);cursor:pointer">⬇</a> <button class="x-btn" style="color:var(--danger)" onclick="payments()['+idx+'].request.attachment=null;renderPayRows()">✕</button></span>'
+        :'<label class="btn btn-sm" style="margin:0">+ Attachment<input type="file" style="display:none" onchange="addReqAttach('+idx+',this)"/></label>')
+    +'</div>';
+  }
+  h+='</div>';
+  return h;
+}
+async function addReqAttach(idx,input){ const up=await uploadInput(input); if(!up) return; payments()[idx].request.attachment=up; scheduleSave(); renderPayRows(); }
+
+// ── Extra-deduction reversal + cross-payment reversal modal ───────────────────
+function addEdReversal(idx,ei){ const ed=payments()[idx].extraDeductions[ei]; if(!ed.reversals)ed.reversals=[]; ed.reversals.push({type:'full',value:'',note:''}); renderPayRows(); refreshMini(); }
+function openRevModal(idx){
+  // gather previous deductions still outstanding
+  let opts='';
+  payments().forEach((p,pi)=>{ if(pi>=idx) return;
+    (p.extraDeductions||[]).forEach((ed,ei)=>{ if(!ed.label&&!num(ed.value)) return;
+      opts+='<option value="'+pi+'|'+ei+'">P'+(pi+1)+' — '+esc(ed.label||'Deduction '+(ei+1))+'</option>'; });
+  });
+  if(!opts){ BINNA.toast('No previous deductions to reverse','info'); return; }
+  genModal('Reverse Previous Deduction',
+    '<div class="field"><label>Deduction</label><select class="in" id="rv-src">'+opts+'</select></div>'
+    +'<div class="field"><label>Amount to credit back ('+CUR()+')</label><input type="number" class="in mono-in" id="rv-amt" placeholder="0"/></div>'
+    +'<div class="field"><label>Note</label><input class="in" id="rv-note" placeholder="Reason / reference"/></div>',
+    [{label:'Add Reversal',primary:true,fn:()=>{
+      const src=document.getElementById('rv-src').value.split('|');
+      const amt=num(document.getElementById('rv-amt').value);
+      if(amt<=0){ BINNA.toast('Enter an amount','error'); return; }
+      const row=payments()[idx]; if(!row.deductionReversals)row.deductionReversals=[];
+      row.deductionReversals.push({note:document.getElementById('rv-note').value||'Reversal',amount:amt,sourcePayIdx:parseInt(src[0],10),sourceEdIdx:parseInt(src[1],10)});
+      closeGen(); renderPayRows(); refreshMini();
+    }}]);
+}
+
+// ── Attachments ───────────────────────────────────────────────────────────────
+function attachSection(row,idx){
+  let h='<div class="sec" style="border-bottom:none"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span class="sec-t">📎 Attachments</span>'
+    +'<label class="btn btn-sm" style="margin:0">+ Attach File<input type="file" style="display:none" onchange="addPayAttach('+idx+',this)"/></label></div>';
+  if(row.attachments&&row.attachments.length){
+    h+=row.attachments.map((a,ai)=>'<div class="att-item"><span>📄</span><span style="flex:1">'+esc(a.original||a.file)+'</span>'
+      +'<a onclick="downloadStored(\''+esc(a.file)+'\',\''+esc(a.original||'')+'\')" style="color:var(--accent);cursor:pointer">⬇</a>'
+      +'<button class="x-btn" style="font-size:13px;color:var(--danger)" onclick="payments()['+idx+'].attachments.splice('+ai+',1);renderPayRows()">✕</button></div>').join('');
+  }else h+='<div style="font-size:11.5px;color:var(--muted2);font-style:italic">No attachments yet.</div>';
+  return h+'</div>';
+}
+async function addPayAttach(idx,input){ const up=await uploadInput(input); if(!up) return; const r=payments()[idx]; if(!r.attachments)r.attachments=[]; r.attachments.push(up); scheduleSave(); renderPayRows(); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CERTIFICATE BAR  (shared by payments + supply payments)
+//   mode 'pay' → payments()[idx];  mode 'sup' → sub.data.supplyPayments[idx]
+// ══════════════════════════════════════════════════════════════════════════════
+function certRowOf(mode,idx){ return mode==='pay'?payments()[idx]:sub.data.supplyPayments[idx]; }
+function certBar(row,idx,mode,net){
+  const cert=row.certificate||(row.certificate={status:'draft',certNo:'',date:'',preparedBy:{name:'',title:''},signature:null,signedCopy:null});
+  const st=cert.status||'draft';
+  const chip='<span class="chip chip-'+st+'">'+({draft:'Draft',certified:'Certified',signed:'Signed',paid:'Paid'})[st]+'</span>';
+  const r=rank(st);
+  const b=(label,enabled,fn,extra)=>'<button class="btn btn-sm'+(extra||'')+'" '+(enabled?'':'disabled')+' onclick="'+fn+'">'+label+'</button>';
+  let h='<div class="sec" style="background:#fcfcfd"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<span class="sec-t">Certificate</span>'+chip
+    +(cert.certNo?'<span class="mono" style="font-size:11px;color:var(--muted)">'+esc(cert.certNo)+'</span>':'')
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">'
+      +b('Certify',r<1,"certifyCert('"+mode+"',"+idx+")")
+      +b('🖨 Print',r>=1,"printCert('"+mode+"',"+idx+")")
+      +b('✍ Sign Online',r>=1&&r<3,"signOnline('"+mode+"',"+idx+")")
+      +'<label class="btn btn-sm'+(r>=1&&r<3?'':' ')+'" style="margin:0'+(r>=1&&r<3?'':';opacity:.5;pointer-events:none')+'">⬆ Upload Signed<input type="file" style="display:none" onchange="uploadSigned(\''+mode+'\','+idx+',this)"/></label>'
+      +b('✓ Mark Paid',r>=2&&!row.paid,"markPaid('"+mode+"',"+idx+")",' btn-primary')
+    +'</div></div>';
+  // preparedBy + signed copy line
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">'
+    +'<input class="in" style="width:170px" placeholder="Prepared by (name)" value="'+esc(cert.preparedBy&&cert.preparedBy.name||'')+'" oninput="setPrepared(\''+mode+'\','+idx+',\'name\',this.value)"/>'
+    +'<input class="in" style="width:150px" placeholder="Title" value="'+esc(cert.preparedBy&&cert.preparedBy.title||'')+'" oninput="setPrepared(\''+mode+'\','+idx+',\'title\',this.value)"/>';
+  if(cert.signature) h+='<span style="font-size:11px;color:var(--success)">✍ Signed by '+esc(cert.signature.signerName||'')+' ('+esc(isoToDisp(cert.signature.date))+')</span>';
+  if(cert.signedCopy) h+='<span class="att-item" style="margin:0"><span>📄</span>Signed copy <a onclick="downloadStored(\''+esc(cert.signedCopy.file)+'\',\''+esc(cert.signedCopy.original||'')+'\')" style="color:var(--accent);cursor:pointer">⬇</a></span>';
+  if(row.paid) h+='<span style="font-size:11px;color:var(--success);font-weight:600">💰 Paid '+esc(isoToDisp(row.paidDate))+'</span>';
+  h+='</div></div>';
+  return h;
+}
+function setPrepared(mode,idx,f,v){ const row=certRowOf(mode,idx); row.certificate.preparedBy[f]=v; scheduleSave(); }
+function certifyCert(mode,idx){
+  const row=certRowOf(mode,idx);
+  const net=mode==='pay'?(row._net||0):num(row.amount);
+  if(net<=0 && !confirm('Net is zero — certify anyway?')) return;
+  row.certificate.status='certified';
+  if(!row.certificate.certNo) row.certificate.certNo=sub.ref+'-PC-'+pad2(idx+1);
+  if(!row.certificate.date) row.certificate.date=todayISO();
+  scheduleSave(); BINNA.toast('Certificate '+row.certificate.certNo+' certified','success');
+  mode==='pay'?renderPayRows():renderSupply();
+}
+function markPaid(mode,idx){
+  const row=certRowOf(mode,idx);
+  row.paid=true; row.paidDate=todayISO(); row.certificate.status='paid';
+  scheduleSave(); BINNA.toast('Marked paid','success');
+  mode==='pay'?renderPayRows():renderSupply();
+  refreshMini();
+}
+async function uploadSigned(mode,idx,input){
+  const up=await uploadInput(input); if(!up) return;
+  const row=certRowOf(mode,idx);
+  row.certificate.signedCopy=up;
+  if(rank(row.certificate.status)<2) row.certificate.status='signed';
+  scheduleSave(); BINNA.toast('Signed copy uploaded','success');
+  mode==='pay'?renderPayRows():renderSupply();
+}
+
+// ── Signature modal (canvas) ──────────────────────────────────────────────────
+let _sigCtx=null,_sigDrawing=false,_sigDirty=false,_sigTarget=null;
+function signOnline(mode,idx){
+  _sigTarget={mode,idx};
+  const cv=document.getElementById('sig-canvas');
+  _sigCtx=cv.getContext('2d'); _sigCtx.fillStyle='#fff'; _sigCtx.fillRect(0,0,cv.width,cv.height);
+  _sigCtx.strokeStyle='#101828'; _sigCtx.lineWidth=2.2; _sigCtx.lineCap='round'; _sigDirty=false;
+  document.getElementById('sig-name').value=(certRowOf(mode,idx).certificate.preparedBy&&'')||'';
+  document.getElementById('sig-modal').classList.add('open');
+}
+function _sigPos(e){ const cv=document.getElementById('sig-canvas'); const r=cv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:(t.clientX-r.left)*(cv.width/r.width), y:(t.clientY-r.top)*(cv.height/r.height)}; }
+function _sigStart(e){ _sigDrawing=true; const p=_sigPos(e); _sigCtx.beginPath(); _sigCtx.moveTo(p.x,p.y); e.preventDefault(); }
+function _sigMove(e){ if(!_sigDrawing)return; const p=_sigPos(e); _sigCtx.lineTo(p.x,p.y); _sigCtx.stroke(); _sigDirty=true; e.preventDefault(); }
+function _sigEnd(){ _sigDrawing=false; }
+function clearSig(){ const cv=document.getElementById('sig-canvas'); _sigCtx.fillStyle='#fff'; _sigCtx.fillRect(0,0,cv.width,cv.height); _sigDirty=false; }
+function closeSig(){ document.getElementById('sig-modal').classList.remove('open'); }
+function saveSig(){
+  if(!_sigDirty){ BINNA.toast('Draw a signature first','error'); return; }
+  const cv=document.getElementById('sig-canvas');
+  const row=certRowOf(_sigTarget.mode,_sigTarget.idx);
+  row.certificate.signature={type:'drawn',image:cv.toDataURL('image/png'),signerName:document.getElementById('sig-name').value.trim(),date:todayISO()};
+  if(rank(row.certificate.status)<2) row.certificate.status='signed';
+  scheduleSave(); closeSig(); BINNA.toast('Signature saved','success');
+  _sigTarget.mode==='pay'?renderPayRows():renderSupply();
+}
+
+// ── Certificate print ─────────────────────────────────────────────────────────
+function printCert(mode,idx){
+  const row=certRowOf(mode,idx);
+  const cert=row.certificate||{};
+  const proj=BINNA.getProject()||{};
+  const party=sub.party||{};
+  const partyObj=parties.find(p=>p.id===(party.id||sub.party_id))||{};
+  const cu=CUR();
+  let gross,net,deductions=[];
+  if(mode==='pay'){
+    const comp=computeAll(); const c=comp[idx];
+    gross=c.gross; net=c.net;
+    if(c.recovery>0) deductions.push(['Advance Recovery','− '+fmt(c.recovery)+' '+cu]);
+    if(c.retHeld>0) deductions.push(['Retention','− '+fmt(c.retHeld)+' '+cu]);
+    (row.extraDeductions||[]).forEach(ed=>{ const netPreExtra=c.subtotal-c.recovery-c.retHeld; const g=ed.type==='pct'?netPreExtra*num(ed.value)/100:num(ed.value); if(g>0)deductions.push([ed.label||'Deduction','− '+fmt(g)+' '+cu]); });
+    if(c.tax>0) deductions.push(['Tax','− '+fmt(c.tax)+' '+cu]);
+    if(c.relR1>0) deductions.push(['Retention Release (Initial)','+ '+fmt(c.relR1)+' '+cu]);
+    if(c.relR2>0) deductions.push(['Retention Release (Final)','+ '+fmt(c.relR2)+' '+cu]);
+    (row.surplusCredits||[]).forEach(sc=>{ if(num(sc.amount)>0)deductions.push([sc.note||'Surplus Credit','+ '+fmt(num(sc.amount))+' '+cu]); });
+  }else{ gross=num(row.amount); net=gross; }
+
+  const words=inWords(net)+' '+currencyWord(sub.data)+' only';
+  let h='<h1>Payment Certificate</h1><div class="cert-sub">شهادة دفع</div>';
+  h+='<table><tr><td><b>Project</b></td><td>'+esc(proj.name||'')+' ('+esc(proj.code||'')+')</td></tr>'
+    +'<tr><td><b>Contract</b></td><td>'+esc(sub.ref)+' — '+esc(sub.title||'')+'</td></tr>'
+    +'<tr><td><b>Party</b></td><td>'+esc(party.name||partyObj.name||'')+(partyObj.name_ar?' / '+esc(partyObj.name_ar):'')+'</td></tr>'
+    +'<tr><td><b>Certificate No.</b></td><td>'+esc(cert.certNo||(sub.ref+'-PC-'+pad2(idx+1)))+'</td></tr>'
+    +'<tr><td><b>Date</b></td><td>'+esc(isoToDisp(cert.date||row.date||todayISO()))+'</td></tr></table>';
+  h+='<div class="cert-line"><span>Gross Amount</span><span class="mono">'+fmt(gross)+' '+cu+'</span></div>';
+  deductions.forEach(d=>{ h+='<div class="cert-line"><span>'+esc(d[0])+'</span><span class="mono">'+esc(d[1])+'</span></div>'; });
+  h+='<div class="cert-net"><span>NET PAYABLE</span><span class="mono">'+fmt(net)+' '+cu+'</span></div>';
+  h+='<div class="cert-words"><b>Amount in words:</b> '+esc(words)+'</div>';
+  // signature blocks
+  const pb=cert.preparedBy||{};
+  let recvBlock;
+  if(cert.signature&&cert.signature.image) recvBlock='<img class="sig-img" src="'+cert.signature.image+'"/><div style="border-top:1px solid #101828;padding-top:6px">'+esc(cert.signature.signerName||'')+'<div style="font-size:11px;color:#667085">'+esc(isoToDisp(cert.signature.date))+'</div></div>';
+  else if(cert.signedCopy) recvBlock='<div class="sig-line">Signed hard copy on file — '+esc(cert.signedCopy.original||cert.signedCopy.file)+(cert.signedCopy.date?' ('+esc(isoToDisp(cert.signedCopy.date))+')':'')+'</div>';
+  else recvBlock='<div class="sig-line">Signature</div>';
+  h+='<div class="sig-grid">'
+    +'<div class="sig-block"><div style="font-size:11px;color:#667085;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Prepared / Approved by</div>'
+      +'<div style="margin-top:54px;border-top:1px solid #101828;padding-top:6px"><b>'+esc(pb.name||'')+'</b><div style="font-size:11px;color:#667085">'+esc(pb.title||'')+'</div></div></div>'
+    +'<div class="sig-block"><div style="font-size:11px;color:#667085;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Received / Accepted by</div>'+recvBlock+'</div>'
+  +'</div>';
+  document.getElementById('cert-doc').innerHTML=h;
+  document.getElementById('cert-print').classList.add('open');
+}
+function closeCertPrint(){ document.getElementById('cert-print').classList.remove('open'); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// OPEN SUPPLY renderer
+// ══════════════════════════════════════════════════════════════════════════════
+function renderSupply(){
+  const host=document.getElementById('supply-body'); if(!host) return;
+  const d=sub.data, cu=CUR();
+  const invTotal=(d.invoices||[]).reduce((a,i)=>a+num(i.amount),0);
+  const payTotal=(d.supplyPayments||[]).reduce((a,p)=>a+num(p.amount),0);
+  // Invoices In
+  let h='<div class="card"><div class="sec" style="display:flex;justify-content:space-between;align-items:center"><span class="sec-t">📥 Invoices In (supplier billed us)</span>'
+    +'<button class="btn btn-sm btn-primary" onclick="addInvoice()">+ Invoice</button></div>'
+    +'<table class="data" style="border:none;border-radius:0"><thead><tr><th>Date</th><th>Ref</th><th>Description</th><th>Qty</th><th>Unit</th><th style="text-align:right">Amount</th><th>Doc</th><th></th></tr></thead><tbody>';
+  if(!(d.invoices||[]).length) h+='<tr><td colspan="8" style="color:var(--muted2);font-style:italic">No invoices yet.</td></tr>';
+  (d.invoices||[]).forEach((iv,i)=>{
+    h+='<tr>'
+      +'<td><input class="in" style="width:110px" maxlength="10" placeholder="DD/MM/YYYY" value="'+esc(isoToDisp(iv.date))+'" oninput="autoFmtDate(this)" onchange="var x=dispToISO(this.value);if(x){d_inv('+i+',\'date\',x)}"/></td>'
+      +'<td><input class="in" style="width:90px" value="'+esc(iv.refNo||'')+'" oninput="d_inv('+i+',\'refNo\',this.value)"/></td>'
+      +'<td><input class="in" value="'+esc(iv.desc||'')+'" oninput="d_inv('+i+',\'desc\',this.value)"/></td>'
+      +'<td><input class="in mono-in" style="width:60px" type="number" value="'+esc(iv.qty==null?'':iv.qty)+'" oninput="d_inv('+i+',\'qty\',this.value)"/></td>'
+      +'<td><input class="in" style="width:55px" value="'+esc(iv.unit||'')+'" oninput="d_inv('+i+',\'unit\',this.value)"/></td>'
+      +'<td style="text-align:right"><input class="in mono-in" style="width:110px;text-align:right" type="number" value="'+esc(iv.amount||'')+'" oninput="d_inv('+i+',\'amount\',this.value)" onchange="renderSupply();refreshMini()"/></td>'
+      +'<td>'+(iv.attachment?'<a onclick="downloadStored(\''+esc(iv.attachment.file)+'\',\''+esc(iv.attachment.original||'')+'\')" style="color:var(--accent);cursor:pointer">📄</a>':'<label style="color:var(--accent);cursor:pointer">📎<input type="file" style="display:none" onchange="addInvAttach('+i+',this)"/></label>')+'</td>'
+      +'<td><button class="x-btn" style="color:var(--danger)" onclick="sub.data.invoices.splice('+i+',1);renderSupply();refreshMini()">✕</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  // Payments Out
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 12px"><div style="font-size:14px;font-weight:700">📤 Payments Out</div>'
+    +'<button class="btn btn-sm btn-primary" onclick="addSupplyPayment()">+ Payment</button></div><div id="supply-pays"></div>';
+  // Running balance
+  const bal=invTotal-payTotal;
+  h+='<div class="card" style="margin-top:8px"><div class="sec" style="display:flex;gap:24px;align-items:center;border:none;background:#fafffb">'
+    +'<span>Σ Invoices In: <b class="mono">'+fmt(invTotal)+' '+cu+'</b></span><span>−</span>'
+    +'<span>Σ Payments Out: <b class="mono" style="color:var(--success)">'+fmt(payTotal)+' '+cu+'</b></span><span>=</span>'
+    +'<span style="font-size:15px">Balance Payable: <b class="mono" style="color:var(--danger)">'+fmt(bal)+' '+cu+'</b></span></div></div>';
+  host.innerHTML=h;
+  renderSupplyPays();
+  refreshMini();
+  scheduleSave();
+}
+function d_inv(i,f,v){ sub.data.invoices[i][f]=v; scheduleSave(); }
+function addInvoice(){ sub.data.invoices.push({date:todayISO(),refNo:'',desc:'',qty:null,unit:'',amount:'',attachment:null}); scheduleSave(); renderSupply(); }
+async function addInvAttach(i,input){ const up=await uploadInput(input); if(!up)return; sub.data.invoices[i].attachment=up; scheduleSave(); renderSupply(); }
+
+function addSupplyPayment(){
+  sub.data.supplyPayments.push({date:todayISO(),amount:'',method:'',note:'',
+    certificate:{status:'draft',certNo:'',date:'',preparedBy:{name:'',title:''},signature:null,signedCopy:null},paid:false,paidDate:''});
+  scheduleSave(); renderSupply();
+}
+function renderSupplyPays(){
+  const host=document.getElementById('supply-pays'); if(!host) return;
+  const cu=CUR();
+  if(!(sub.data.supplyPayments||[]).length){ host.innerHTML='<div class="empty" style="padding:24px"><div>No payments out yet.</div></div>'; return; }
+  host.innerHTML='';
+  sub.data.supplyPayments.forEach((sp,i)=>{
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML='<div class="card-h"><span style="font-weight:700;color:#c11574">📤 Payment '+(i+1)+'</span>'
+        +'<button class="x-btn" style="color:var(--danger)" onclick="sub.data.supplyPayments.splice('+i+',1);renderSupply();refreshMini()">✕</button></div>'
+      +'<div class="sec" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'
+        +'<input class="in" style="width:120px" maxlength="10" placeholder="DD/MM/YYYY" value="'+esc(isoToDisp(sp.date))+'" oninput="autoFmtDate(this)" onchange="var x=dispToISO(this.value);if(x){sub.data.supplyPayments['+i+'].date=x;scheduleSave()}"/>'
+        +'<input class="in mono-in" style="width:140px" type="number" placeholder="Amount '+cu+'" value="'+esc(sp.amount||'')+'" oninput="sub.data.supplyPayments['+i+'].amount=this.value" onchange="renderSupply();refreshMini()"/>'
+        +'<input class="in" style="width:120px" placeholder="Method" value="'+esc(sp.method||'')+'" oninput="sub.data.supplyPayments['+i+'].method=this.value;scheduleSave()"/>'
+        +'<input class="in" style="flex:1;min-width:140px" placeholder="Note" value="'+esc(sp.note||'')+'" oninput="sub.data.supplyPayments['+i+'].note=this.value;scheduleSave()"/>'
+      +'</div>'
+      +certBar(sp,i,'sup',num(sp.amount));
+    host.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Generic modal
+// ══════════════════════════════════════════════════════════════════════════════
+function genModal(title,bodyHTML,buttons){
+  document.getElementById('gen-modal-h').innerHTML=esc(title)+'<button class="x-btn" onclick="closeGen()">×</button>';
+  document.getElementById('gen-modal-b').innerHTML=bodyHTML;
+  const f=document.getElementById('gen-modal-f'); f.innerHTML='';
+  f.appendChild(mkBtn('Cancel',false,closeGen));
+  (buttons||[]).forEach(b=>f.appendChild(mkBtn(b.label,b.primary,b.fn)));
+  document.getElementById('gen-modal').classList.add('open');
+}
+function mkBtn(label,primary,fn){ const btn=document.createElement('button'); btn.className='btn btn-sm'+(primary?' btn-primary':''); btn.textContent=label; btn.onclick=fn; return btn; }
+function closeGen(){ document.getElementById('gen-modal').classList.remove('open'); }
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+function init(){
+  BINNA.injectProjectBadge();
+  const proj=BINNA.getProject();
+  if(proj){ document.title='BINNA — '+proj.code+' Subcontractors'; const back=document.getElementById('back-link'); if(proj.id) back.href='/project/'+proj.id; }
+  // signature canvas listeners
+  const cv=document.getElementById('sig-canvas');
+  cv.addEventListener('mousedown',_sigStart); cv.addEventListener('mousemove',_sigMove); window.addEventListener('mouseup',_sigEnd);
+  cv.addEventListener('touchstart',_sigStart); cv.addEventListener('touchmove',_sigMove); cv.addEventListener('touchend',_sigEnd);
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeGen(); closeSig(); if(document.getElementById('cert-print').classList.contains('open')) closeCertPrint(); } });
+  loadAll().then(render);
+}
+init();
+</script>
+</body>
+</html>

@@ -73,6 +73,7 @@ def create_app(config_name: str = 'default') -> Flask:
     from app.routes.lbt import lbt_bp
     from app.routes.financial import financial_bp
     from app.routes.gantt import gantt_bp
+    from app.routes.subcontracts import subcontracts_bp
     from app.routes.uploads import uploads_bp
     from app.pages import pages_bp
 
@@ -90,6 +91,8 @@ def create_app(config_name: str = 'default') -> Flask:
         url_prefix='/api/v1/projects/<int:project_id>/financial')
     app.register_blueprint(gantt_bp,
         url_prefix='/api/v1/projects/<int:project_id>/gantt')
+    app.register_blueprint(subcontracts_bp,
+        url_prefix='/api/v1/projects/<int:project_id>')
     app.register_blueprint(uploads_bp)   # has its own full URL paths
     app.register_blueprint(pages_bp)
 

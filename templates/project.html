@@ -376,7 +376,7 @@ const MAIN_MODULES = [
   { key:'contract',  statKey:'financial', icon:'📋', name:'Contract & Payment',         desc:'Contract details, BOQ, variation orders, and client payment certificates (ذرعات).' },
   { key:'financial', statKey:'cashflow', icon:'💰', name:'Financial',                  desc:'Track project income and expenses, USD/IQD cash flow, and net financial position.' },
   { key:'gantt',     statKey:'gantt',     icon:'📊', name:'Gantt Chart',                desc:'Visualise project schedule, milestones, progress, and task dependencies.' },
-  { key:'sub',       icon:'🏗️', name:'Subcontractor Management',   desc:'Manage subcontractors, scopes of work, agreements, and performance tracking.' },
+  { key:'sub',       statKey:'subcontracts', icon:'🏗️', name:'Subcontractor Management',   desc:'Manage subcontractors, scopes of work, agreements, and payable certificates.' },
 ];
 
 const CONSULTANT_MODULES = [
@@ -668,8 +668,17 @@ async function loadStats() {
     if (data && data.stats) {
       Object.keys(data.stats).forEach(key => {
         const el = document.getElementById('stat-' + key);
-        if (el) el.textContent = data.stats[key];   // renders '0' instead of '—'
+        // Object-valued stats (e.g. subcontracts) are handled separately below.
+        if (el && typeof data.stats[key] !== 'object') el.textContent = data.stats[key];
       });
+      // Subcontractor card — active count + total Balance Payable.
+      const sEl = document.getElementById('stat-subcontracts');
+      const sub = data.stats.subcontracts;
+      if (sEl && sub && typeof sub === 'object') {
+        const money = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? Math.round(v/1e3)+'K' : Math.round(v);
+        sEl.innerHTML = `${sub.count} active`
+          + (sub.payable ? ` | Payable: <b style="color:#b42318">${money(sub.payable)} IQD</b>` : '');
+      }
       // Contract & Payment card: cashflow summary — Total Certified vs Total
       // Received (%), recomputed server-side from the saved payment JSON each load.
       const fEl = document.getElementById('stat-financial');

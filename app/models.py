@@ -479,3 +479,115 @@ class GanttData(db.Model):
 
     def __repr__(self):
         return f'<GanttData project={self.project_id}>'
+
+
+# ── Subcontractor Module (Phase 1) ────────────────────────────────────────────
+# Two NEW tables only — created by db.create_all() on deploy (no _ensure_schema
+# entry needed; that list is for new columns on EXISTING tables). Money direction
+# here is PAYABLE (money the user owes subcontractors/suppliers).
+
+VALID_PARTY_ROLES = ('main_contractor', 'consultant', 'client', 'subcontractor', 'supplier')
+VALID_SUBCONTRACT_KINDS = ('lump_sum', 'milestone', 'monthly', 'custom', 'open_supply')
+
+
+class Party(db.Model):
+    """Company / entity directory — one row per company per project."""
+    __tablename__ = 'parties'
+
+    id           = db.Column(db.Integer,     primary_key=True)
+    project_id   = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
+    name         = db.Column(db.String(200), nullable=False)
+    name_ar      = db.Column(db.String(200))
+    role         = db.Column(db.String(30),  nullable=False, default='subcontractor')
+    contact_name = db.Column(db.String(200))
+    phone        = db.Column(db.String(120))
+    email        = db.Column(db.String(200))
+    notes        = db.Column(db.Text)
+    is_default   = db.Column(db.Boolean,     default=False)   # True for the 3 seeded parties
+    documents    = db.Column(db.Text,        default='[]')    # JSON: [{file, original, label, date}]
+    created_at   = db.Column(db.DateTime,    default=_now)
+
+    project      = db.relationship('Project',
+                                   backref=db.backref('parties', lazy='dynamic',
+                                                      cascade='all, delete-orphan'))
+    subcontracts = db.relationship('Subcontract', back_populates='party',
+                                   lazy='dynamic')
+
+    def to_dict(self) -> dict:
+        import json
+        try:
+            docs = json.loads(self.documents) if self.documents else []
+        except (ValueError, TypeError):
+            docs = []
+        return {
+            'id':           self.id,
+            'project_id':   self.project_id,
+            'name':         self.name,
+            'name_ar':      self.name_ar or '',
+            'role':         self.role,
+            'contact_name': self.contact_name or '',
+            'phone':        self.phone or '',
+            'email':        self.email or '',
+            'notes':        self.notes or '',
+            'is_default':   bool(self.is_default),
+            'documents':    docs,
+            'created_at':   self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Party {self.name} ({self.role})>'
+
+
+class Subcontract(db.Model):
+    """The agreement — many per party. Payment blob lives in `data` (JSON)."""
+    __tablename__ = 'subcontracts'
+
+    id          = db.Column(db.Integer,     primary_key=True)
+    project_id  = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
+    party_id    = db.Column(db.Integer,     db.ForeignKey('parties.id'),  nullable=False)
+    ref         = db.Column(db.String(50))                  # {PROJECT_CODE}-SUB-001
+    title       = db.Column(db.String(300))                 # scope description
+    kind        = db.Column(db.String(20),  default='custom')
+    status      = db.Column(db.String(20),  default='active')   # active | closed
+    data        = db.Column(db.Text,        default='{}')   # JSON payment blob
+    documents   = db.Column(db.Text,        default='[]')   # contract-level docs
+    created_at  = db.Column(db.DateTime,    default=_now)
+
+    project     = db.relationship('Project',
+                                  backref=db.backref('subcontracts', lazy='dynamic',
+                                                     cascade='all, delete-orphan'))
+    party       = db.relationship('Party', back_populates='subcontracts')
+
+    def to_meta_dict(self) -> dict:
+        """Lightweight listing shape — no parsed blob."""
+        return {
+            'id':         self.id,
+            'ref':        self.ref or '',
+            'title':      self.title or '',
+            'kind':       self.kind,
+            'status':     self.status,
+            'party':      {
+                'id':   self.party.id   if self.party else self.party_id,
+                'name': self.party.name if self.party else '',
+                'role': self.party.role if self.party else '',
+            },
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def to_dict(self) -> dict:
+        import json
+        try:
+            blob = json.loads(self.data) if self.data else {}
+        except (ValueError, TypeError):
+            blob = {}
+        try:
+            docs = json.loads(self.documents) if self.documents else []
+        except (ValueError, TypeError):
+            docs = []
+        d = self.to_meta_dict()
+        d['data'] = blob
+        d['documents'] = docs
+        return d
+
+    def __repr__(self):
+        return f'<Subcontract {self.ref}>'
