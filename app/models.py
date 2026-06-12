@@ -591,3 +591,44 @@ class Subcontract(db.Model):
 
     def __repr__(self):
         return f'<Subcontract {self.ref}>'
+
+
+# ── Global Parties Registry ───────────────────────────────────────────────────
+# Flat per-project directory of every party involved in the project (client,
+# consultant, contractor, subcontractor, supplier, other). Independent of the
+# Subcontractor module's `Party` model (company directory for subcontract
+# agreements, mounted at /parties) — different shape and its own API surface
+# at /global-parties to avoid colliding with the existing /parties routes.
+
+VALID_GLOBAL_PARTY_TYPES = ('client', 'consultant', 'contractor', 'subcontractor', 'supplier', 'other')
+
+
+class GlobalParty(db.Model):
+    __tablename__ = 'global_parties'
+
+    id         = db.Column(db.Integer,     primary_key=True)
+    project_id = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
+    name_en    = db.Column(db.String(200), nullable=False)
+    name_ar    = db.Column(db.String(200))
+    type       = db.Column(db.String(20),  nullable=False, default='other')
+    logo       = db.Column(db.String(500))                 # stored filename (uploads API)
+    created_at = db.Column(db.DateTime,    default=_now)
+
+    project = db.relationship('Project',
+                              backref=db.backref('global_parties', lazy='dynamic',
+                                                 cascade='all, delete-orphan'))
+
+    def to_dict(self) -> dict:
+        return {
+            'id':         self.id,
+            'project_id': self.project_id,
+            'name_en':    self.name_en,
+            'name_ar':    self.name_ar or '',
+            'type':       self.type,
+            'logo':       self.logo or '',
+            'logo_url':   f'/api/v1/uploads/{self.logo}' if self.logo else '',
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<GlobalParty {self.name_en} ({self.type})>'

@@ -367,13 +367,14 @@ textarea.field{resize:vertical;min-height:80px}
       <div class="form-row" id="from-to-row">
         <div class="form-group" id="from-field-group">
           <label class="field-label">From / Sender <span class="required">*</span></label>
-          <input class="field" type="text" id="f-from" placeholder="Organization or person" />
+          <input class="field" type="text" id="f-from" list="dl-global-parties" placeholder="Organization or person" />
         </div>
         <div class="form-group">
           <label class="field-label">To / Recipient <span class="required">*</span></label>
-          <input class="field" type="text" id="f-to" placeholder="Organization or person" />
+          <input class="field" type="text" id="f-to" list="dl-global-parties" placeholder="Organization or person" />
         </div>
       </div>
+      <datalist id="dl-global-parties"></datalist>
 
       <div class="form-row" id="date-row">
         <div class="form-group">
@@ -524,6 +525,7 @@ let _selId      = null;
 let selectedFileNames = []; // now an array for multiple files
 let selectedArchiveFile = null; // single File for archive upload
 let statsVisible = true;
+let globalParties = []; // Global Parties Registry — suggestions for From/To
 
 function selectRow(id) {
   _selId = id;
@@ -546,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
   buildSidebarLinks();
   loadLetters();
   loadArchives();
+  loadGlobalParties();
   onDirectionChange(); // set correct status options + field visibility
   BINNA.registerDeleteSelected(function() { if (_selId && currentTab !== 'archive') deleteLetter(_selId); });
 });
@@ -598,6 +601,22 @@ async function loadArchives() {
         `<div class="empty-state"><div class="big">⚠️</div><p>${err.error || 'Failed to load archives'}</p></div>`;
     }
   }
+}
+
+// From/To suggestions — sourced from the Global Parties Registry, but the
+// fields stay free-text inputs (a datalist doesn't restrict typed values).
+async function loadGlobalParties() {
+  try {
+    const data = await BINNA.fetchGlobalParties(PROJECT_ID);
+    globalParties = data.parties || [];
+  } catch (err) {
+    globalParties = [];
+  }
+  const dl = document.getElementById('dl-global-parties');
+  if (!dl) return;
+  const names = new Set();
+  globalParties.forEach(p => { if (p.name_en) names.add(p.name_en); if (p.name_ar) names.add(p.name_ar); });
+  dl.innerHTML = [...names].map(n => `<option value="${BINNA.esc(n)}"></option>`).join('');
 }
 
 // ── Auto code preview ─────────────────────────────────────────────────────────

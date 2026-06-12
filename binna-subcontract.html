@@ -201,6 +201,7 @@ const esc = BINNA.esc;
 // ── State ─────────────────────────────────────────────────────────────────────
 let view = 'dashboard';            // dashboard | parties | contract
 let parties = [];
+let globalSubParties = [];         // GlobalParty records with type === 'subcontractor'
 let subsMeta = [];
 let summary = null;
 let sub = null;                    // full current subcontract (with .data blob)
@@ -280,10 +281,11 @@ async function downloadStored(stored, original){
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function loadAll(){
   try{
-    const [pr,sr,sm]=await Promise.all([
-      BINNA.fetchParties(PID), BINNA.fetchSubcontracts(PID), BINNA.subcontractsSummary(PID)
+    const [pr,sr,sm,gp]=await Promise.all([
+      BINNA.fetchParties(PID), BINNA.fetchSubcontracts(PID), BINNA.subcontractsSummary(PID), BINNA.fetchGlobalParties(PID)
     ]);
     parties=pr.parties||[]; subsMeta=sr.subcontracts||[]; summary=sm;
+    globalSubParties=(gp.parties||[]).filter(p=>p.type==='subcontractor');
   }catch(e){ BINNA.toast(e.error||'Load failed','error'); }
 }
 
@@ -355,13 +357,16 @@ function renderDashboard(b){
 }
 
 // ── New subcontract modal ─────────────────────────────────────────────────────
+// Party options come from the Global Parties Registry (type === 'subcontractor'),
+// so the same registry entry is reusable across modules. Each option resolves
+// to (or lazily creates) a matching Party record for the Subcontract.party_id FK.
 function openNewSubModal(){
-  if(!parties.length){ BINNA.toast('Add a party first','info'); switchView('parties'); return; }
-  const popt=parties.map(p=>'<option value="'+p.id+'">'+esc(p.name)+' ('+esc(ROLE_LABELS[p.role]||p.role)+')</option>').join('');
+  if(!globalSubParties.length){ BINNA.toast('Add a subcontractor party first','info'); switchView('parties'); return; }
+  const popt=globalSubParties.map(gp=>'<option value="'+gp.id+'">'+esc(gp.name_en)+(gp.name_ar?' / '+esc(gp.name_ar):'')+'</option>').join('');
   genModal('New Subcontract',
     '<div class="field"><label>Party</label><div style="display:flex;gap:8px">'
       +'<select class="in" id="ns-party">'+popt+'</select>'
-      +'<button class="btn btn-sm" onclick="openNewPartyModal(true)" title="Add new party">+ New</button></div></div>'
+      +'<button class="btn btn-sm" onclick="openNewPartyModal(true)" title="Add new subcontractor">+ New</button></div></div>'
     +'<div class="field"><label>Title / Scope</label><input class="in" id="ns-title" placeholder="e.g. Electrical works — Block A"/></div>'
     +'<div class="field"><label>Kind</label><select class="in" id="ns-kind">'
       +Object.keys(KIND_LABELS).map(k=>'<option value="'+k+'">'+KIND_LABELS[k]+'</option>').join('')
@@ -369,11 +374,17 @@ function openNewSubModal(){
     [{label:'Create',primary:true,fn:createSub}]);
 }
 async function createSub(){
-  const party_id=parseInt(document.getElementById('ns-party').value,10);
+  const gpId=parseInt(document.getElementById('ns-party').value,10);
+  const gp=globalSubParties.find(g=>g.id===gpId);
   const title=document.getElementById('ns-title').value.trim();
   const kind=document.getElementById('ns-kind').value;
   try{
-    const r=await BINNA.createSubcontract(PID,{party_id,title,kind});
+    let party=parties.find(p=>p.role==='subcontractor'&&p.name===gp.name_en);
+    if(!party){
+      const pr=await BINNA.createParty(PID,{name:gp.name_en,name_ar:gp.name_ar,role:'subcontractor'});
+      party=pr.party; parties.push(party);
+    }
+    const r=await BINNA.createSubcontract(PID,{party_id:party.id,title,kind});
     closeGen();
     BINNA.toast('Subcontract '+r.subcontract.ref+' created','success');
     sub=r.subcontract; view='contract'; render();
@@ -428,7 +439,9 @@ function readPartyForm(){
   };
 }
 function openNewPartyModal(fromSub){
-  genModal('New Party', partyFormFields(), [{label:'Create',primary:true,fn:()=>createParty(fromSub)}]);
+  // Opened from "New Subcontract" → default the role to Subcontractor, since
+  // that's what's needed there (and what gets mirrored into GlobalParty).
+  genModal('New Party', partyFormFields(fromSub?{role:'subcontractor'}:null), [{label:'Create',primary:true,fn:()=>createParty(fromSub)}]);
 }
 async function createParty(fromSub){
   const d=readPartyForm();
@@ -438,7 +451,18 @@ async function createParty(fromSub){
     parties.push(r.party);
     closeGen();
     BINNA.toast('Party added','success');
-    if(fromSub){ openNewSubModal(); setTimeout(()=>{const s=document.getElementById('ns-party'); if(s)s.value=r.party.id;},50); }
+    if(fromSub){
+      if(d.role==='subcontractor'){
+        const gpr=await BINNA.fetchGlobalParties(PID);
+        globalSubParties=(gpr.parties||[]).filter(p=>p.type==='subcontractor');
+      }
+      openNewSubModal();
+      setTimeout(()=>{
+        const s=document.getElementById('ns-party'); if(!s) return;
+        const gp=globalSubParties.find(g=>g.name_en===r.party.name);
+        if(gp) s.value=gp.id;
+      },50);
+    }
     else render();
   }catch(e){ BINNA.toast(e.error||'Create failed','error'); }
 }

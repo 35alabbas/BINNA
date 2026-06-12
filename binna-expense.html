@@ -140,6 +140,7 @@ td.del-cell{width:32px;text-align:center}
       <tr>
         <th style="width:40px">#</th>
         <th class="sortable" onclick="setSort('desc')" id="th-desc">Description / Expense <span id="arr-desc"></span></th>
+        <th style="width:140px">Paid To</th>
         <th class="sortable" onclick="setSort('cat')" id="th-cat" style="width:130px">Category <span id="arr-cat"></span></th>
         <th class="sortable" onclick="setSort('date')" id="th-date" style="width:110px">Date <span id="arr-date">▼</span></th>
         <th style="width:65px">Currency</th>
@@ -149,7 +150,7 @@ td.del-cell{width:32px;text-align:center}
         <th style="width:32px"></th>
       </tr>
     </thead>
-    <tbody id="tbody"><tr><td colspan="9" style="text-align:center;padding:20px;color:var(--muted2)">Loading…</td></tr></tbody>
+    <tbody id="tbody"><tr><td colspan="10" style="text-align:center;padding:20px;color:var(--muted2)">Loading…</td></tr></tbody>
   </table>
 </div>
 
@@ -193,6 +194,7 @@ var sortCol='date', sortAsc=false;
 var page=1, perPage=20, showAll=false;
 var _saveTimer=null, _pendingSave=false;
 var _sidebarOpen=true;
+var globalParties=[]; // Global Parties Registry — options for "Paid To"
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function fmt(n){return Math.round(n).toLocaleString('en-US');}
@@ -212,6 +214,15 @@ function getCatName(catId){var c=getCats().find(function(x){return x.id===catId;
 function catOptions(sel){
   var opts='<option value="">— No Category —</option>';
   getCats().forEach(function(c){opts+='<option value="'+esc(c.id)+'"'+(c.id===sel?' selected':'')+'>'+esc(c.name)+'</option>';});
+  return opts;
+}
+
+function partyOptions(sel){
+  var opts='<option value="">— Select —</option>';
+  globalParties.forEach(function(p){
+    var label=p.name_en+(p.name_ar?' / '+p.name_ar:'');
+    opts+='<option value="'+esc(p.name_en)+'"'+(p.name_en===sel?' selected':'')+'>'+esc(label)+'</option>';
+  });
   return opts;
 }
 
@@ -283,7 +294,7 @@ function render(){
   if(info)info.textContent=filteredRows.length+' entr'+(filteredRows.length===1?'y':'ies')+(filteredRows.length!==allRows.length?' (filtered from '+allRows.length+')':'');
 
   if(!visible.length){
-    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted2)">No entries'+(allRows.length?' matching filters':' yet — click "+ Add Expense Entry" to add one')+'</td></tr>';
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted2)">No entries'+(allRows.length?' matching filters':' yet — click "+ Add Expense Entry" to add one')+'</td></tr>';
     renderPagination();return;
   }
 
@@ -295,6 +306,7 @@ function render(){
     return '<tr data-gi="'+gi+'">'+
       '<td class="row-num">'+(fi+1)+'</td>'+
       '<td><input class="cell-in" value="'+esc(row.desc||'')+'" placeholder="Description…" oninput="updateRow('+gi+',\'desc\',this.value)"/></td>'+
+      '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'party\',this.value)">'+partyOptions(row.party||'')+'</select></td>'+
       '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'cat\',this.value)">'+catOptions(row.cat||'')+'</select></td>'+
       '<td><input class="cell-in" type="text" maxlength="10" placeholder="DD/MM/YYYY" value="'+isoToDisp(row.date||'')+'" oninput="autoFmt(this)" onchange="updateRow('+gi+',\'date\',dispToISO(this.value)||this.value)" style="text-align:center;font-size:12px"/></td>'+
       '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'cur\',this.value);updateRowState('+gi+')">'+
@@ -372,7 +384,7 @@ function updateRowState(gi){
 }
 
 function addEntry(){
-  var newRow={desc:'',cat:'',date:new Date().toISOString().split('T')[0],cur:'IQD',amount:'',rate:''};
+  var newRow={desc:'',party:'',cat:'',date:new Date().toISOString().split('T')[0],cur:'IQD',amount:'',rate:''};
   allRows.unshift(newRow);
   // Clear filters to show new row
   document.getElementById('q').value='';
@@ -476,6 +488,11 @@ window.addEventListener('DOMContentLoaded',async function(){
       }
     }
   }catch(err){BINNA.toast('Could not load data: '+(err.error||'error'),'error');}
+
+  try{
+    var gpResp=await BINNA.fetchGlobalParties(PROJECT_ID);
+    globalParties=gpResp.parties||[];
+  }catch(err){globalParties=[];}
 
   allRows=fullData.expenses;
   rebuildCatFilter();

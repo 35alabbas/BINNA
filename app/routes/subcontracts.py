@@ -24,6 +24,7 @@ from app.models import (
     Subcontract,
     Project,
     ProjectMember,
+    GlobalParty,
     _ROLE_ORDER,
     VALID_PARTY_ROLES,
     VALID_SUBCONTRACT_KINDS,
@@ -149,6 +150,27 @@ def list_parties(project_id):
         db.session.commit()
         parties = Party.query.filter_by(project_id=project_id).order_by(Party.id).all()
 
+    # Backfill the Global Parties Registry for subcontractor Parties that
+    # predate the mirroring done in create_party() below.
+    existing_gp_names = {
+        gp.name_en for gp in GlobalParty.query.filter_by(
+            project_id=project_id, type='subcontractor',
+        ).all()
+    }
+    added = False
+    for p in parties:
+        if p.role == 'subcontractor' and p.name not in existing_gp_names:
+            db.session.add(GlobalParty(
+                project_id = project_id,
+                name_en    = p.name,
+                name_ar    = p.name_ar or '',
+                type       = 'subcontractor',
+            ))
+            existing_gp_names.add(p.name)
+            added = True
+    if added:
+        db.session.commit()
+
     return jsonify({'parties': [p.to_dict() for p in parties], 'total': len(parties)}), 200
 
 
@@ -171,10 +193,11 @@ def create_party(project_id):
     if role not in VALID_PARTY_ROLES:
         role = 'subcontractor'
 
+    name_ar = (body.get('name_ar') or '').strip()
     party = Party(
         project_id   = project_id,
         name         = name,
-        name_ar      = (body.get('name_ar') or '').strip(),
+        name_ar      = name_ar,
         role         = role,
         contact_name = (body.get('contact_name') or '').strip(),
         phone        = (body.get('phone') or '').strip(),
@@ -184,6 +207,21 @@ def create_party(project_id):
         documents    = '[]',
     )
     db.session.add(party)
+
+    # Mirror into the Global Parties Registry so this subcontractor becomes
+    # selectable project-wide (e.g. the "Party" picker on New Subcontract).
+    if role == 'subcontractor':
+        exists = GlobalParty.query.filter_by(
+            project_id=project_id, type='subcontractor', name_en=name,
+        ).first()
+        if not exists:
+            db.session.add(GlobalParty(
+                project_id = project_id,
+                name_en    = name,
+                name_ar    = name_ar,
+                type       = 'subcontractor',
+            ))
+
     db.session.commit()
     return jsonify({'party': party.to_dict()}), 201
 

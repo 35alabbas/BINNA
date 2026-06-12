@@ -21,6 +21,7 @@ from app.models import (
     DailyReport,
     FinancialData,
     GanttData,
+    GlobalParty,
     LabTest,
     Project,
     ProjectMember,
@@ -43,6 +44,14 @@ _BLANK_FINANCIAL = {
     'expenseCategories': [],
     'usdRate':           1300,
 }
+
+# Project fields that auto-seed a GlobalParty record (Global Parties Registry)
+# when filled at creation time — (project field, GlobalParty.type).
+_SEED_GLOBAL_PARTY_TYPES = [
+    ('client',     'client'),
+    ('consultant', 'consultant'),
+    ('contractor', 'contractor'),
+]
 
 projects_bp = Blueprint('projects', __name__, url_prefix='/api/v1/projects')
 
@@ -138,6 +147,18 @@ def create_project():
         data       = json.dumps(_BLANK_FINANCIAL, ensure_ascii=False),
         updated_by = user_id,
     ))
+
+    # Seed Global Parties Registry entries for Client / Consultant / Contractor
+    # if those fields were filled on creation.
+    for field, ptype in _SEED_GLOBAL_PARTY_TYPES:
+        val = (data.get(field) or '').strip()
+        if val:
+            db.session.add(GlobalParty(
+                project_id = project.id,
+                name_en    = val,
+                name_ar    = '',
+                type       = ptype,
+            ))
 
     db.session.commit()
 

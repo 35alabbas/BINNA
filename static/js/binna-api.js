@@ -200,6 +200,12 @@ const BINNA = {
   async deleteSubcontract(pid, id)   { return this.del(`/projects/${pid}/subcontracts/${id}`); },
   async subcontractsSummary(pid)     { return this.get(`/projects/${pid}/subcontracts/summary`); },
 
+  // ── Global Parties Registry API ───────────────────────────────────────────
+  async fetchGlobalParties(pid)        { return this.get(`/projects/${pid}/global-parties`); },
+  async createGlobalParty(pid, d)      { return this.post(`/projects/${pid}/global-parties`, d); },
+  async updateGlobalParty(pid, id, d)  { return this.put(`/projects/${pid}/global-parties/${id}`, d); },
+  async deleteGlobalParty(pid, id)     { return this.del(`/projects/${pid}/global-parties/${id}`); },
+
   // ── Uploads API ───────────────────────────────────────────────────────────
   async uploadFile(pid, formData) { return this.upload(`/projects/${pid}/uploads`, formData); },
 
