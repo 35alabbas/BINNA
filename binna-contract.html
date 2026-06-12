@@ -285,15 +285,6 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
     </div>
   </div>
 
-  <!-- Contract Type (Stage 1) -->
-  <div class="ctype-box">
-    <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Contract Type / نوع العقد</span>
-    <button type="button" id="ctype-government" class="ctype-btn" onclick="setContractType('government')">🏛 Government / عقد حكومي</button>
-    <button type="button" id="ctype-private" class="ctype-btn" onclick="setContractType('private')">🤝 Private / عقد خاص</button>
-    <span id="ctype-lock" title="Contract type cannot be changed after payments are added" style="display:none;align-items:center;gap:4px;color:var(--muted2);font-size:11px;cursor:help">🔒 Locked</span>
-  </div>
-
-
   <!-- Contract Details -->
   <div class="sheet-wrap" style="margin-bottom:14px">
     <table class="sheet-table">
@@ -307,6 +298,14 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
         <tr><td class="row-num">2</td><td><input class="cell-in label" readonly value="Client / Employer"/></td><td><input class="cell-in" id="cd-client" placeholder="Client name"/></td></tr>
         <tr><td class="row-num">3</td><td><input class="cell-in label" readonly value="Project Name"/></td><td><input class="cell-in" id="cd-project" placeholder="Project name"/></td></tr>
         <tr><td class="row-num">4</td><td><input class="cell-in label" readonly value="Contract Number"/></td><td><input class="cell-in" id="cd-contract-no" placeholder="Contract reference no."/></td></tr>
+        <tr><td class="row-num">⤷</td><td><input class="cell-in label" readonly value="Payment System / نظام الدفع"/></td>
+          <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="ctype-select" onchange="setContractType(this.value)" class="cell-in" style="width:auto;flex:0 0 auto;cursor:pointer">
+              <option value="government">Government Contract / عقد حكومي</option>
+              <option value="private">Private Contract / عقد خاص</option>
+            </select>
+            <span id="ctype-lock" title="Contract type cannot be changed after payments are added" style="display:none;font-size:11px;color:var(--muted2)">🔒 Locked</span>
+          </div></td></tr>
         <tr><td class="row-num">⤷</td><td><input class="cell-in label" readonly value="Currency / العملة"/></td>
           <td><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select id="cd-currency" onchange="setCurrency(this.value)" class="cell-in" style="width:auto;flex:0 0 auto;cursor:pointer">
@@ -1206,20 +1205,16 @@ function setContractType(type){
 function renderContractType(){
   var type=getContractType();
   var locked=hasPaymentData();
-  // Toggle buttons + active state + lock
-  var gBtn=document.getElementById('ctype-government');
-  var pBtn=document.getElementById('ctype-private');
-  if(gBtn&&pBtn){
-    gBtn.classList.toggle('active',type==='government');
-    pBtn.classList.toggle('active',type==='private');
-    [gBtn,pBtn].forEach(function(b){
-      b.disabled=locked;
-      b.style.opacity=(locked&&!b.classList.contains('active'))?'0.5':'1';
-      b.title=locked?'Contract type cannot be changed after payments are added':'';
-    });
+  // Payment System dropdown + lock (styled like Currency / Decimal Places)
+  var ctSel=document.getElementById('ctype-select');
+  if(ctSel){
+    ctSel.value=type;
+    ctSel.disabled=locked;
+    ctSel.style.opacity=locked?'0.6':'1';
+    ctSel.title=locked?'Contract type cannot be changed after payments are added':'';
   }
   var lk=document.getElementById('ctype-lock');
-  if(lk) lk.style.display=locked?'inline-flex':'none';
+  if(lk) lk.style.display=locked?'inline':'none';
   // Page tag (always visible once known)
   var tag=document.getElementById('contract-type-tag');
   if(tag){
