@@ -199,13 +199,19 @@ const PID = BINNA.getProjectId();
 const esc = BINNA.esc;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let view = 'dashboard';            // dashboard | contract
+let view = 'dashboard';            // dashboard | contract | supply
+let dashTab = 'subcontracts';      // dashboard sub-tab: subcontracts | supply
 let parties = [];
 let globalSubParties = [];         // GlobalParty records with role 'subcontractor' or 'supplier'
 let subsMeta = [];
 let summary = null;
 let sub = null;                    // full current subcontract (with .data blob)
 let saveTimer = null;
+// Supply Agreements (Purchase Orders)
+let supplyList = [];               // [{...fields, total_paid, balance, party_name}]
+let supplySummary = null;          // { total_po_value, total_paid, balance, count }
+let agr = null;                    // full current supply agreement (with .data blob)
+let agrSaveTimer = null;
 
 const ROLE_LABELS = {main_contractor:'Main Contractor',consultant:'Consultant',client:'Client',subcontractor:'Subcontractor',supplier:'Supplier'};
 const KIND_LABELS = {lump_sum:'Lump Sum',milestone:'Milestone',monthly:'Monthly',custom:'Custom',open_supply:'Open Supply',subcontractor:'Subcontractor',supplier:'Supplier'};
@@ -283,11 +289,13 @@ async function downloadStored(stored, original){
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function loadAll(){
   try{
-    const [pr,sr,sm,gp]=await Promise.all([
-      BINNA.fetchParties(PID), BINNA.fetchSubcontracts(PID), BINNA.subcontractsSummary(PID), BINNA.fetchGlobalParties(PID)
+    const [pr,sr,sm,gp,sal,sas]=await Promise.all([
+      BINNA.fetchParties(PID), BINNA.fetchSubcontracts(PID), BINNA.subcontractsSummary(PID), BINNA.fetchGlobalParties(PID),
+      BINNA.get('/projects/'+PID+'/supply-agreements'), BINNA.get('/projects/'+PID+'/supply-agreements/summary')
     ]);
     parties=pr.parties||[]; subsMeta=sr.subcontracts||[]; summary=sm;
     globalSubParties=(gp.parties||[]).filter(p=>p.role==='subcontractor'||p.role==='supplier');
+    supplyList=sal.agreements||[]; supplySummary=sas;
   }catch(e){ BINNA.toast(e.error||'Load failed','error'); }
 }
 
@@ -295,14 +303,18 @@ async function loadAll(){
 function render(){
   const m=document.getElementById('main');
   if(view==='contract' && sub){ renderContract(m); return; }
+  if(view==='supply' && agr){ renderSupplyAgreement(m); return; }
   let tabs='<div class="tabs">'
-    +'<div class="tab active">📊 Dashboard</div>'
+    +'<div class="tab'+(dashTab==='subcontracts'?' active':'')+'" onclick="setDashTab(\'subcontracts\')">🏗️ Subcontracts</div>'
+    +'<div class="tab'+(dashTab==='supply'?' active':'')+'" onclick="setDashTab(\'supply\')">📦 Supply Agreements</div>'
   +'</div>';
   m.innerHTML=tabs+'<div id="view-body"></div>';
   const b=document.getElementById('view-body');
-  renderDashboard(b);
+  if(dashTab==='supply') renderSupplyDashboard(b);
+  else renderDashboard(b);
 }
-async function switchView(v){ view=v; if(v!=='contract'){ await loadAll(); } render(); }
+function setDashTab(t){ dashTab=t; render(); }
+async function switchView(v){ view=v; if(v!=='contract'&&v!=='supply'){ await loadAll(); } render(); }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // VIEW 1 — DASHBOARD
@@ -356,6 +368,143 @@ function renderDashboard(b){
     table+='</tbody></table>';
   }
   b.innerHTML=strip+head+table;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VIEW 1b — SUPPLY AGREEMENTS (Purchase Orders)
+//   Suppliers get a simple PO + payment-log workflow: no retention, no درعة,
+//   no progress certificates. PO value → log payments → see balance.
+// ══════════════════════════════════════════════════════════════════════════════
+function mA(v){ return Number(v||0).toLocaleString('en-US',{maximumFractionDigits:2}); }
+function poStatusBadge(st){
+  const map={open:['Open','#1a56db','#eff4ff','#c7d7fd'],partially_paid:['Partially Paid','#b54708','#fffaeb','#fedf89'],closed:['Closed','#027a48','#ecfdf3','#a6f4c5']};
+  const x=map[st]||map.open;
+  return '<span class="badge" style="color:'+x[1]+';background:'+x[2]+';border:1px solid '+x[3]+'">'+x[0]+'</span>';
+}
+
+function renderSupplyDashboard(b){
+  const s=supplySummary||{total_po_value:0,total_paid:0,balance:0,count:0};
+  const M=(label,val,color)=>'<div class="metric"><div class="l">'+label+'</div><div class="v"'+(color?' style="color:'+color+'"':'')+'>'+mA(val)+'</div></div>';
+  let strip='<div class="strip">'+M('Total PO Value',s.total_po_value)+M('Total Paid',s.total_paid,'var(--success)')+M('Balance',s.balance,'var(--danger)')+'</div>';
+  let head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+    +'<div style="font-size:15px;font-weight:700">Supply Agreements (Purchase Orders)</div></div>';
+  let table;
+  if(!supplyList.length){
+    table='<div class="empty"><div class="ico">📦</div><div style="font-size:15px;font-weight:600;color:var(--text2)">No supply agreements yet</div>'
+      +'<div style="margin-top:6px">Add a supplier in the project\'s Parties registry — its purchase order appears here automatically.</div></div>';
+  }else{
+    table='<table class="data"><thead><tr>'
+      +'<th>Ref</th><th>Supplier</th><th>Description</th><th style="text-align:right">PO Value</th><th style="text-align:right">Total Paid</th><th style="text-align:right">Balance</th><th>Status</th><th></th></tr></thead><tbody>';
+    supplyList.forEach(r=>{
+      const cu=r.currency||'';
+      table+='<tr class="clickable" onclick="openSupply('+r.id+')">'
+        +'<td class="mono">'+esc(r.ref)+'</td>'
+        +'<td>'+esc(r.party_name||'')+'</td>'
+        +'<td>'+esc(r.description||'')+'</td>'
+        +'<td style="text-align:right" class="mono">'+mA(r.po_value)+' '+esc(cu)+'</td>'
+        +'<td style="text-align:right;color:var(--success)" class="mono">'+mA(r.total_paid)+'</td>'
+        +'<td style="text-align:right;font-weight:700" class="mono">'+mA(r.balance)+' '+esc(cu)+'</td>'
+        +'<td>'+poStatusBadge(r.status)+'</td>'
+        +'<td><button class="x-btn" style="font-size:14px;color:var(--danger)" title="Delete" onclick="event.stopPropagation();deleteSupply('+r.id+')">✕</button></td>'
+      +'</tr>';
+    });
+    table+='</tbody></table>';
+  }
+  b.innerHTML=strip+head+table;
+}
+
+// ── Supply agreement helpers / persistence ────────────────────────────────────
+function ensureAgrBlob(){
+  if(!agr.data||typeof agr.data!=='object') agr.data={};
+  if(!Array.isArray(agr.data.payments)) agr.data.payments=[];
+  if(agr.data.notes==null) agr.data.notes='';
+}
+function agrPayments(){ return (agr&&agr.data&&agr.data.payments)||[]; }
+function agrTotalPaid(){ return agrPayments().reduce((a,p)=>a+num(p.amount),0); }
+function agrBalance(){ return num(agr.po_value)-agrTotalPaid(); }
+function recomputeAgrStatus(){ const tp=agrTotalPaid(),pv=num(agr.po_value); agr.status=tp<=0?'open':(tp<pv?'partially_paid':'closed'); }
+function agrSet(f,v){ if(!agr) return; agr[f]=v; scheduleAgrSave(); }
+function agrPaySet(i,f,v){ if(!agr||!agr.data.payments[i]) return; agr.data.payments[i][f]=v; scheduleAgrSave(); }
+function agrNotesSet(v){ if(!agr) return; agr.data.notes=v; scheduleAgrSave(); }
+function scheduleAgrSave(){ if(agrSaveTimer) clearTimeout(agrSaveTimer); agrSaveTimer=setTimeout(saveAgrNow,600); }
+async function saveAgrNow(){
+  if(!agr) return;
+  recomputeAgrStatus();
+  try{
+    await BINNA.put('/projects/'+PID+'/supply-agreements/'+agr.id,{
+      description:agr.description||'', po_value:num(agr.po_value), currency:agr.currency||'IQD',
+      date_issued:agr.date_issued||'', data:agr.data
+    });
+  }catch(e){ BINNA.toast(e.error||'Save failed','error'); }
+}
+async function openSupply(id){
+  try{ const r=await BINNA.get('/projects/'+PID+'/supply-agreements/'+id); agr=r.agreement; ensureAgrBlob(); view='supply'; render(); }
+  catch(e){ BINNA.toast(e.error||'Load failed','error'); }
+}
+async function deleteSupply(id){
+  if(!confirm('Delete this supply agreement — are you sure?')) return;
+  try{ await BINNA.del('/projects/'+PID+'/supply-agreements/'+id); BINNA.toast('Supply agreement deleted','success'); await loadAll(); render(); }
+  catch(e){ BINNA.toast(e.error||'Delete failed','error'); }
+}
+function addAgrPayment(){ agr.data.payments.push({id:'pp'+Date.now(),date:todayISO(),amount:'',invoiceRef:'',notes:''}); scheduleAgrSave(); render(); }
+function delAgrPayment(i){ if(!confirm('Delete this payment?')) return; agr.data.payments.splice(i,1); scheduleAgrSave(); render(); }
+async function backToSupplyDash(){ if(agrSaveTimer){ clearTimeout(agrSaveTimer); agrSaveTimer=null; await saveAgrNow(); } agr=null; dashTab='supply'; switchView('dashboard'); }
+
+// ── Supply agreement detail page ──────────────────────────────────────────────
+function renderSupplyAgreement(m){
+  ensureAgrBlob();
+  recomputeAgrStatus();
+  const locked=agrTotalPaid()>0;              // header locks once a real payment is logged
+  const cu=agr.currency||'IQD';
+  const tp=agrTotalPaid(), bal=agrBalance();
+  let h='<div style="margin-bottom:14px"><a class="btn btn-sm" onclick="backToSupplyDash()" style="cursor:pointer">← Back to Supply Agreements</a></div>';
+  // Header card
+  h+='<div class="card"><div class="sec" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">'
+    +'<div><div style="font-size:17px;font-weight:700">'+esc(agr.ref||'')+' <span style="font-size:13px;color:var(--muted);font-weight:500">Supply Agreement (PO)'+(locked?' 🔒':'')+'</span></div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Supplier: <b>'+esc(agr.party_name||'—')+'</b></div></div>'
+    +'<div>'+poStatusBadge(agr.status)+'</div>'
+  +'</div>';
+  // Header fields
+  h+='<div class="sec" style="display:flex;flex-wrap:wrap;gap:14px">'
+    +'<div class="field" style="flex:2;min-width:240px"><label>Description</label><input class="in" '+(locked?'disabled':'')+' value="'+esc(agr.description||'')+'" oninput="agrSet(\'description\',this.value)"/></div>'
+    +'<div class="field" style="flex:1;min-width:130px"><label>PO Value</label><input type="number" min="0" class="in mono-in" '+(locked?'disabled':'')+' value="'+esc(agr.po_value!=null?agr.po_value:'')+'" oninput="agrSet(\'po_value\',this.value)" onchange="render()"/></div>'
+    +'<div class="field" style="min-width:110px"><label>Currency</label><select class="in" '+(locked?'disabled':'')+' onchange="agrSet(\'currency\',this.value);render()">'
+      +['IQD','USD','EUR'].map(c=>'<option value="'+c+'"'+(cu===c?' selected':'')+'>'+c+'</option>').join('')
+    +'</select></div>'
+    +'<div class="field" style="min-width:140px"><label>Date Issued</label><input class="in" maxlength="10" placeholder="DD/MM/YYYY" '+(locked?'disabled':'')+' value="'+esc(isoToDisp(agr.date_issued))+'" oninput="autoFmtDate(this)" onchange="agrSet(\'date_issued\',dispToISO(this.value)||\'\')"/></div>'
+  +'</div>';
+  // Notes
+  h+='<div class="sec"><div class="field"><label>Notes</label><textarea class="in" rows="2" placeholder="Optional notes…" oninput="agrNotesSet(this.value)">'+esc(agr.data.notes||'')+'</textarea></div></div>';
+  h+='</div>'; // close header card
+  // Totals strip
+  const M=(l,v,col)=>'<div class="metric"><div class="l">'+l+'</div><div class="v"'+(col?' style="color:'+col+'"':'')+'>'+mA(v)+' '+esc(cu)+'</div></div>';
+  h+='<div class="strip">'+M('PO Value',num(agr.po_value))+M('Total Paid',tp,'var(--success)')+M('Balance',bal,'var(--danger)')+'</div>';
+  // Payment log
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 12px">'
+    +'<div style="font-size:14px;font-weight:700">Payment Log</div>'
+    +'<button class="btn btn-sm btn-primary" onclick="addAgrPayment()">+ Log Payment</button></div>';
+  if(!agrPayments().length){
+    h+='<div class="empty" style="padding:30px"><div>No payments logged yet — click <b>+ Log Payment</b>.</div></div>';
+  }else{
+    h+='<table class="data"><thead><tr><th style="width:36px">#</th><th>Date</th><th style="text-align:right">Amount</th><th>Invoice Ref</th><th>Notes</th><th style="width:40px"></th></tr></thead><tbody>';
+    agrPayments().forEach((p,i)=>{
+      h+='<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td><input class="in" style="width:120px" maxlength="10" placeholder="DD/MM/YYYY" value="'+esc(isoToDisp(p.date))+'" oninput="autoFmtDate(this)" onchange="agrPaySet('+i+',\'date\',dispToISO(this.value)||\'\')"/></td>'
+        +'<td style="text-align:right"><input type="number" min="0" class="in mono-in" style="width:120px;text-align:right" value="'+esc(p.amount!=null?p.amount:'')+'" oninput="agrPaySet('+i+',\'amount\',this.value)" onchange="render()"/></td>'
+        +'<td><input class="in" style="width:140px" placeholder="Invoice #" value="'+esc(p.invoiceRef||'')+'" oninput="agrPaySet('+i+',\'invoiceRef\',this.value)"/></td>'
+        +'<td><input class="in" placeholder="Notes" value="'+esc(p.notes||'')+'" oninput="agrPaySet('+i+',\'notes\',this.value)"/></td>'
+        +'<td><button class="x-btn" style="font-size:14px;color:var(--danger)" title="Delete" onclick="delAgrPayment('+i+')">✕</button></td>'
+      +'</tr>';
+    });
+    h+='</tbody></table>';
+  }
+  // Footer totals
+  h+='<div style="display:flex;justify-content:flex-end;gap:24px;margin-top:12px;font-size:13px">'
+    +'<div>Total Paid: <b style="font-family:monospace;color:var(--success)">'+mA(tp)+' '+esc(cu)+'</b></div>'
+    +'<div>Balance: <b style="font-family:monospace;color:var(--danger)">'+mA(bal)+' '+esc(cu)+'</b></div>'
+  +'</div>';
+  m.innerHTML=h;
 }
 
 // ── New subcontract modal ─────────────────────────────────────────────────────

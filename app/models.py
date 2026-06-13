@@ -653,3 +653,53 @@ class GlobalParty(db.Model):
 
     def __repr__(self):
         return f'<GlobalParty {self.name_en} ({self.role})>'
+
+
+# ── Supply Agreement (Purchase Order) ─────────────────────────────────────────
+# Supplier counterpart to Subcontract — deliberately far simpler. A PO header
+# plus a flat payment log inside `data` (JSON). No retention, no cumulative
+# درعة, no progress certificates: PO value → log payments → see balance.
+
+class SupplyAgreement(db.Model):
+    __tablename__ = 'supply_agreements'
+
+    id              = db.Column(db.Integer,     primary_key=True)
+    project_id      = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
+    global_party_id = db.Column(db.Integer,     db.ForeignKey('global_parties.id'), nullable=True)
+    ref             = db.Column(db.String(50))                 # {PROJECT_CODE}-PO-NNN
+    description     = db.Column(db.String(255))
+    po_value        = db.Column(db.Float,        default=0)
+    currency        = db.Column(db.String(10),   default='IQD')
+    date_issued     = db.Column(db.String(20))
+    status          = db.Column(db.String(20),   default='open')   # open | partially_paid | closed
+    data            = db.Column(db.Text,         default='{}')      # JSON: { payments: [], notes: '' }
+    created_at      = db.Column(db.DateTime,     default=_now)
+
+    project = db.relationship('Project',
+                              backref=db.backref('supply_agreements', lazy='dynamic',
+                                                 cascade='all, delete-orphan'))
+
+    def to_dict(self) -> dict:
+        import json
+        try:
+            blob = json.loads(self.data) if self.data else {}
+        except (ValueError, TypeError):
+            blob = {}
+        if not isinstance(blob, dict):
+            blob = {}
+        return {
+            'id':              self.id,
+            'project_id':      self.project_id,
+            'global_party_id': self.global_party_id,
+            'ref':             self.ref or '',
+            'description':     self.description or '',
+            'po_value':        self.po_value or 0,
+            'currency':        self.currency or 'IQD',
+            'date_issued':     self.date_issued or '',
+            'status':          self.status or 'open',
+            'data':            blob,
+            'created_at':      self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<SupplyAgreement {self.ref}>'

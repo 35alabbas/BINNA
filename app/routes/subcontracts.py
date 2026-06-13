@@ -22,6 +22,7 @@ from app import db
 from app.models import (
     Party,
     Subcontract,
+    SupplyAgreement,
     Project,
     ProjectMember,
     GlobalParty,
@@ -557,3 +558,213 @@ def subcontracts_summary(project_id):
         'by_currency':  by_currency,
         'active_count': active_count,
     }), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SUPPLY AGREEMENTS (Purchase Orders)  — simple PO header + flat payment log.
+#   No retention, no cumulative درعة, no progress certificates.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _generate_po_ref(project: Project) -> str:
+    """{PROJECT_CODE}-PO-NNN — max existing number + 1, zero-padded to 3."""
+    existing = SupplyAgreement.query.filter_by(project_id=project.id).all()
+    max_num = 0
+    for s in existing:
+        try:
+            n = int((s.ref or '').rsplit('-', 1)[1])
+            max_num = max(max_num, n)
+        except (ValueError, IndexError):
+            continue
+    return f"{project.code}-PO-{str(max_num + 1).zfill(3)}"
+
+
+def _po_rollup(sa: SupplyAgreement):
+    """(total_paid, balance) from the JSON payment log."""
+    try:
+        blob = json.loads(sa.data) if sa.data else {}
+    except (ValueError, TypeError):
+        blob = {}
+    if not isinstance(blob, dict):
+        blob = {}
+    total_paid = sum(_num(p.get('amount')) for p in (blob.get('payments') or []) if isinstance(p, dict))
+    return total_paid, (_num(sa.po_value) - total_paid)
+
+
+def _po_status_for(total_paid: float, po_value: float) -> str:
+    if total_paid <= 0:
+        return 'open'
+    if total_paid < po_value:
+        return 'partially_paid'
+    return 'closed'
+
+
+def _sa_dict(sa: SupplyAgreement, name_map=None) -> dict:
+    d = sa.to_dict()
+    total_paid, balance = _po_rollup(sa)
+    d['total_paid'] = round(total_paid, 3)
+    d['balance'] = round(balance, 3)
+    if name_map is not None:
+        d['party_name'] = name_map.get(sa.global_party_id, '')
+    else:
+        gp = GlobalParty.query.get(sa.global_party_id) if sa.global_party_id else None
+        d['party_name'] = gp.name_en if gp else ''
+    return d
+
+
+@subcontracts_bp.route('/supply-agreements', methods=['GET'])
+@jwt_required()
+def list_supply_agreements(project_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'viewer')
+    if not proj:
+        return jsonify({'error': 'Project not found or access denied'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+
+    sas = (SupplyAgreement.query
+           .filter_by(project_id=project_id)
+           .order_by(SupplyAgreement.id.desc())
+           .all())
+    party_ids = {sa.global_party_id for sa in sas if sa.global_party_id}
+    name_map = {}
+    if party_ids:
+        for gp in GlobalParty.query.filter(GlobalParty.id.in_(party_ids)).all():
+            name_map[gp.id] = gp.name_en
+    return jsonify({
+        'agreements': [_sa_dict(sa, name_map) for sa in sas],
+        'total': len(sas),
+    }), 200
+
+
+@subcontracts_bp.route('/supply-agreements/summary', methods=['GET'])
+@jwt_required()
+def supply_agreements_summary(project_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'viewer')
+    if not proj:
+        return jsonify({'error': 'Project not found or access denied'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+
+    sas = SupplyAgreement.query.filter_by(project_id=project_id).all()
+    total_po = total_paid = 0.0
+    for sa in sas:
+        tp, _ = _po_rollup(sa)
+        total_po += _num(sa.po_value)
+        total_paid += tp
+    return jsonify({
+        'total_po_value': round(total_po, 3),
+        'total_paid':     round(total_paid, 3),
+        'balance':        round(total_po - total_paid, 3),
+        'count':          len(sas),
+    }), 200
+
+
+@subcontracts_bp.route('/supply-agreements', methods=['POST'])
+@jwt_required()
+def create_supply_agreement(project_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if not proj:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions — member role required'}), 403
+
+    body = request.get_json(silent=True) or {}
+    description = (body.get('description') or '').strip()
+    currency    = (body.get('currency') or '').strip()
+    date_issued = (body.get('date_issued') or '').strip()
+    if not description:
+        return jsonify({'error': 'description is required'}), 400
+    if body.get('po_value') in (None, ''):
+        return jsonify({'error': 'po_value is required'}), 400
+    if not currency:
+        return jsonify({'error': 'currency is required'}), 400
+    if not date_issued:
+        return jsonify({'error': 'date_issued is required'}), 400
+
+    blob = {'payments': [], 'notes': (body.get('notes') or '')}
+    sa = SupplyAgreement(
+        project_id      = project_id,
+        global_party_id = body.get('global_party_id') or None,
+        ref             = _generate_po_ref(proj),
+        description     = description,
+        po_value        = _num(body.get('po_value')),
+        currency        = currency,
+        date_issued     = date_issued,
+        status          = 'open',
+        data            = json.dumps(blob, ensure_ascii=False),
+    )
+    db.session.add(sa)
+    db.session.commit()
+    return jsonify({'agreement': _sa_dict(sa)}), 201
+
+
+@subcontracts_bp.route('/supply-agreements/<int:agreement_id>', methods=['GET'])
+@jwt_required()
+def get_supply_agreement(project_id, agreement_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'viewer')
+    if not proj:
+        return jsonify({'error': 'Project not found or access denied'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+
+    sa = SupplyAgreement.query.filter_by(id=agreement_id, project_id=project_id).first()
+    if not sa:
+        return jsonify({'error': 'Supply agreement not found'}), 404
+    return jsonify({'agreement': _sa_dict(sa)}), 200
+
+
+@subcontracts_bp.route('/supply-agreements/<int:agreement_id>', methods=['PUT'])
+@jwt_required()
+def update_supply_agreement(project_id, agreement_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if not proj:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+
+    sa = SupplyAgreement.query.filter_by(id=agreement_id, project_id=project_id).first()
+    if not sa:
+        return jsonify({'error': 'Supply agreement not found'}), 404
+
+    body = request.get_json(silent=True) or {}
+    if 'description' in body:
+        sa.description = (body['description'] or '').strip()
+    if 'po_value' in body:
+        sa.po_value = _num(body['po_value'])
+    if 'currency' in body and (body['currency'] or '').strip():
+        sa.currency = body['currency'].strip()
+    if 'date_issued' in body:
+        sa.date_issued = (body['date_issued'] or '').strip()
+    # Full blob replace (same pattern as the subcontract PUT).
+    if 'data' in body:
+        sa.data = json.dumps(body['data'], ensure_ascii=False)
+
+    # Status is derived from the resulting payment log — never trust the client.
+    total_paid, _ = _po_rollup(sa)
+    sa.status = _po_status_for(total_paid, _num(sa.po_value))
+
+    db.session.commit()
+    return jsonify({'agreement': _sa_dict(sa)}), 200
+
+
+@subcontracts_bp.route('/supply-agreements/<int:agreement_id>', methods=['DELETE'])
+@jwt_required()
+def delete_supply_agreement(project_id, agreement_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'admin')
+    if not proj:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions — admin role required'}), 403
+
+    sa = SupplyAgreement.query.filter_by(id=agreement_id, project_id=project_id).first()
+    if not sa:
+        return jsonify({'error': 'Supply agreement not found'}), 404
+
+    db.session.delete(sa)
+    db.session.commit()
+    return jsonify({'message': 'Supply agreement deleted'}), 200
