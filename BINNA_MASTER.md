@@ -210,3 +210,23 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - Status: OFFLINE (/ redirects to /login)
 - Backup: C:/BINNA/index.html
 - To go live: change redirect('/login') to render_template('index.html')
+
+
+## Session Log — 2026-06-14 (Dark Mode — CSS variable architecture)
+
+> Goal: site-wide dark mode via CSS custom properties. The prompt assumed a single `static/css/main.css` + `templates/base.html`; **neither exists** — BINNA is ~22 standalone HTML pages, each with its own inline `<style>` and its own per-file `:root` palette (`--bg/--white/--surface/--text/--accent/...`), no shared shell. Implemented the shared-stylesheet approach instead.
+
+### What landed
+- **`static/css/theme.css`** — single source of truth: canonical `:root` light palette + `[data-theme="dark"]` overrides (backgrounds, text, borders, shadows, gantt). Brand colors (`--brand-*`) are mode-invariant. Plus `.binna-theme-toggle` styling and a **`@media print` block that forces the light "paper" palette** so certificates/reports never print dark regardless of theme.
+- **`static/js/theme.js`** — pre-paint IIFE (reads `localStorage['binna-theme']`, else `prefers-color-scheme`) sets `data-theme` before CSS → no flash; `binnaThemeInit()` wires the toggle + live OS-change sync.
+- **All 22 pages wired** (6 `templates/` + 16 root `binna-*`/`index`): `theme.js` then `theme.css` injected before inline CSS, `data-theme=""` on `<html>`, toggle button in `.topbar-right` (or fixed top-right on auth/landing/404 pages with no navbar).
+
+### Aliasing strategy (Step 4)
+- Each page's local `:root` color vars were **re-pointed to canonical vars by NAME** (e.g. `--bg:var(--bg-base)`, `--white:var(--bg-surface)`, `--surface:var(--bg-surface-2)`, `--text:var(--text-primary)`, `--accent:var(--brand-primary)`, `--success/danger/warning:var(--brand-*)`). Existing rules referencing the local names keep working and now flip automatically.
+- **Self-contained pastel status pills** (`--*-bg`, `--*-br`, `--pending/approved/rejected/in/out/...`) were **left as literal hex** — they read fine on both light and dark and have no canonical equivalent.
+- Hardcoded **light backgrounds** in CSS/inline styles → surface vars; **Gantt** got a dedicated pass (`--ms/g/sg-bg`, weekend/today cells, row tints → `--gantt-*`/`--bg-hover`). Fixed three forced-dark-text spots that would vanish in dark (`.cert-doc` kept as white paper, contract `.pst-lbl`, gantt `.csw.sel`).
+
+### Notable consequences / deferred
+- **Light-mode hue shift (intentional, centralized):** accent unified blue `#1a56db` → canonical indigo `#4f46e5`; success/danger/warning shifted to the brighter `--brand-*` set. All reversible from one place — edit `theme.css`.
+- **Marketing landing pages** (`index.html`, `templates/index.html`, OFFLINE) are theme-wired with a toggle but keep their bespoke navy/`--off` hero palette — **not** fully darkened by design.
+- Backend/routes/schema untouched (verified). Each page's inline JS syntax re-checked with `node --check`; `theme.css`/`theme.js` confirmed served 200 and present on rendered pages.

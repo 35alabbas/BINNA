@@ -1,16 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Construction Project Management</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=Noto+Kufi+Arabic:wght@300;400&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --blue:#0A2A6E;--blue2:#071A4A;--accent:#3B82F6;--accent2:#60A5FA;
-  --white:#fff;--off:#F7F9FF;--text:#0F172A;--muted:#64748B;--ll:#E2E8F0;
+  --blue:#0A2A6E;--blue2:#071A4A;--accent:var(--brand-primary);--accent2:var(--brand-primary-hover);
+  --white:var(--bg-surface);--off:#F7F9FF;--text:var(--text-primary);--muted:var(--text-secondary);--ll:#E2E8F0;
 }
 html{scroll-behavior:smooth;overflow-x:hidden}
 body{background:var(--blue);font-family:'DM Sans',system-ui,sans-serif;color:var(--text);overflow-x:hidden}
@@ -143,6 +145,7 @@ footer{background:var(--blue2);border-top:1px solid rgba(255,255,255,.06);paddin
 </style>
 </head>
 <body>
+<button id="binna-theme-toggle" class="binna-theme-toggle" style="position:fixed;top:14px;right:14px;z-index:9999" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
 
 <nav id="nav">
   <a href="/" class="nb"><span class="nb-m">BINNA</span><span class="nb-s">بِنّا · Construction PM</span></a>

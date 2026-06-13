@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Subcontractors & Suppliers</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="/static/js/binna-api.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
-  --border:#d0d5dd;--border2:#e4e7ec;
-  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
-  --accent:#1a56db;--accent-light:#eff4ff;
-  --success:#027a48;--danger:#b42318;--warning:#b54708;
+  --bg:var(--bg-base);--white:var(--bg-surface);--surface:var(--bg-surface-2);
+  --border:var(--border-color-strong);--border2:var(--border-color);
+  --text:var(--text-primary);--text2:var(--text-secondary);--muted:var(--text-secondary);--muted2:var(--text-muted);
+  --accent:var(--brand-primary);--accent-light:var(--bg-surface-2);
+  --success:var(--brand-success);--danger:var(--brand-danger);--warning:var(--brand-warning);
   --radius:8px;
 }
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
@@ -93,7 +95,7 @@ table.pst .pst-net .pst-amt{color:var(--accent)}
 .empty{text-align:center;padding:48px 20px;color:var(--muted2)}
 .empty .ico{font-size:46px;margin-bottom:14px;opacity:.8}
 /* Certificate print */
-#cert-print{position:fixed;inset:0;background:#fff;z-index:900;overflow:auto;display:none}
+#cert-print{position:fixed;inset:0;background:var(--bg-surface);z-index:900;overflow:auto;display:none}
 #cert-print.open{display:block}
 .cert-toolbar{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;justify-content:flex-end;gap:8px}
 .cert-doc{max-width:780px;margin:24px auto;background:#fff;border:1px solid var(--border2);padding:42px 48px;font-size:13px;color:#101828}
@@ -103,7 +105,7 @@ table.pst .pst-net .pst-amt{color:var(--accent)}
 .cert-doc table td{padding:7px 10px;border:1px solid #d0d5dd}
 .cert-line{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e4e7ec}
 .cert-net{display:flex;justify-content:space-between;padding:11px 0;font-weight:700;font-size:16px;border-top:2px solid #101828;margin-top:6px}
-.cert-words{margin:14px 0;padding:10px 12px;background:#f7f8fa;border:1px solid #e4e7ec;border-radius:6px;font-style:italic}
+.cert-words{margin:14px 0;padding:10px 12px;background:var(--bg-surface-2);border:1px solid #e4e7ec;border-radius:6px;font-style:italic}
 .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:34px;margin-top:46px}
 .sig-block{text-align:center}
 .sig-img{max-height:78px;margin-bottom:6px}
@@ -128,6 +130,7 @@ table.pst .pst-net .pst-amt{color:var(--accent)}
     <div class="module-tag">SUB — Subcontractors &amp; Suppliers</div>
   </div>
   <div class="topbar-right">
+      <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
     <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
   </div>
 </div>
@@ -174,7 +177,7 @@ table.pst .pst-net .pst-amt{color:var(--accent)}
     <div class="modal-b">
       <div class="field"><label>Signer name</label><input class="in" id="sig-name" placeholder="Name of the person signing"/></div>
       <div style="font-size:11px;color:var(--muted)">Draw signature below (mouse or touch):</div>
-      <canvas id="sig-canvas" width="430" height="170" style="border:1px dashed var(--border);border-radius:8px;background:#fff;touch-action:none;width:100%"></canvas>
+      <canvas id="sig-canvas" width="430" height="170" style="border:1px dashed var(--border);border-radius:8px;background:var(--bg-surface);touch-action:none;width:100%"></canvas>
     </div>
     <div class="modal-f">
       <button class="btn btn-sm" onclick="clearSig()">Clear</button>
@@ -952,7 +955,7 @@ function renderPayRows(){
 // ── Their request collapsible ─────────────────────────────────────────────────
 function reqHTML(row,idx){
   const r=row.request||(row.request={has:false,refNo:'',date:'',attachment:null});
-  let h='<div class="sec" style="background:#fcfcfd"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2)">'
+  let h='<div class="sec" style="background:var(--bg-surface-2)"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2)">'
     +'<input type="checkbox" '+(r.has?'checked':'')+' onchange="payments()['+idx+'].request.has=this.checked;renderPayRows()"/> 📨 Their Payment Request received</label>';
   if(r.has){
     h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-left:24px">'
@@ -1015,7 +1018,7 @@ function certBar(row,idx,mode,net){
   const chip='<span class="chip chip-'+st+'">'+({draft:'Draft',certified:'Certified',signed:'Signed',paid:'Paid'})[st]+'</span>';
   const r=rank(st);
   const b=(label,enabled,fn,extra)=>'<button class="btn btn-sm'+(extra||'')+'" '+(enabled?'':'disabled')+' onclick="'+fn+'">'+label+'</button>';
-  let h='<div class="sec" style="background:#fcfcfd"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+  let h='<div class="sec" style="background:var(--bg-surface-2)"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +'<span class="sec-t">Certificate</span>'+chip
     +(cert.certNo?'<span class="mono" style="font-size:11px;color:var(--muted)">'+esc(cert.certNo)+'</span>':'')
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">'

@@ -1,18 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Create Account</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;--surface2:#fff;
-  --border:#d0d5dd;--border2:#e4e7ec;
-  --accent:#1a56db;--accent2:#1648c0;--accent-light:#eff4ff;
-  --text:#101828;--muted:#667085;--muted2:#98a2b3;
-  --danger:#b42318;--success:#027a48;
+  --bg:var(--bg-base);--white:var(--bg-surface);--surface:var(--bg-surface-2);--surface2:var(--bg-surface);
+  --border:var(--border-color-strong);--border2:var(--border-color);
+  --accent:var(--brand-primary);--accent2:var(--brand-primary-hover);--accent-light:var(--bg-surface-2);
+  --text:var(--text-primary);--muted:var(--text-secondary);--muted2:var(--text-muted);
+  --danger:var(--brand-danger);--success:var(--brand-success);
   --radius:8px;
 }
 body{
@@ -70,6 +72,7 @@ body::before{
 </style>
 </head>
 <body>
+<button id="binna-theme-toggle" class="binna-theme-toggle" style="position:fixed;top:14px;right:14px;z-index:9999" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
 
 <div class="card">
   <div class="logo">BINNA</div>

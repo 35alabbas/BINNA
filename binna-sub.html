@@ -1,18 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Subcontractor Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="/static/js/binna-api.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
-  --border:#d0d5dd;--border2:#e4e7ec;
-  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
-  --accent:#1a56db;--accent-light:#eff4ff;
+  --bg:var(--bg-base);--white:var(--bg-surface);--surface:var(--bg-surface-2);
+  --border:var(--border-color-strong);--border2:var(--border-color);
+  --text:var(--text-primary);--text2:var(--text-secondary);--muted:var(--text-secondary);--muted2:var(--text-muted);
+  --accent:var(--brand-primary);--accent-light:var(--bg-surface-2);
   --radius:8px;
 }
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
@@ -63,6 +65,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
     <div class="module-tag">SUB — Subcontractor Management</div>
   </div>
   <div class="topbar-right">
+      <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
     <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
   </div>
 </div>

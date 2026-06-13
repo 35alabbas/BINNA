@@ -1,17 +1,19 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Lab Tests</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
-  --border:#d0d5dd;--border2:#e4e7ec;
-  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
-  --accent:#1a56db;--accent-light:#eff4ff;
+  --bg:var(--bg-base);--white:var(--bg-surface);--surface:var(--bg-surface-2);
+  --border:var(--border-color-strong);--border2:var(--border-color);
+  --text:var(--text-primary);--text2:var(--text-secondary);--muted:var(--text-secondary);--muted2:var(--text-muted);
+  --accent:var(--brand-primary);--accent-light:var(--bg-surface-2);
   --out-c:#6941c6;--out-bg:#f9f5ff;--out-br:#d6bbfb;
   --in-c:#027a48;--in-bg:#ecfdf3;--in-br:#6ce9a6;
   --pass-c:#027a48;--pass-bg:#ecfdf3;--pass-br:#6ce9a6;
@@ -153,6 +155,7 @@ tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--a
     <div class="proj-badge"><b id="proj-code">APS</b><span id="proj-name">Auxiliary Pump Station</span></div>
   </div>
   <div class="topbar-right">
+      <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
     <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
     <div class="module-tag">LBT — Lab Tests</div>
     <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>

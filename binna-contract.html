@@ -1,20 +1,22 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Financial</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
-  --border:#d0d5dd;--border2:#e4e7ec;
-  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
-  --accent:#1a56db;--accent-light:#eff4ff;
-  --success:#027a48;--success-bg:#ecfdf3;
-  --danger:#b42318;--danger-bg:#fff1f0;
-  --warning:#b54708;--warning-bg:#fffaeb;
+  --bg:var(--bg-base);--white:var(--bg-surface);--surface:var(--bg-surface-2);
+  --border:var(--border-color-strong);--border2:var(--border-color);
+  --text:var(--text-primary);--text2:var(--text-secondary);--muted:var(--text-secondary);--muted2:var(--text-muted);
+  --accent:var(--brand-primary);--accent-light:var(--bg-surface-2);
+  --success:var(--brand-success);--success-bg:#ecfdf3;
+  --danger:var(--brand-danger);--danger-bg:#fff1f0;
+  --warning:var(--brand-warning);--warning-bg:#fffaeb;
   --radius:8px;
 }
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
@@ -89,7 +91,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .sheet-table td > div{min-width:0}
 .sheet-table td > div input,.sheet-table td > div select{min-width:0}
 .sheet-table tr.total-row td{background:#f0f4ff;border-top:2px solid var(--accent);font-weight:700}
-.sheet-table tr.subtotal-row td{background:#f7f8fa;border-top:1px solid var(--border);font-weight:600}
+.sheet-table tr.subtotal-row td{background:var(--bg-surface-2);border-top:1px solid var(--border);font-weight:600}
 .sheet-table tr.section-row td{background:#e8f0fe;font-weight:700;font-size:12px;color:var(--accent);padding:7px 10px;border-top:2px solid var(--accent)}
 .sheet-table tr.highlight-row td{background:#fffbf0}
 
@@ -168,7 +170,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 @media print{
   .pst-lbl-in{display:none!important}
   .pst-lbl-print{display:inline!important}
-  .pst td.pst-lbl{color:#000!important}
+  .pst td.pst-lbl{color:var(--text-primary)!important}
 }
 /* ── Work mode toggle ───────────────────────────────────────────────────── */
 .wm-bar{padding:7px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;background:#fafbff;font-size:12px}
@@ -183,7 +185,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 
 @media print{
   @page{size:A4 landscape;margin:12mm}
-  body{background:#fff}
+  body{background:var(--bg-surface)}
   .topbar,.tabs-bar,.btn,.add-row-btn,.del-cell,.overlay{display:none!important}
   .main{padding:0}
   .tab-content{display:block!important}
@@ -208,6 +210,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
     <span id="contract-type-tag" class="ctype-tag" style="display:none"></span>
   </div>
   <div class="topbar-right">
+      <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
     <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
     <div class="module-tag">&#128203; Contract &amp; Payment</div>
     <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>
@@ -1920,7 +1923,7 @@ function renderPayRows(){
             +(cv.unitPrice?'<th rowspan="2" style="padding:5px 6px;border:1px solid var(--border2);text-align:right;width:85px;color:var(--muted);white-space:nowrap">سعر الوحدة<br><span style="font-size:9px;font-weight:400">Unit Price</span></th>':'')
             +(cv.unit?'<th rowspan="2" style="padding:5px 6px;border:1px solid var(--border2);text-align:center;width:45px;color:var(--muted)">الوحدة</th>':'')
             +((cv.within20||cv.over20||cv.newPrice)?'<th colspan="'+(+!!cv.within20+ +!!cv.over20+ +!!cv.newPrice)+'" style="padding:4px 6px;border:1px solid var(--border2);text-align:center;color:#b54708;background:#fffaeb;font-size:10px;font-weight:700">قاعدة الـ 20%</th>':'')
-            +((cv.ctrQty||cv.ctrAmt)?'<th colspan="'+(+!!cv.ctrQty+ +!!cv.ctrAmt)+'" style="padding:4px 6px;border:1px solid var(--border2);text-align:center;color:var(--muted2);background:#f7f8fa;font-size:10px;font-weight:700">ذرعة المقاول</th>':'')
+            +((cv.ctrQty||cv.ctrAmt)?'<th colspan="'+(+!!cv.ctrQty+ +!!cv.ctrAmt)+'" style="padding:4px 6px;border:1px solid var(--border2);text-align:center;color:var(--muted2);background:var(--bg-surface-2);font-size:10px;font-weight:700">ذرعة المقاول</th>':'')
             +((cv.engQty||cv.engAmt)?'<th colspan="'+(+!!cv.engQty+ +!!cv.engAmt)+'" style="padding:4px 6px;border:1px solid var(--border2);text-align:center;color:var(--accent);background:var(--accent-light);font-size:10px;font-weight:700">ذرعة المهندس المقيم</th>':'')
             +(cv.notes?'<th rowspan="2" style="padding:5px 6px;border:1px solid var(--border2);text-align:center;width:90px;color:var(--muted);white-space:nowrap">ملاحظات</th>':'')
             +'<th rowspan="2" style="width:22px;border:1px solid var(--border2)"></th>'

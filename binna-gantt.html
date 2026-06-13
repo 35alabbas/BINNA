@@ -1,19 +1,21 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Gantt Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f0f2f5;--white:#fff;--surface:#f7f8fa;
-  --border:#d0d5dd;--border2:#e4e7ec;
-  --text:#101828;--text2:#344054;--muted:#667085;--muted2:#98a2b3;
-  --accent:#1a56db;--accent-light:#eff4ff;
-  --success:#027a48;--danger:#b42318;
-  --ms-bg:#f0f4ff;--g-bg:#f7f8fa;--sg-bg:#fafafa;
+  --bg:var(--bg-base);--white:var(--bg-surface);--surface:var(--bg-surface-2);
+  --border:var(--border-color-strong);--border2:var(--border-color);
+  --text:var(--text-primary);--text2:var(--text-secondary);--muted:var(--text-secondary);--muted2:var(--text-muted);
+  --accent:var(--brand-primary);--accent-light:var(--bg-surface-2);
+  --success:var(--brand-success);--danger:var(--brand-danger);
+  --ms-bg:var(--gantt-row-alt);--g-bg:var(--gantt-row-alt);--sg-bg:var(--gantt-row-alt);
   --row-h:28px;--hdr-h:32px;--radius:8px;
   --col-dur:40px;--col-start:60px;--col-end:60px;--col-pred:44px;
 }
@@ -72,15 +74,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .task-list{flex:1;overflow-y:auto;overflow-x:hidden}
 /* TASK ROWS */
 .task-row{display:grid;grid-template-columns:14px 22px 1fr var(--col-dur) var(--col-start) var(--col-end) var(--col-pred);align-items:center;min-height:var(--row-h);height:auto;border-bottom:1px solid var(--border2);cursor:pointer;padding:0 4px;user-select:none;transition:background .1s;border-right:1px solid var(--border)}
-.task-row:hover{background:#f5f8ff}
+.task-row:hover{background:var(--bg-hover)}
 .task-row.selected{background:var(--accent-light);outline:1px solid #c7d7fd}
 .task-row.is-milestone{background:var(--ms-bg)}
-.task-row.is-milestone .tname{font-weight:700;color:#0f2a5e}
+.task-row.is-milestone .tname{font-weight:700;color:var(--text-primary)}
 .task-row.is-group{background:var(--g-bg)}
 .task-row.is-group .tname{font-weight:600}
 .task-row.is-subgroup{background:var(--sg-bg)}
 .task-row.is-subgroup .tname{font-weight:500}
-.task-row.drag-over{border-top:2px solid var(--accent);background:#f0f4ff}
+.task-row.drag-over{border-top:2px solid var(--accent);background:var(--bg-hover)}
 .drag-handle{width:14px;display:flex;align-items:center;justify-content:center;color:var(--muted2);font-size:11px;cursor:grab;flex-shrink:0;opacity:.5}
 .drag-handle:hover{opacity:1;color:var(--muted)}
 .task-row:active .drag-handle{cursor:grabbing}
@@ -116,16 +118,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .ch-top-cell{border-right:1px solid var(--border);padding:1px 5px;font-size:10px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;flex-shrink:0;height:15px;display:flex;align-items:center}
 .ch-units{display:flex}
 .ch-unit{border-right:1px solid var(--border2);height:17px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted2);flex-shrink:0;overflow:hidden;white-space:nowrap}
-.ch-unit.we{background:#fafafa}
-.ch-unit.td{background:#fff8e6;color:#b45309;font-weight:700}
+.ch-unit.we{background:var(--gantt-row-alt)}
+.ch-unit.td{background:var(--gantt-today);color:#b45309;font-weight:700}
 .chart-rows{position:relative}
 .chart-row{display:flex;align-items:center;min-height:var(--row-h);position:relative}
 .chart-row.is-milestone{background:rgba(26,86,219,.04)}
 .chart-row.is-group{background:var(--surface)}
-.chart-row.is-subgroup{background:#fafafa}
+.chart-row.is-subgroup{background:var(--gantt-row-alt)}
 .gcell{border-right:1px solid var(--border2);height:100%;flex-shrink:0}
-.gcell.we{background:#fafafa}
-.gcell.td{background:#fffbf0}
+.gcell.we{background:var(--gantt-row-alt)}
+.gcell.td{background:var(--gantt-today)}
 /* TODAY LINE */
 .today-line{position:absolute;top:0;bottom:0;width:2px;background:#f59e0b;z-index:4;pointer-events:none}
 .today-lbl{position:absolute;top:0;background:#f59e0b;color:#fff;font-size:8px;font-weight:700;padding:1px 3px;border-radius:0 0 2px 2px;transform:translateX(-50%);white-space:nowrap}
@@ -197,7 +199,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rv{font-size:13px;font-weight:600;color:var(--accent);min-width:34px}
 .colors{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
 .csw{width:22px;height:22px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:all .12s}
-.csw.sel{border-color:#101828;transform:scale(1.15)}
+.csw.sel{border-color:var(--text-primary);transform:scale(1.15)}
 .divider-line{height:1px;background:var(--border2);margin:14px 0}
 /* PRED TABLE */
 .pred-section{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px;margin-top:4px}
@@ -244,6 +246,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
     <div class="proj-badge"><b id="proj-code">—</b><span id="proj-name"></span></div>
   </div>
   <div class="topbar-right">
+      <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
     <button class="btn" type="button" onclick="goToModules()" title="Back to Project Modules">📋 Modules</button>
     <div class="module-tag">Gantt Chart</div>
     <span id="cp-indicator" style="display:none"></span>
@@ -335,7 +338,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 </div>
 
 <!-- Selection action toolbar — always in flow at a fixed 40px height so selecting never shifts rows -->
-<div id="sel-toolbar" style="display:flex;align-items:center;gap:8px;padding:4px 12px;min-height:40px;box-sizing:border-box;background:#eff4ff;border-bottom:1px solid #c7d7fd;flex-shrink:0;font-size:12px">
+<div id="sel-toolbar" style="display:flex;align-items:center;gap:8px;padding:4px 12px;min-height:40px;box-sizing:border-box;background:var(--bg-surface-2);border-bottom:1px solid var(--border-color);flex-shrink:0;font-size:12px">
   <span id="sel-count" style="color:var(--accent);font-weight:600;min-width:90px"></span>
   <button class="tb-btn" id="multi-btn" onclick="toggleMultiMode()" title="Keep adding to selection without holding Ctrl" style="font-size:11px">☑ Multi-Select</button>
   <button class="tb-btn" id="sel-edit-btn" onclick="openEditSelected()" title="Edit selected task" style="display:none;font-size:11px">✏ Edit</button>
@@ -932,7 +935,7 @@ function renderStoppageList() {
   var sorted = stoppages.slice().sort(function(a,b){ return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
   el.innerHTML = sorted.map(function(s) {
     var range = s.start === s.end ? disp(s.start) : disp(s.start) + ' → ' + disp(s.end);
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:#fafbff">'
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-surface-2)">'
       + '<div style="flex:1;min-width:0">'
         + '<div style="font-weight:600;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(s.name) + '</div>'
         + '<div style="font-size:11.5px;color:var(--muted)">' + range + ' · ' + escHtml(STOP_TYPE_LABELS[s.type] || s.type) + '</div>'

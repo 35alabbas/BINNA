@@ -1,0 +1,104 @@
+/* ── BINNA THEME VARIABLES ───────────────────── */
+:root {
+  --bg-base:           #f5f6fa;
+  --bg-surface:        #ffffff;
+  --bg-surface-2:      #f0f2f8;
+  --bg-sidebar:        #ffffff;
+  --bg-modal:          #ffffff;
+  --bg-input:          #ffffff;
+  --bg-hover:          #f0f2f8;
+  --bg-badge:          #e8eaf0;
+
+  --text-primary:      #1a1d2e;
+  --text-secondary:    #6b7280;
+  --text-muted:        #9ca3af;
+  --text-inverse:      #ffffff;
+
+  --border-color:      #e5e7eb;
+  --border-color-strong: #d1d5db;
+
+  --brand-primary:     #4f46e5;
+  --brand-primary-hover: #4338ca;
+  --brand-success:     #10b981;
+  --brand-warning:     #f59e0b;
+  --brand-danger:      #ef4444;
+  --brand-info:        #3b82f6;
+
+  --shadow-sm:         0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:         0 4px 12px rgba(0,0,0,0.10);
+  --shadow-lg:         0 8px 24px rgba(0,0,0,0.12);
+
+  --gantt-bg:          #ffffff;
+  --gantt-row-alt:     #f9fafb;
+  --gantt-grid-line:   #e5e7eb;
+  --gantt-today:       rgba(79,70,229,0.12);
+}
+
+[data-theme="dark"] {
+  --bg-base:           #0f1117;
+  --bg-surface:        #1a1d2e;
+  --bg-surface-2:      #232740;
+  --bg-sidebar:        #13151f;
+  --bg-modal:          #1e2235;
+  --bg-input:          #232740;
+  --bg-hover:          #2a2f4a;
+  --bg-badge:          #2a2f4a;
+
+  --text-primary:      #e8eaf0;
+  --text-secondary:    #9ca3af;
+  --text-muted:        #6b7280;
+  --text-inverse:      #1a1d2e;
+
+  --border-color:      #2e3350;
+  --border-color-strong: #3d4468;
+
+  --shadow-sm:         0 1px 3px rgba(0,0,0,0.30);
+  --shadow-md:         0 4px 12px rgba(0,0,0,0.40);
+  --shadow-lg:         0 8px 24px rgba(0,0,0,0.50);
+
+  --gantt-bg:          #1a1d2e;
+  --gantt-row-alt:     #1e2235;
+  --gantt-grid-line:   #2e3350;
+  --gantt-today:       rgba(99,102,241,0.18);
+}
+
+/* ── TOGGLE BUTTON ───────────────────────────── */
+.binna-theme-toggle {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: background 0.2s;
+}
+.binna-theme-toggle:hover { background: var(--bg-hover); }
+[data-theme="dark"]  .theme-icon-light { display: none; }
+[data-theme="dark"]  .theme-icon-dark  { display: inline; }
+:root:not([data-theme="dark"]) .theme-icon-dark  { display: none; }
+:root:not([data-theme="dark"]) .theme-icon-light { display: inline; }
+
+/* ── PRINT: always force the light "paper" palette regardless of theme so
+   certificates / reports never print on a dark background. ──────────────── */
+@media print {
+  :root, [data-theme="dark"] {
+    --bg-base:      #ffffff;
+    --bg-surface:   #ffffff;
+    --bg-surface-2: #ffffff;
+    --bg-sidebar:   #ffffff;
+    --bg-modal:     #ffffff;
+    --bg-input:     #ffffff;
+    --bg-hover:     #ffffff;
+    --text-primary:   #1a1d2e;
+    --text-secondary: #6b7280;
+    --text-muted:     #9ca3af;
+    --text-inverse:   #ffffff;
+    --border-color:        #e5e7eb;
+    --border-color-strong: #d1d5db;
+    --gantt-bg:        #ffffff;
+    --gantt-row-alt:   #f9fafb;
+    --gantt-grid-line: #e5e7eb;
+  }
+  .binna-theme-toggle { display: none !important; }
+}
