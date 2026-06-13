@@ -33,7 +33,7 @@ Registered blueprints (`app/__init__.py`):
 - `auth_bp` → `/api/v1/auth`
 - `projects_bp` → `/api/v1/projects`
 - Module blueprints are **nested under a project**: `/api/v1/projects/<int:project_id>/<module>`
-  - `dc`, `submittals`, `dr`, `lbt`, `financial`, `gantt`
+  - `dc`, `submittals`, `dr`, `lbt`, `financial`, `gantt`, `parties`, `subcontracts`, `global-parties` (+ `global-parties/seed` backfill, see Session Log 2026-06-13)
 - `uploads_bp` → its own full URL paths (JWT-protected `/api/v1/uploads/<filename>`)
 - `pages_bp` → serves HTML pages
 
@@ -49,7 +49,9 @@ Access control helpers in `projects.py`:
 - Role order: `viewer(0) < member(1) < admin(2) < owner(3)`
 
 ### Models (`app/models.py`)
-`User`, `Project`, `ProjectMember`, `DCLetter`, `Archive`, `Submittal`, `DailyReport`, `LabTest`, `FinancialData`, `GanttData`.
+`User`, `Project`, `ProjectMember`, `DCLetter`, `Archive`, `Submittal`, `DailyReport`, `LabTest`, `FinancialData`, `GanttData`, `Party`, `Subcontract`, `GlobalParty`.
+
+- **`GlobalParty`** (`global_parties` table) — flat per-project directory of every party (client/consultant/contractor/subcontractor/supplier/other). Fields: `name_en`, `name_ar`, `role`, `logo_filename`, `notes`, `is_seeded` (true for the Client/Consultant/Contractor rows auto-seeded from the `Project` record — these can be edited but never deleted). Shared constants: `SEED_GLOBAL_PARTY_ROLES` (Project field → GlobalParty role, used by `create_project()` and the `/global-parties/seed` backfill) and `CREATABLE_GLOBAL_PARTY_ROLES` (roles a user can pick when adding a party manually).
 
 - **Relational, countable per project:** `DCLetter`, `Archive`, `Submittal` (has `module_type` ∈ {dwg, fir, mir, ms, rfi}), `DailyReport`, `LabTest`.
 - **JSON blobs (NOT relational), one row per project (`unique=True`):**
@@ -101,6 +103,7 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 | 2026-06-06 | Gantt Stoppages (فترات التوقف) | New `GanttData.stoppages` column + GET/PUT wiring (resilient to a not-yet-recreated DB). Toolbar **⛔ Stoppages** opens `#stoppages-modal` (name/start/end/type CRUD). Engine: **non-destructive** derived effective dates (`computeEffMap`/`effMap`) — stored task dates stay planned; a render-time pass skips non-working stoppage days. Visuals: hatched pause segments inside spanning bars (`barHatch`) + red-tinted stoppage columns on header & chart (`unitStop`). Empty stoppages = zero behavior change. Left table shows planned dates; chart bars show stoppage-adjusted span. |
 | 2026-06-06 | Gantt predecessor arrow routing fix | Rewrote only the path geometry in `renderDeps()` to orthogonal elbow connectors that exit the predecessor's right tip and arrive at the successor's left tip, routing through inter-row space. Normal case: stub → single vertical in the gap → horizontal approach. Tight/overlap case: drop a half-row into the inter-row gap → route left clear of bars → rise to tip. Kept in-content `#dep-svg` (scrolls with bars, zoom-accurate via `barPos`); did **not** adopt the spec's `getBoundingClientRect`/fixed-overlay/`data-task-id` approach (unnecessary here). |
 | 2026-06-06 | Schema auto-heal (`run.py` `_ensure_schema()`) | **Incident fix.** Adding `GanttData.stoppages` to the model without the column existing on live Postgres made every `SELECT` on GanttData fail → all Gantt charts appeared empty (data was never deleted, only unreadable). Added an idempotent post-`create_all()` auto-migration that `ALTER TABLE … ADD COLUMN`s any missing columns in place (verified: existing rows preserved). Establishes the project's standard for column additions — **never drop/recreate the DB.** |
+| 2026-06-13 | Global Parties Registry — Phase 1 (+ post-merge fixes) | `GlobalParty` model + `/global-parties` CRUD (commit `18359c9`), plus same-session fixes: legacy-column migration (see Session Log), `/global-parties/seed` backfill endpoint, and a `MY_ROLE` frontend bug that hid all role-gated buttons. |
 | 2026-06-12 | Subcontractor Module — Phase 1 (Core) | **Two NEW tables** `Party` + `Subcontract` (`app/models.py`) created by `db.create_all()` on deploy — no `_ensure_schema()` entry needed (that list is for new *columns*). New blueprint `app/routes/subcontracts.py` nested under `/api/v1/projects/<id>` (registered in `app/__init__.py`): Parties CRUD with **lazy seeding** of 3 defaults (main_contractor/consultant/client) on first GET — gives live projects their defaults with no migration; party delete **409** when referenced. Subcontracts CRUD (auto-ref `{CODE}-SUB-NNN`, blank §3 blob seeded by kind; `kind` **immutable** once the blob holds a non-zero amount — server check mirrors `hasPaymentData`). `GET /subcontracts/summary` json.loads()-and-computes-in-Python (per-contract committed/certified/paid/retained/balance + per-currency + flat totals, try/except per contract). `/stats` extended with `subcontracts = {count, payable}`; `project.html` Subcontractor card wired (object-valued stat handled separately from the scalar loop). New root page **`binna-subcontract.html`** served at `/legacy/sub` (via `_LEGACY_FILE_OVERRIDE` in `pages.py`, so existing sidebar links keep working). **Money direction = PAYABLE** throughout ("Net Payable / Balance Payable"). Payable payment renderer **copy-adapted** (not shared) from the contract private renderer: advance recovery, retention + 50/50 release, in-table deductions/reversals/surplus, optional tax, % allocation caps (lump_sum/milestone). Per-payment **Their Request** row, **Certificate bar** (draft→certified→signed→paid; Certify/Print/Sign-Online/Upload-Signed/Mark-Paid enable in order), canvas **signature modal** (dataURL in blob), **open_supply** running account (Invoices In / Payments Out + balance), and a print certificate with amount-in-words + two signature blocks. Uploads use the existing JWT uploads flow (stored filename in the blob/documents). Verified by a 20-assertion test-client smoke test (lazy seed, ref numbering, summary math, kind 409, party 409, stats, malformed-blob resilience). `git diff` confirmed **no changes** to `binna-contract.html`, gantt, or DC. |
 
 ---
@@ -176,6 +179,32 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 
 ### Out of scope (Phase 2, untouched by design)
 - DC From/To combobox fed by parties · Gantt task `partyId` · Expense auto-link on Mark Paid (only `paid/paidDate` kept accurate) · any change to `binna-contract.html`/gantt/DC.
+
+## Session Log — 2026-06-13 (Global Parties Registry — Phase 1 fixes)
+
+> Context: commit `18359c9` ("Global Parties Registry + cross-module integration") landed the `GlobalParty` model, `/global-parties` API, Parties modal (`templates/project.html`), and cross-module wiring (Subcontractor party picker, DC From/To, Income/Expense dropdowns). This session fixed three issues found during live testing of that feature, plus a cleanup pass on `binna-subcontract.html`. **Not yet committed at end of session** — 6 files: `app/models.py`, `app/routes/global_parties.py`, `app/routes/projects.py`, `run.py`, `templates/project.html`, `binna-subcontract.html`.
+
+### ⚠️ Incident — seeding silently failed on every new project (resolved, no data lost)
+- **Symptom:** creating a project with Client/Consultant/Contractor filled in produced **zero** `GlobalParty` rows.
+- **Cause:** the live `binna.db`'s `global_parties` table still had the pre-rename `type` column as `NOT NULL` (now `role`). The current model never sets `type`, so every insert raised `IntegrityError` and **rolled back the entire `create_project()` transaction** — project, member, and `FinancialData` included, not just the seed.
+- **Fix:** `_ensure_schema()` (`run.py`) now folds `type`→`role`/`is_seeded` and `logo`→`logo_filename` into the new columns, then `ALTER TABLE … DROP COLUMN` (SQLite ≥3.35, bundled 3.50.4). Applied in place to live `binna.db` — same standing rule as the 06-06 stoppages incident: **non-destructive in-place migrations only, never drop/recreate the DB.**
+
+### Backfill endpoint
+- `POST /api/v1/projects/<id>/global-parties/seed` (member+, idempotent) — backfills Client/Consultant/Contractor `GlobalParty` rows for projects created before the registry existed, or whose Client/Consultant/Contractor were filled in later via Edit. Shares `SEED_GLOBAL_PARTY_ROLES` with `create_project()`.
+
+### Bug — role-gated UI invisible to every user (Edit project, +Add Party, party edit/delete)
+- **Symptom:** the "+ Add Party" button (Parties modal) and the "Edit" button (project header) never rendered — for **any** user, including the project owner.
+- **Cause:** `GET /api/v1/projects/<id>` returns `{ project: { ...fields, my_role } }` — `my_role` is nested *inside* `project`. `loadProject()` in `templates/project.html` read `MY_ROLE = data.my_role` (a top-level path that doesn't exist) → always `undefined` → every `(ROLE_LEVEL[MY_ROLE] || 0) >= ROLE_LEVEL.x` check evaluated `false`.
+- **Fix:** `MY_ROLE = data.project.my_role`. Also added `console.error(...)` in `loadGlobalParties()`'s catch block for future diagnosis.
+- **Guardrail:** any per-request field merged onto `result` inside `get_project()` (e.g. `my_role`) lives under `data.project.*` in the frontend, never `data.*` directly.
+
+### `binna-subcontract.html` cleanup
+- Removed the redundant per-project "Parties Directory" tab/view — superseded by the Global Parties Registry's Parties modal on the project dashboard; "New Subcontract" now points the user there instead of a local party form.
+- Fixed remaining `p.type` → `p.role` references left over from the Phase-1 `GlobalParty` rename.
+
+### Status at end of session
+- Live dev server (port 5000) running with all fixes applied; verified via E2E (register → create project with Client/Consultant/Contractor → 3 seeded `GlobalParty` rows → `my_role: 'owner'` confirmed at `data.project.my_role`).
+- 6 files above remain **uncommitted** — review and commit next session.
 
 ## Landing Page
 - Status: OFFLINE (/ redirects to /login)

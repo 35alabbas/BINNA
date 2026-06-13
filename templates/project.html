@@ -218,6 +218,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .btn-save:disabled{opacity:.5;cursor:not-allowed}
 
 textarea.form-input{resize:vertical;min-height:72px}
+
+/* ── Parties modal table ─────────────────────────────────────────────────── */
+.parties-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.parties-table th{text-align:left;padding:6px 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border2);white-space:nowrap}
+.parties-table td{padding:7px 8px;border-bottom:1px solid var(--border2);color:var(--text2);vertical-align:middle}
+.parties-table tr:last-child td{border-bottom:none}
+.parties-table .pt-logo{width:28px;height:28px;border-radius:6px;object-fit:cover;border:1px solid var(--border)}
+.parties-table .pt-notes{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.parties-table .pt-actions{white-space:nowrap;text-align:right}
+.seeded-badge{font-size:10px;color:var(--muted2);margin-left:4px}
 </style>
 </head>
 <body>
@@ -357,12 +367,19 @@ textarea.form-input{resize:vertical;min-height:72px}
 
 <!-- Global Parties Registry modal -->
 <div class="overlay" id="parties-overlay" onclick="closePartiesIfBg(event)">
-  <div class="modal" style="max-width:560px">
+  <div class="modal" style="max-width:760px">
     <div class="modal-title">Parties</div>
-    <div id="parties-list" style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px;max-height:320px;overflow-y:auto">
-      <!-- populated by JS -->
+    <div style="overflow-x:auto;margin-bottom:14px">
+      <table class="parties-table">
+        <thead>
+          <tr><th>Name (EN)</th><th>Name (AR)</th><th>Role</th><th>Notes</th><th>Logo</th><th></th></tr>
+        </thead>
+        <tbody id="parties-tbody">
+          <!-- populated by JS -->
+        </tbody>
+      </table>
     </div>
-    <div id="party-form-wrap" style="border-top:1px solid var(--border);padding-top:16px">
+    <div id="party-form-wrap" style="display:none;border-top:1px solid var(--border);padding-top:16px;margin-bottom:8px">
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Name (EN)</label>
@@ -375,27 +392,25 @@ textarea.form-input{resize:vertical;min-height:72px}
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Type</label>
-          <select class="form-select" id="gp-type">
-            <option value="client">Client</option>
-            <option value="consultant">Consultant</option>
-            <option value="contractor">Contractor</option>
-            <option value="subcontractor">Subcontractor</option>
-            <option value="supplier">Supplier</option>
-            <option value="other">Other</option>
-          </select>
+          <label class="form-label">Role</label>
+          <select class="form-select" id="gp-role"></select>
         </div>
         <div class="form-group">
           <label class="form-label">Logo</label>
           <input type="file" class="form-input" id="gp-logo" accept="image/*" />
         </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" id="gp-notes" rows="2" placeholder="Optional notes…"></textarea>
+      </div>
       <div class="modal-actions">
-        <button class="btn-cancel" id="btn-cancel-party" onclick="resetPartyForm()" style="display:none">Cancel Edit</button>
-        <button class="btn-save" id="btn-save-party" onclick="saveGlobalParty()">+ Add Party</button>
+        <button class="btn-cancel" onclick="closePartyForm()">Cancel</button>
+        <button class="btn-save" id="btn-save-party" onclick="saveGlobalParty()">Create</button>
       </div>
     </div>
-    <div class="modal-actions" style="margin-top:8px">
+    <div class="modal-actions">
+      <button class="btn-save" id="btn-add-party" onclick="openPartyForm()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2)">+ Add Party</button>
       <button class="btn-cancel" onclick="closePartiesModal()">Close</button>
     </div>
   </div>
@@ -424,7 +439,7 @@ const MAIN_MODULES = [
   { key:'contract',  statKey:'financial', icon:'📋', name:'Contract & Payment',         desc:'Contract details, BOQ, variation orders, and client payment certificates (ذرعات).' },
   { key:'financial', statKey:'cashflow', icon:'💰', name:'Financial',                  desc:'Track project income and expenses, USD/IQD cash flow, and net financial position.' },
   { key:'gantt',     statKey:'gantt',     icon:'📊', name:'Gantt Chart',                desc:'Visualise project schedule, milestones, progress, and task dependencies.' },
-  { key:'sub',       statKey:'subcontracts', icon:'🏗️', name:'Subcontractor Management',   desc:'Manage subcontractors, scopes of work, agreements, and payable certificates.' },
+  { key:'sub',       statKey:'subcontracts', icon:'🏗️', name:'Subcontractors & Suppliers', desc:'Manage subcontractors, suppliers, scopes of work, agreements, and payable certificates.' },
 ];
 
 const CONSULTANT_MODULES = [
@@ -499,7 +514,7 @@ async function loadProject() {
   try {
     const data = await BINNA.get(`/projects/${PROJECT_ID}`);
     PROJECT  = data.project;
-    MY_ROLE  = data.my_role;
+    MY_ROLE  = data.project.my_role;
 
     // Persist as current project
     BINNA.setProject(PROJECT);
@@ -709,13 +724,16 @@ async function saveEdit() {
 // ── Global Parties Registry ──────────────────────────────────────────────
 let GLOBAL_PARTIES = [];
 let _editingPartyId = null;
-const PARTY_TYPE_LABELS = {
+const PARTY_ROLE_LABELS = {
   client: 'Client', consultant: 'Consultant', contractor: 'Contractor',
   subcontractor: 'Subcontractor', supplier: 'Supplier', other: 'Other',
 };
+// Roles selectable when adding a new party — client/consultant/contractor
+// are seeded once from the project record and not user-creatable here.
+const CREATABLE_PARTY_ROLES = { subcontractor: 'Subcontractor', supplier: 'Supplier', other: 'Other Party' };
 
 async function openPartiesModal() {
-  resetPartyForm();
+  closePartyForm();
   document.getElementById('parties-overlay').classList.add('open');
   await loadGlobalParties();
 }
@@ -723,53 +741,69 @@ function closePartiesModal() { document.getElementById('parties-overlay').classL
 function closePartiesIfBg(e) { if (e.target === document.getElementById('parties-overlay')) closePartiesModal(); }
 
 async function loadGlobalParties() {
-  const list = document.getElementById('parties-list');
-  list.innerHTML = '<p style="font-size:13px;color:var(--muted2)">Loading…</p>';
+  const tbody = document.getElementById('parties-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="font-size:13px;color:var(--muted2);padding:10px 8px">Loading…</td></tr>';
   try {
     const data = await BINNA.fetchGlobalParties(PROJECT_ID);
     GLOBAL_PARTIES = data.parties || [];
     renderPartiesList();
   } catch (err) {
-    list.innerHTML = '<p style="font-size:13px;color:var(--danger)">Failed to load parties.</p>';
+    console.error('loadGlobalParties failed:', err);
+    tbody.innerHTML = '<tr><td colspan="6" style="font-size:13px;color:var(--danger);padding:10px 8px">Failed to load parties.</td></tr>';
   }
 }
 
 function renderPartiesList() {
-  const list = document.getElementById('parties-list');
+  const tbody = document.getElementById('parties-tbody');
   const canEdit   = (ROLE_LEVEL[MY_ROLE] || 0) >= ROLE_LEVEL.member;
   const canDelete = (ROLE_LEVEL[MY_ROLE] || 0) >= ROLE_LEVEL.admin;
 
   if (!GLOBAL_PARTIES.length) {
-    list.innerHTML = '<p style="font-size:13px;color:var(--muted2);padding:4px 0">No parties yet — add one below.</p>';
+    tbody.innerHTML = '<tr><td colspan="6" style="font-size:13px;color:var(--muted2);padding:10px 8px">No parties yet.</td></tr>';
   } else {
-    list.innerHTML = GLOBAL_PARTIES.map(p => `
-      <div class="legend-row">
-        ${p.logo_url
-          ? `<img src="${p.logo_url}" alt="" style="width:28px;height:28px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)"/>`
-          : `<span style="width:28px;height:28px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--accent-bg);font-size:14px">🏢</span>`}
-        <div class="legend-info">
-          <span class="legend-name">${BINNA.esc(p.name_en)}${p.name_ar ? ' / ' + BINNA.esc(p.name_ar) : ''}</span>
-          <span class="legend-role">${PARTY_TYPE_LABELS[p.type] || p.type}</span>
-        </div>
-        <div class="legend-btns">
-          ${canEdit   ? `<button class="legend-btn" onclick="editGlobalParty(${p.id})" title="Edit">✏</button>` : ''}
-          ${canDelete ? `<button class="legend-btn del" onclick="deleteGlobalParty(${p.id})" title="Remove">✕</button>` : ''}
-        </div>
-      </div>
+    tbody.innerHTML = GLOBAL_PARTIES.map(p => `
+      <tr>
+        <td>${BINNA.esc(p.name_en)}</td>
+        <td${p.name_ar ? ' dir="rtl"' : ''}>${p.name_ar ? BINNA.esc(p.name_ar) : '—'}</td>
+        <td>${PARTY_ROLE_LABELS[p.role] || p.role}${p.is_seeded ? '<span class="seeded-badge">seeded</span>' : ''}</td>
+        <td class="pt-notes" title="${BINNA.esc(p.notes || '')}">${p.notes ? BINNA.esc(p.notes) : '—'}</td>
+        <td>${p.logo_url ? `<img src="${p.logo_url}" alt="" class="pt-logo"/>` : '—'}</td>
+        <td class="pt-actions">
+          ${canEdit ? `<button class="legend-btn" onclick="editGlobalParty(${p.id})" title="Edit">✏</button>` : ''}
+          ${canDelete && !p.is_seeded ? `<button class="legend-btn del" onclick="deleteGlobalParty(${p.id})" title="Remove">✕</button>` : ''}
+        </td>
+      </tr>
     `).join('');
   }
 
-  document.getElementById('party-form-wrap').style.display = canEdit ? '' : 'none';
+  document.getElementById('btn-add-party').style.display = canEdit ? '' : 'none';
 }
 
-function resetPartyForm() {
+function setPartyRoleOptions(role) {
+  const sel = document.getElementById('gp-role');
+  if (role && !(role in CREATABLE_PARTY_ROLES)) {
+    sel.innerHTML = `<option value="${role}">${PARTY_ROLE_LABELS[role] || role}</option>`;
+  } else {
+    sel.innerHTML = Object.entries(CREATABLE_PARTY_ROLES).map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  }
+  sel.value = role || 'subcontractor';
+}
+
+function openPartyForm() {
   _editingPartyId = null;
   document.getElementById('gp-name-en').value = '';
   document.getElementById('gp-name-ar').value = '';
-  document.getElementById('gp-type').value    = 'other';
   document.getElementById('gp-logo').value    = '';
-  document.getElementById('btn-save-party').textContent = '+ Add Party';
-  document.getElementById('btn-cancel-party').style.display = 'none';
+  document.getElementById('gp-notes').value   = '';
+  setPartyRoleOptions(null);
+  document.getElementById('gp-role').disabled = false;
+  document.getElementById('btn-save-party').textContent = 'Create';
+  document.getElementById('party-form-wrap').style.display = '';
+}
+
+function closePartyForm() {
+  _editingPartyId = null;
+  document.getElementById('party-form-wrap').style.display = 'none';
 }
 
 function editGlobalParty(id) {
@@ -778,28 +812,32 @@ function editGlobalParty(id) {
   _editingPartyId = id;
   document.getElementById('gp-name-en').value = p.name_en || '';
   document.getElementById('gp-name-ar').value = p.name_ar || '';
-  document.getElementById('gp-type').value    = p.type    || 'other';
   document.getElementById('gp-logo').value    = '';
+  document.getElementById('gp-notes').value   = p.notes || '';
+  setPartyRoleOptions(p.role);
+  document.getElementById('gp-role').disabled = true; // role is immutable after creation
   document.getElementById('btn-save-party').textContent = 'Save Changes';
-  document.getElementById('btn-cancel-party').style.display = 'inline-block';
+  document.getElementById('party-form-wrap').style.display = '';
 }
 
 async function saveGlobalParty() {
   const name_en = document.getElementById('gp-name-en').value.trim();
   const name_ar = document.getElementById('gp-name-ar').value.trim();
-  const type    = document.getElementById('gp-type').value;
+  const role    = document.getElementById('gp-role').value;
+  const notes   = document.getElementById('gp-notes').value.trim();
   const fileInput = document.getElementById('gp-logo');
   if (!name_en) { BINNA.toast('Name (EN) is required', 'error'); return; }
 
   const btn = document.getElementById('btn-save-party');
   btn.disabled = true;
   try {
-    const payload = { name_en, name_ar, type };
+    const payload = { name_en, name_ar, notes };
+    if (!_editingPartyId) payload.role = role; // role is fixed at creation
     if (fileInput.files && fileInput.files[0]) {
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
       const up = await BINNA.uploadFile(PROJECT_ID, fd);
-      payload.logo = up.file_name;
+      payload.logo_filename = up.file_name;
     }
 
     if (_editingPartyId) {
@@ -809,7 +847,7 @@ async function saveGlobalParty() {
       await BINNA.createGlobalParty(PROJECT_ID, payload);
       BINNA.toast('Party added ✓', 'success', 2000);
     }
-    resetPartyForm();
+    closePartyForm();
     await loadGlobalParties();
   } catch (err) {
     BINNA.toast(err.error || 'Save failed', 'error');
@@ -824,7 +862,7 @@ async function deleteGlobalParty(id) {
   if (!confirm(`Delete "${p.name_en}"?`)) return;
   try {
     await BINNA.deleteGlobalParty(PROJECT_ID, id);
-    if (_editingPartyId === id) resetPartyForm();
+    if (_editingPartyId === id) closePartyForm();
     await loadGlobalParties();
     BINNA.toast('Party removed', 'info', 2000);
   } catch (err) {
@@ -886,7 +924,12 @@ function renderUser() {
 renderUser();
 renderModules();   // builds the cards (so stat-* spans exist)
 loadStats();       // fills the card counters from the stats API
-loadProject();
+// Wait for the project (and MY_ROLE) to load before honouring #parties, so the
+// Parties modal renders with the correct edit/delete permissions. Other modules
+// (e.g. Subcontractors & Suppliers) link here with #parties to add a party.
+loadProject().then(() => {
+  if (window.location.hash === '#parties') openPartiesModal();
+});
 </script>
 </body>
 </html>

@@ -34,6 +34,10 @@ def _ensure_schema():
     # (table, column, DDL type/default) — extend this list when models gain columns.
     additions = [
         ('gantt_data', 'stoppages', "TEXT DEFAULT '[]'"),
+        ('global_parties', 'role',          "VARCHAR(20) NOT NULL DEFAULT 'other'"),
+        ('global_parties', 'logo_filename', "VARCHAR(500)"),
+        ('global_parties', 'notes',         "TEXT"),
+        ('global_parties', 'is_seeded',     "BOOLEAN NOT NULL DEFAULT 0"),
     ]
     for table, column, ddl in additions:
         if table not in tables:
@@ -43,6 +47,31 @@ def _ensure_schema():
             continue
         with db.engine.begin() as conn:
             conn.execute(text('ALTER TABLE {} ADD COLUMN {} {}'.format(table, column, ddl)))
+
+    # Pre-Phase-1 `global_parties` tables carry a NOT NULL `type` column (now
+    # `role`) and a `logo` column (now `logo_filename`). Fold their data into
+    # the new columns, then drop them — otherwise every insert from the current
+    # model (which never sets `type`) violates that NOT NULL constraint and
+    # rolls back project creation entirely.
+    if 'global_parties' in tables:
+        legacy_cols = [c['name'] for c in inspect(db.engine).get_columns('global_parties')]
+        if 'type' in legacy_cols:
+            with db.engine.begin() as conn:
+                conn.execute(text(
+                    "UPDATE global_parties SET role = type WHERE type IS NOT NULL AND type <> ''"
+                ))
+                conn.execute(text(
+                    "UPDATE global_parties SET is_seeded = 1 "
+                    "WHERE role IN ('client', 'consultant', 'contractor')"
+                ))
+                if 'logo' in legacy_cols:
+                    conn.execute(text(
+                        "UPDATE global_parties SET logo_filename = logo "
+                        "WHERE logo_filename IS NULL AND logo IS NOT NULL"
+                    ))
+                conn.execute(text('ALTER TABLE global_parties DROP COLUMN type'))
+                if 'logo' in legacy_cols:
+                    conn.execute(text('ALTER TABLE global_parties DROP COLUMN logo'))
 
 
 # Create tables on startup — runs for both gunicorn and direct python run.py

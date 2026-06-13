@@ -25,6 +25,7 @@ from app.models import (
     LabTest,
     Project,
     ProjectMember,
+    SEED_GLOBAL_PARTY_ROLES,
     Subcontract,
     Submittal,
     User,
@@ -44,14 +45,6 @@ _BLANK_FINANCIAL = {
     'expenseCategories': [],
     'usdRate':           1300,
 }
-
-# Project fields that auto-seed a GlobalParty record (Global Parties Registry)
-# when filled at creation time — (project field, GlobalParty.type).
-_SEED_GLOBAL_PARTY_TYPES = [
-    ('client',     'client'),
-    ('consultant', 'consultant'),
-    ('contractor', 'contractor'),
-]
 
 projects_bp = Blueprint('projects', __name__, url_prefix='/api/v1/projects')
 
@@ -149,15 +142,17 @@ def create_project():
     ))
 
     # Seed Global Parties Registry entries for Client / Consultant / Contractor
-    # if those fields were filled on creation.
-    for field, ptype in _SEED_GLOBAL_PARTY_TYPES:
+    # if those fields were filled on creation. Seeded entries can be edited but
+    # never deleted (GlobalParty.is_seeded).
+    for field, prole in SEED_GLOBAL_PARTY_ROLES:
         val = (data.get(field) or '').strip()
         if val:
             db.session.add(GlobalParty(
                 project_id = project.id,
                 name_en    = val,
                 name_ar    = '',
-                type       = ptype,
+                role       = prole,
+                is_seeded  = True,
             ))
 
     db.session.commit()

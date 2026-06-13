@@ -600,19 +600,35 @@ class Subcontract(db.Model):
 # agreements, mounted at /parties) — different shape and its own API surface
 # at /global-parties to avoid colliding with the existing /parties routes.
 
-VALID_GLOBAL_PARTY_TYPES = ('client', 'consultant', 'contractor', 'subcontractor', 'supplier', 'other')
+VALID_GLOBAL_PARTY_ROLES = ('client', 'consultant', 'contractor', 'subcontractor', 'supplier', 'other')
+
+# Roles a user can assign when creating a party via the registry UI/API.
+# client/consultant/contractor are seeded once from the project record and
+# are not user-creatable afterwards.
+CREATABLE_GLOBAL_PARTY_ROLES = ('subcontractor', 'supplier', 'other')
+
+# Project fields that auto-seed a GlobalParty record (Global Parties Registry)
+# when filled — (Project field name, GlobalParty.role). Used both at project
+# creation and by the /global-parties/seed backfill endpoint.
+SEED_GLOBAL_PARTY_ROLES = (
+    ('client',     'client'),
+    ('consultant', 'consultant'),
+    ('contractor', 'contractor'),
+)
 
 
 class GlobalParty(db.Model):
     __tablename__ = 'global_parties'
 
-    id         = db.Column(db.Integer,     primary_key=True)
-    project_id = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
-    name_en    = db.Column(db.String(200), nullable=False)
-    name_ar    = db.Column(db.String(200))
-    type       = db.Column(db.String(20),  nullable=False, default='other')
-    logo       = db.Column(db.String(500))                 # stored filename (uploads API)
-    created_at = db.Column(db.DateTime,    default=_now)
+    id            = db.Column(db.Integer,     primary_key=True)
+    project_id    = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
+    name_en       = db.Column(db.String(200), nullable=False)
+    name_ar       = db.Column(db.String(200))
+    role          = db.Column(db.String(20),  nullable=False, default='other')
+    logo_filename = db.Column(db.String(500))              # stored filename (uploads API)
+    notes         = db.Column(db.Text)
+    is_seeded     = db.Column(db.Boolean,     nullable=False, default=False)  # Client/Consultant/Contractor — never deletable
+    created_at    = db.Column(db.DateTime,    default=_now)
 
     project = db.relationship('Project',
                               backref=db.backref('global_parties', lazy='dynamic',
@@ -620,15 +636,17 @@ class GlobalParty(db.Model):
 
     def to_dict(self) -> dict:
         return {
-            'id':         self.id,
-            'project_id': self.project_id,
-            'name_en':    self.name_en,
-            'name_ar':    self.name_ar or '',
-            'type':       self.type,
-            'logo':       self.logo or '',
-            'logo_url':   f'/api/v1/uploads/{self.logo}' if self.logo else '',
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'id':            self.id,
+            'project_id':    self.project_id,
+            'name_en':       self.name_en,
+            'name_ar':       self.name_ar or '',
+            'role':          self.role,
+            'logo_filename': self.logo_filename or '',
+            'logo_url':      f'/api/v1/uploads/{self.logo_filename}' if self.logo_filename else '',
+            'notes':         self.notes or '',
+            'is_seeded':     bool(self.is_seeded),
+            'created_at':    self.created_at.isoformat() if self.created_at else None,
         }
 
     def __repr__(self):
-        return f'<GlobalParty {self.name_en} ({self.type})>'
+        return f'<GlobalParty {self.name_en} ({self.role})>'

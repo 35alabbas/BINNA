@@ -13,7 +13,14 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
-from app.models import GlobalParty, Project, ProjectMember, _ROLE_ORDER, VALID_GLOBAL_PARTY_TYPES
+from app.models import (
+    GlobalParty,
+    Project,
+    ProjectMember,
+    _ROLE_ORDER,
+    CREATABLE_GLOBAL_PARTY_ROLES,
+    SEED_GLOBAL_PARTY_ROLES,
+)
 
 global_parties_bp = Blueprint('global_parties', __name__)
 
@@ -72,20 +79,59 @@ def create_global_party(project_id):
     if not name_en:
         return jsonify({'error': 'name_en is required'}), 400
 
-    ptype = body.get('type', 'other')
-    if ptype not in VALID_GLOBAL_PARTY_TYPES:
-        return jsonify({'error': f'type must be one of: {", ".join(VALID_GLOBAL_PARTY_TYPES)}'}), 400
+    role = body.get('role', 'other')
+    if role not in CREATABLE_GLOBAL_PARTY_ROLES:
+        return jsonify({'error': f'role must be one of: {", ".join(CREATABLE_GLOBAL_PARTY_ROLES)}'}), 400
 
     party = GlobalParty(
-        project_id = project_id,
-        name_en    = name_en,
-        name_ar    = (body.get('name_ar') or '').strip(),
-        type       = ptype,
-        logo       = (body.get('logo') or '').strip() or None,
+        project_id    = project_id,
+        name_en       = name_en,
+        name_ar       = (body.get('name_ar') or '').strip(),
+        role          = role,
+        logo_filename = (body.get('logo_filename') or '').strip() or None,
+        notes         = (body.get('notes') or '').strip() or None,
+        is_seeded     = False,
     )
     db.session.add(party)
     db.session.commit()
     return jsonify({'party': party.to_dict()}), 201
+
+
+@global_parties_bp.route('/seed', methods=['POST'])
+@jwt_required()
+def seed_global_parties(project_id):
+    """Backfill Client/Consultant/Contractor GlobalParty rows for a project
+    that was created before the Global Parties Registry existed. Idempotent —
+    skips any role that already has a seeded entry."""
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if not proj:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions — member role required'}), 403
+
+    created = []
+    for field, role in SEED_GLOBAL_PARTY_ROLES:
+        val = (getattr(proj, field, '') or '').strip()
+        if not val:
+            continue
+        if GlobalParty.query.filter_by(project_id=project_id, role=role, is_seeded=True).first():
+            continue
+        party = GlobalParty(
+            project_id = project_id,
+            name_en    = val,
+            name_ar    = '',
+            role       = role,
+            is_seeded  = True,
+        )
+        db.session.add(party)
+        created.append(party)
+
+    db.session.commit()
+    return jsonify({
+        'created':       [p.to_dict() for p in created],
+        'total_created': len(created),
+    }), 200
 
 
 @global_parties_bp.route('/<int:party_id>', methods=['PUT'])
@@ -107,12 +153,11 @@ def update_global_party(project_id, party_id):
         party.name_en = body['name_en'].strip()
     if 'name_ar' in body:
         party.name_ar = (body['name_ar'] or '').strip()
-    if 'type' in body:
-        if body['type'] not in VALID_GLOBAL_PARTY_TYPES:
-            return jsonify({'error': f'type must be one of: {", ".join(VALID_GLOBAL_PARTY_TYPES)}'}), 400
-        party.type = body['type']
-    if 'logo' in body:
-        party.logo = (body['logo'] or '').strip() or None
+    if 'logo_filename' in body:
+        party.logo_filename = (body['logo_filename'] or '').strip() or None
+    if 'notes' in body:
+        party.notes = (body['notes'] or '').strip() or None
+    # role is immutable after creation
 
     db.session.commit()
     return jsonify({'party': party.to_dict()}), 200
@@ -131,6 +176,9 @@ def delete_global_party(project_id, party_id):
     party = GlobalParty.query.filter_by(id=party_id, project_id=project_id).first()
     if not party:
         return jsonify({'error': 'Party not found'}), 404
+
+    if party.is_seeded:
+        return jsonify({'error': 'Seeded parties (Client/Consultant/Contractor) cannot be deleted'}), 409
 
     db.session.delete(party)
     db.session.commit()

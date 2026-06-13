@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BINNA — Subcontractor Management</title>
+<title>BINNA — Subcontractors & Suppliers</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="/static/js/binna-api.js"></script>
 <style>
@@ -125,7 +125,7 @@ table.pst .pst-net .pst-amt{color:var(--accent)}
     <a href="/dashboard" class="logo">BINNA <span>Construction PM</span></a>
     <div style="width:1px;height:24px;background:var(--border)"></div>
     <div class="proj-badge"><b data-proj-code>…</b><span data-proj-name></span></div>
-    <div class="module-tag">SUB — Subcontractor Management</div>
+    <div class="module-tag">SUB — Subcontractors &amp; Suppliers</div>
   </div>
   <div class="topbar-right">
     <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
@@ -140,7 +140,7 @@ table.pst .pst-net .pst-amt{color:var(--accent)}
   <a class="sidebar-item" href="/legacy/contract"><span class="dot"></span> Contract &amp; Payment</a>
   <a class="sidebar-item" href="/legacy/financial"><span class="dot"></span> Financial</a>
   <a class="sidebar-item" href="/legacy/gantt"><span class="dot"></span> Gantt Chart</a>
-  <a class="sidebar-item active" href="/legacy/sub"><span class="dot"></span> Subcontractor Mgmt</a>
+  <a class="sidebar-item active" href="/legacy/sub"><span class="dot"></span> Subcontractors &amp; Suppliers</a>
   <div class="sidebar-section">Consultant</div>
   <a class="sidebar-item" href="/legacy/dwg"><span class="dot"></span> Drawings</a>
   <a class="sidebar-item" href="/legacy/fir"><span class="dot"></span> FIR</a>
@@ -199,9 +199,9 @@ const PID = BINNA.getProjectId();
 const esc = BINNA.esc;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let view = 'dashboard';            // dashboard | parties | contract
+let view = 'dashboard';            // dashboard | contract
 let parties = [];
-let globalSubParties = [];         // GlobalParty records with type === 'subcontractor'
+let globalSubParties = [];         // GlobalParty records with role 'subcontractor' or 'supplier'
 let subsMeta = [];
 let summary = null;
 let sub = null;                    // full current subcontract (with .data blob)
@@ -285,7 +285,7 @@ async function loadAll(){
       BINNA.fetchParties(PID), BINNA.fetchSubcontracts(PID), BINNA.subcontractsSummary(PID), BINNA.fetchGlobalParties(PID)
     ]);
     parties=pr.parties||[]; subsMeta=sr.subcontracts||[]; summary=sm;
-    globalSubParties=(gp.parties||[]).filter(p=>p.type==='subcontractor');
+    globalSubParties=(gp.parties||[]).filter(p=>p.role==='subcontractor'||p.role==='supplier');
   }catch(e){ BINNA.toast(e.error||'Load failed','error'); }
 }
 
@@ -294,12 +294,11 @@ function render(){
   const m=document.getElementById('main');
   if(view==='contract' && sub){ renderContract(m); return; }
   let tabs='<div class="tabs">'
-    +'<div class="tab'+(view==='dashboard'?' active':'')+'" onclick="switchView(\'dashboard\')">📊 Dashboard</div>'
-    +'<div class="tab'+(view==='parties'?' active':'')+'" onclick="switchView(\'parties\')">🏢 Parties Directory</div>'
+    +'<div class="tab active">📊 Dashboard</div>'
   +'</div>';
   m.innerHTML=tabs+'<div id="view-body"></div>';
   const b=document.getElementById('view-body');
-  if(view==='parties') renderParties(b); else renderDashboard(b);
+  renderDashboard(b);
 }
 async function switchView(v){ view=v; if(v!=='contract'){ await loadAll(); } render(); }
 
@@ -357,16 +356,21 @@ function renderDashboard(b){
 }
 
 // ── New subcontract modal ─────────────────────────────────────────────────────
-// Party options come from the Global Parties Registry (type === 'subcontractor'),
+// Party options come from the Global Parties Registry (role === 'subcontractor'),
 // so the same registry entry is reusable across modules. Each option resolves
 // to (or lazily creates) a matching Party record for the Subcontract.party_id FK.
 function openNewSubModal(){
-  if(!globalSubParties.length){ BINNA.toast('Add a subcontractor party first','info'); switchView('parties'); return; }
+  if(!globalSubParties.length){
+    genModal('New Subcontract',
+      '<div style="font-size:13px;color:var(--text2);line-height:1.6">'
+        +'<b>No subcontractor or supplier parties yet.</b><br>'
+        +'Add a subcontractor or supplier in the Parties registry first.</div>',
+      [{label:'Open Parties Registry',primary:true,fn:goToParties}]);
+    return;
+  }
   const popt=globalSubParties.map(gp=>'<option value="'+gp.id+'">'+esc(gp.name_en)+(gp.name_ar?' / '+esc(gp.name_ar):'')+'</option>').join('');
   genModal('New Subcontract',
-    '<div class="field"><label>Party</label><div style="display:flex;gap:8px">'
-      +'<select class="in" id="ns-party">'+popt+'</select>'
-      +'<button class="btn btn-sm" onclick="openNewPartyModal(true)" title="Add new subcontractor">+ New</button></div></div>'
+    '<div class="field"><label>Party</label><select class="in" id="ns-party">'+popt+'</select></div>'
     +'<div class="field"><label>Title / Scope</label><input class="in" id="ns-title" placeholder="e.g. Electrical works — Block A"/></div>'
     +'<div class="field"><label>Kind</label><select class="in" id="ns-kind">'
       +Object.keys(KIND_LABELS).map(k=>'<option value="'+k+'">'+KIND_LABELS[k]+'</option>').join('')
@@ -379,9 +383,10 @@ async function createSub(){
   const title=document.getElementById('ns-title').value.trim();
   const kind=document.getElementById('ns-kind').value;
   try{
-    let party=parties.find(p=>p.role==='subcontractor'&&p.name===gp.name_en);
+    const role=(gp.role==='supplier')?'supplier':'subcontractor';
+    let party=parties.find(p=>p.role===role&&p.name===gp.name_en);
     if(!party){
-      const pr=await BINNA.createParty(PID,{name:gp.name_en,name_ar:gp.name_ar,role:'subcontractor'});
+      const pr=await BINNA.createParty(PID,{name:gp.name_en,name_ar:gp.name_ar,role});
       party=pr.party; parties.push(party);
     }
     const r=await BINNA.createSubcontract(PID,{party_id:party.id,title,kind});
@@ -390,137 +395,9 @@ async function createSub(){
     sub=r.subcontract; view='contract'; render();
   }catch(e){ BINNA.toast(e.error||'Create failed','error'); }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// VIEW 2 — PARTIES DIRECTORY
-// ══════════════════════════════════════════════════════════════════════════════
-function renderParties(b){
-  let head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
-    +'<div style="font-size:15px;font-weight:700">Parties Directory</div>'
-    +'<button class="btn btn-sm btn-primary" onclick="openNewPartyModal()">+ New Party</button></div>';
-  let table='<table class="data"><thead><tr><th>Name</th><th>Role</th><th>Contact</th><th>Phone</th><th>Email</th><th>Docs</th><th></th></tr></thead><tbody>';
-  parties.forEach(p=>{
-    table+='<tr>'
-      +'<td><b>'+esc(p.name)+'</b>'+(p.name_ar?'<div style="font-size:11px;color:var(--muted)" dir="rtl">'+esc(p.name_ar)+'</div>':'')+'</td>'
-      +'<td><span class="badge badge-role">'+esc(ROLE_LABELS[p.role]||p.role)+'</span>'+(p.is_default?' <span style="font-size:10px;color:var(--muted2)">default</span>':'')+'</td>'
-      +'<td>'+esc(p.contact_name||'—')+'</td>'
-      +'<td>'+esc(p.phone||'—')+'</td>'
-      +'<td>'+esc(p.email||'—')+'</td>'
-      +'<td><a onclick="openPartyDocs('+p.id+')" style="color:var(--accent);cursor:pointer">📎 '+(p.documents?p.documents.length:0)+'</a></td>'
-      +'<td style="text-align:right;white-space:nowrap">'
-        +'<button class="btn btn-sm" onclick="openEditPartyModal('+p.id+')">Edit</button> '
-        +'<button class="btn btn-sm btn-danger" onclick="deleteParty('+p.id+')">Delete</button></td>'
-    +'</tr>';
-  });
-  table+='</tbody></table>';
-  b.innerHTML=head+table;
-}
-function partyFormFields(p){
-  p=p||{};
-  return '<div class="field"><label>Name (EN)</label><input class="in" id="pf-name" value="'+esc(p.name||'')+'"/></div>'
-    +'<div class="field"><label>Name (AR)</label><input class="in" id="pf-name-ar" dir="rtl" value="'+esc(p.name_ar||'')+'"/></div>'
-    +'<div class="field"><label>Role</label><select class="in" id="pf-role">'
-      +Object.keys(ROLE_LABELS).map(r=>'<option value="'+r+'"'+(p.role===r?' selected':'')+'>'+ROLE_LABELS[r]+'</option>').join('')
-    +'</select></div>'
-    +'<div class="field"><label>Contact Name</label><input class="in" id="pf-contact" value="'+esc(p.contact_name||'')+'"/></div>'
-    +'<div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Phone</label><input class="in" id="pf-phone" value="'+esc(p.phone||'')+'"/></div>'
-    +'<div class="field" style="flex:1"><label>Email</label><input class="in" id="pf-email" value="'+esc(p.email||'')+'"/></div></div>'
-    +'<div class="field"><label>Notes</label><textarea class="in" id="pf-notes" rows="2">'+esc(p.notes||'')+'</textarea></div>';
-}
-function readPartyForm(){
-  return {
-    name:document.getElementById('pf-name').value.trim(),
-    name_ar:document.getElementById('pf-name-ar').value.trim(),
-    role:document.getElementById('pf-role').value,
-    contact_name:document.getElementById('pf-contact').value.trim(),
-    phone:document.getElementById('pf-phone').value.trim(),
-    email:document.getElementById('pf-email').value.trim(),
-    notes:document.getElementById('pf-notes').value.trim(),
-  };
-}
-function openNewPartyModal(fromSub){
-  // Opened from "New Subcontract" → default the role to Subcontractor, since
-  // that's what's needed there (and what gets mirrored into GlobalParty).
-  genModal('New Party', partyFormFields(fromSub?{role:'subcontractor'}:null), [{label:'Create',primary:true,fn:()=>createParty(fromSub)}]);
-}
-async function createParty(fromSub){
-  const d=readPartyForm();
-  if(!d.name){ BINNA.toast('Name is required','error'); return; }
-  try{
-    const r=await BINNA.createParty(PID,d);
-    parties.push(r.party);
-    closeGen();
-    BINNA.toast('Party added','success');
-    if(fromSub){
-      if(d.role==='subcontractor'){
-        const gpr=await BINNA.fetchGlobalParties(PID);
-        globalSubParties=(gpr.parties||[]).filter(p=>p.type==='subcontractor');
-      }
-      openNewSubModal();
-      setTimeout(()=>{
-        const s=document.getElementById('ns-party'); if(!s) return;
-        const gp=globalSubParties.find(g=>g.name_en===r.party.name);
-        if(gp) s.value=gp.id;
-      },50);
-    }
-    else render();
-  }catch(e){ BINNA.toast(e.error||'Create failed','error'); }
-}
-function openEditPartyModal(id){
-  const p=parties.find(x=>x.id===id); if(!p) return;
-  genModal('Edit Party', partyFormFields(p), [{label:'Save',primary:true,fn:()=>updatePartyDo(id)}]);
-}
-async function updatePartyDo(id){
-  const d=readPartyForm();
-  if(!d.name){ BINNA.toast('Name is required','error'); return; }
-  try{
-    const r=await BINNA.updateParty(PID,id,d);
-    const i=parties.findIndex(x=>x.id===id); if(i>=0) parties[i]=r.party;
-    closeGen(); BINNA.toast('Party updated','success'); render();
-  }catch(e){ BINNA.toast(e.error||'Save failed','error'); }
-}
-async function deleteParty(id){
-  const p=parties.find(x=>x.id===id); if(!p) return;
-  if(!confirm('Delete party "'+p.name+'"?')) return;
-  try{
-    await BINNA.deleteParty(PID,id);
-    parties=parties.filter(x=>x.id!==id);
-    BINNA.toast('Party deleted','success'); render();
-  }catch(e){ BINNA.toast(e.error||'Delete failed','error'); }   // 409 surfaced here
-}
-// Party documents
-function openPartyDocs(id){
-  const p=parties.find(x=>x.id===id); if(!p) return;
-  const docs=p.documents||[];
-  let body='<div id="pd-list">'+partyDocsList(docs)+'</div>'
-    +'<label class="btn btn-sm" style="align-self:flex-start;margin-top:8px">+ Upload Document<input type="file" style="display:none" onchange="addPartyDoc('+id+',this)"/></label>';
-  genModal('Documents — '+esc(p.name), body, []);
-}
-function partyDocsList(docs){
-  if(!docs.length) return '<div style="font-size:12px;color:var(--muted2);font-style:italic">No documents yet.</div>';
-  return docs.map((d,i)=>'<div class="att-item"><span>📄</span><span style="flex:1">'+esc(d.label||d.original||d.file)+'</span>'
-    +'<span style="font-size:10.5px;color:var(--muted2)">'+esc(d.date||'')+'</span>'
-    +'<a onclick="downloadStored(\''+esc(d.file)+'\',\''+esc(d.original||'')+'\')" style="color:var(--accent);cursor:pointer">⬇</a>'
-    +'<button class="x-btn" style="font-size:14px;color:var(--danger)" onclick="removePartyDoc('+i+')">✕</button></div>').join('');
-}
-let _pdPartyId=null;
-async function addPartyDoc(id,input){
-  _pdPartyId=id;
-  const up=await uploadInput(input); if(!up) return;
-  const p=parties.find(x=>x.id===id); if(!p) return;
-  const label=prompt('Document label (optional):',up.original)||up.original;
-  p.documents=p.documents||[]; p.documents.push({file:up.file,original:up.original,label:label,date:todayISO()});
-  await BINNA.updateParty(PID,id,{documents:p.documents});
-  document.getElementById('pd-list').innerHTML=partyDocsList(p.documents);
-  render();
-}
-async function removePartyDoc(i){
-  const p=parties.find(x=>x.id===_pdPartyId); if(!p) return;
-  p.documents.splice(i,1);
-  await BINNA.updateParty(PID,_pdPartyId,{documents:p.documents});
-  document.getElementById('pd-list').innerHTML=partyDocsList(p.documents);
-  render();
-}
+// Parties are managed in the Global Parties Registry on the project dashboard.
+// The #parties hash makes that page auto-open the Parties modal on load.
+function goToParties(){ closeGen(); window.location.href='/project/'+PID+'#parties'; }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // VIEW 3 — CONTRACT PAGE
