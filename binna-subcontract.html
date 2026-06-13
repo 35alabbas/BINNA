@@ -209,6 +209,8 @@ let saveTimer = null;
 
 const ROLE_LABELS = {main_contractor:'Main Contractor',consultant:'Consultant',client:'Client',subcontractor:'Subcontractor',supplier:'Supplier'};
 const KIND_LABELS = {lump_sum:'Lump Sum',milestone:'Milestone',monthly:'Monthly',custom:'Custom',open_supply:'Open Supply',subcontractor:'Subcontractor',supplier:'Supplier'};
+// Payment System dropdown — exact labels mirrored from binna-contract.html.
+const PAYMENT_MODES = [['cumulative','Cumulative / تراكمي'],['lump_sum','Lump Sum / مبلغ إجمالي'],['monthly','Monthly Invoice / فاتورة شهرية'],['milestone','Milestone / مرحلي'],['other','Other / أخرى']];
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('collapsed'); }
@@ -427,11 +429,19 @@ function ensureBlob(){
   if(s.taxEnabled==null) s.taxEnabled=false;
   if(s.taxRate==null) s.taxRate='';
   if(s.contractValue==null) s.contractValue='';
+  // Payment System (mirrors binna-contract.html). Default 'cumulative'; derive
+  // from the server-side kind for subcontracts that predate this field so their
+  // existing template is preserved. Never left undefined.
+  if(d.payment_mode==null) d.payment_mode=({lump_sum:'lump_sum',milestone:'milestone',monthly:'monthly'})[sub.kind]||'cumulative';
   if(sub.kind==='open_supply'){ if(!d.invoices)d.invoices=[]; if(!d.supplyPayments)d.supplyPayments=[]; }
   else { if(!d.payments)d.payments=[]; }
 }
 function payments(){ return sub.data.payments||[]; }
 function settings(){ return sub.data.settings; }
+// Payment System → internal payment-card template. Cumulative & Other render the
+// درعة-style "Work Done" payable card; the rest use their dedicated templates.
+function paymentMode(){ return (sub.data&&sub.data.payment_mode)||'cumulative'; }
+function tmplKind(){ const m=paymentMode(); return (m==='lump_sum'||m==='monthly'||m==='milestone')?m:'custom'; }
 function hasRealData(){
   return payments().some(p=>(p.summaryRows||[]).some(sr=>num(sr.amount))||num(p._net))
     || (sub.data.invoices||[]).some(i=>num(i.amount))
@@ -451,6 +461,10 @@ function renderContract(m){
       +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Party: <b>'+esc((sub.party&&sub.party.name)||party.name||'')+'</b> · '+esc(ROLE_LABELS[(sub.party&&sub.party.role)||party.role]||'')+'</div>'
     +'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +(sub.kind!=='open_supply'?'<label style="font-size:11px;color:var(--muted)">Payment System '
+        +'<select class="in" style="width:auto;display:inline-block" '+(locked?'disabled':'')+' onchange="setPaymentMode(this.value)">'
+          +PAYMENT_MODES.map(o=>'<option value="'+o[0]+'"'+(paymentMode()===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')
+        +'</select>'+(locked?' <span title="Locked after payment data has been entered" style="color:var(--muted2)">🔒</span>':'')+'</label>':'')
       +'<label style="font-size:11px;color:var(--muted)">Currency '
         +'<select class="in" style="width:auto;display:inline-block" '+(locked?'disabled':'')+' onchange="setCurrency(this.value)">'
           +['IQD','USD','EUR','custom'].map(c=>'<option value="'+c+'"'+(d.currency===c?' selected':'')+'>'+c+'</option>').join('')
@@ -503,6 +517,7 @@ async function updateMeta(field,val){
 function setCurrency(c){ sub.data.currency=c; scheduleSave(); render(); }
 function setCurrencyCustom(v){ sub.data.currency_custom=v; scheduleSave(); render(); }
 function setDecimals(v){ if(hasRealData()){ BINNA.toast('Decimals locked after data','info'); return; } sub.data.decimalPlaces=parseInt(v,10)||0; scheduleSave(); render(); }
+function setPaymentMode(v){ if(hasRealData()){ BINNA.toast('Payment system locked after payment data','info'); render(); return; } sub.data.payment_mode=v; scheduleSave(); render(); }
 
 // Contract documents
 function contractDocsList(){
@@ -562,8 +577,8 @@ function setSet(f,v){ settings()[f]=v; scheduleSave(); renderPayRows(); refreshM
 function toggleSet(f,on){ settings()[f]=on; scheduleSave(); renderPaySettings(); renderPayRows(); refreshMini(); }
 
 // ── Allocation cap (lump_sum & milestone) ─────────────────────────────────────
-function capped(){ return sub.kind==='lump_sum'||sub.kind==='milestone'; }
-function allocatedPct(){ if(!capped()) return 0; const f=sub.kind==='milestone'?'milestonePct':'schedulePct'; return payments().reduce((a,r)=>a+num(r[f]),0); }
+function capped(){ return tmplKind()==='lump_sum'||tmplKind()==='milestone'; }
+function allocatedPct(){ if(!capped()) return 0; const f=tmplKind()==='milestone'?'milestonePct':'schedulePct'; return payments().reduce((a,r)=>a+num(r[f]),0); }
 
 // ── Calc (mirrors the contract private renderer, payable wording) ─────────────
 function grossOf(row){ let g=0; (row.summaryRows||[]).forEach(r=>{const a=num(r.amount); if(a>0)g+=a;}); return g; }
@@ -638,9 +653,9 @@ function addPayment(){
     request:{has:false,refNo:'',date:'',attachment:null},
     certificate:{status:'draft',certNo:'',date:'',preparedBy:{name:'',title:''},signature:null,signedCopy:null},
     paid:false,paidDate:''};
-  if(sub.kind==='milestone'){ const nm=prompt('Milestone name:'); if(nm===null) return; row.milestoneName=nm||''; row.desc=nm||''; row.milestonePct=''; }
-  else if(sub.kind==='monthly'){ row.invoiceNo='INV-'+pad2(payments().filter(p=>p.invoiceNo).length+1); row.period=''; }
-  else if(sub.kind==='lump_sum'){ row.scheduleLabel=''; row.schedulePct=''; }
+  if(tmplKind()==='milestone'){ const nm=prompt('Milestone name:'); if(nm===null) return; row.milestoneName=nm||''; row.desc=nm||''; row.milestonePct=''; }
+  else if(tmplKind()==='monthly'){ row.invoiceNo='INV-'+pad2(payments().filter(p=>p.invoiceNo).length+1); row.period=''; }
+  else if(tmplKind()==='lump_sum'){ row.scheduleLabel=''; row.schedulePct=''; }
   payments().push(row);
   scheduleSave(); renderPayRows(); refreshMini();
 }
@@ -660,19 +675,19 @@ function renderPayRows(){
   payments().forEach((row,idx)=>{
     const c=comp[idx];
     let hdr;
-    if(sub.kind==='milestone') hdr='🏁 '+esc(row.milestoneName||row.desc||'Milestone')+(row.milestonePct?' — '+esc(row.milestonePct)+'%':'');
-    else if(sub.kind==='monthly') hdr='🧾 '+esc(row.invoiceNo||'Invoice')+(row.period?' — '+esc(row.period):'');
-    else if(sub.kind==='lump_sum') hdr='📦 '+esc(row.scheduleLabel||row.desc||('Payment '+(idx+1)))+(row.schedulePct?' ('+esc(row.schedulePct)+'%)':'');
+    if(tmplKind()==='milestone') hdr='🏁 '+esc(row.milestoneName||row.desc||'Milestone')+(row.milestonePct?' — '+esc(row.milestonePct)+'%':'');
+    else if(tmplKind()==='monthly') hdr='🧾 '+esc(row.invoiceNo||'Invoice')+(row.period?' — '+esc(row.period):'');
+    else if(tmplKind()==='lump_sum') hdr='📦 '+esc(row.scheduleLabel||row.desc||('Payment '+(idx+1)))+(row.schedulePct?' ('+esc(row.schedulePct)+'%)':'');
     else hdr='Payment '+(idx+1);
 
     // third meta cell
     let third;
-    if(sub.kind==='monthly') third='<div class="l" style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Invoice / Period</div>'
+    if(tmplKind()==='monthly') third='<div class="l" style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Invoice / Period</div>'
       +'<input placeholder="INV-001" value="'+esc(row.invoiceNo||'')+'" style="width:100%;'+IN+';margin-bottom:4px" oninput="payments()['+idx+'].invoiceNo=this.value;scheduleSave()" onchange="renderPayRows()"/>'
       +'<input placeholder="June 2026" value="'+esc(row.period||'')+'" style="width:100%;'+IN+'" oninput="payments()['+idx+'].period=this.value;scheduleSave()"/>';
-    else if(sub.kind==='milestone') third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Completion %</div>'
+    else if(tmplKind()==='milestone') third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Completion %</div>'
       +'<input type="number" min="0" max="100" placeholder="0" value="'+esc(row.milestonePct||'')+'" style="width:100%;'+IN+';font-family:monospace" oninput="payments()['+idx+'].milestonePct=this.value;scheduleSave()" onchange="renderPayRows()"/>';
-    else if(sub.kind==='lump_sum') third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Stage % (of contract)</div>'
+    else if(tmplKind()==='lump_sum') third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Stage % (of contract)</div>'
       +'<input type="number" min="0" placeholder="0" value="'+esc(row.schedulePct||'')+'" style="width:100%;'+IN+';font-family:monospace" oninput="payments()['+idx+'].schedulePct=this.value;scheduleSave()" onchange="renderPayRows()"/>';
     else third='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Reference</div>'
       +'<input placeholder="Optional ref" value="'+esc(row.scheduleLabel||'')+'" style="width:100%;'+IN+'" oninput="payments()['+idx+'].scheduleLabel=this.value;scheduleSave()"/>';
