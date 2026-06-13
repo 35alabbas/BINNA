@@ -34,6 +34,7 @@ def _ensure_schema():
     # (table, column, DDL type/default) — extend this list when models gain columns.
     additions = [
         ('gantt_data', 'stoppages', "TEXT DEFAULT '[]'"),
+        ('lab_tests', 'lab_party_id', 'INTEGER'),
         ('global_parties', 'role',          "VARCHAR(20) NOT NULL DEFAULT 'other'"),
         ('global_parties', 'logo_filename', "VARCHAR(500)"),
         ('global_parties', 'notes',         "TEXT"),

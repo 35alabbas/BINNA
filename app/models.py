@@ -386,7 +386,8 @@ class LabTest(db.Model):
     # LBTOUT (sent-sample) fields
     material       = db.Column(db.String(500))
     test_type      = db.Column(db.String(500))
-    lab            = db.Column(db.String(200))
+    lab            = db.Column(db.String(200))                          # lab name (free text / mirrored from lab_party)
+    lab_party_id   = db.Column(db.Integer,     db.ForeignKey('global_parties.id'), nullable=True)  # → GlobalParty(role='laboratory')
     location       = db.Column(db.String(200))
     sample_ref     = db.Column(db.String(100))
     qty            = db.Column(db.String(100))
@@ -421,6 +422,7 @@ class LabTest(db.Model):
             'material':       self.material    or '',
             'test_type':      self.test_type   or '',
             'lab':            self.lab         or '',
+            'lab_party_id':   self.lab_party_id,
             'location':       self.location    or '',
             'sample_ref':     self.sample_ref  or '',
             'qty':            self.qty         or '',
@@ -600,12 +602,13 @@ class Subcontract(db.Model):
 # agreements, mounted at /parties) — different shape and its own API surface
 # at /global-parties to avoid colliding with the existing /parties routes.
 
-VALID_GLOBAL_PARTY_ROLES = ('client', 'consultant', 'contractor', 'subcontractor', 'supplier', 'other')
+VALID_GLOBAL_PARTY_ROLES = ('client', 'consultant', 'contractor', 'subcontractor', 'supplier', 'laboratory', 'other')
 
 # Roles a user can assign when creating a party via the registry UI/API.
 # client/consultant/contractor are seeded once from the project record and
-# are not user-creatable afterwards.
-CREATABLE_GLOBAL_PARTY_ROLES = ('subcontractor', 'supplier', 'other')
+# are not user-creatable afterwards. 'laboratory' parties surface in the Lab
+# Tests module's "Testing Lab" picker (never auto-seeded).
+CREATABLE_GLOBAL_PARTY_ROLES = ('subcontractor', 'supplier', 'laboratory', 'other')
 
 # Project fields that auto-seed a GlobalParty record (Global Parties Registry)
 # when filled — (Project field name, GlobalParty.role). Used both at project

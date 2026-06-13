@@ -726,11 +726,11 @@ let GLOBAL_PARTIES = [];
 let _editingPartyId = null;
 const PARTY_ROLE_LABELS = {
   client: 'Client', consultant: 'Consultant', contractor: 'Contractor',
-  subcontractor: 'Subcontractor', supplier: 'Supplier', other: 'Other',
+  subcontractor: 'Subcontractor', supplier: 'Supplier', laboratory: 'Laboratory', other: 'Other',
 };
 // Roles selectable when adding a new party — client/consultant/contractor
 // are seeded once from the project record and not user-creatable here.
-const CREATABLE_PARTY_ROLES = { subcontractor: 'Subcontractor', supplier: 'Supplier', other: 'Other Party' };
+const CREATABLE_PARTY_ROLES = { subcontractor: 'Subcontractor', supplier: 'Supplier', laboratory: 'Laboratory', other: 'Other Party' };
 
 async function openPartiesModal() {
   closePartyForm();

@@ -147,6 +147,7 @@ def create_test(project_id):
         material       = (data.get('material')     or '').strip(),
         test_type      = (data.get('test_type')    or '').strip(),
         lab            = (data.get('lab')          or '').strip(),
+        lab_party_id   = data.get('lab_party_id') or None,
         location       = (data.get('location')     or '').strip(),
         sample_ref     = (data.get('sample_ref')   or '').strip(),
         qty            = (data.get('qty')          or '').strip(),
@@ -250,6 +251,8 @@ def update_test(project_id, item_id):
             setattr(item, field, (data[field] or '').strip())
     if 'result' in data and data['result'] in VALID_LBT_RESULTS:
         item.result = data['result']
+    if 'lab_party_id' in data:
+        item.lab_party_id = data['lab_party_id'] or None
     if 'related_out_id' in data and item.direction == 'in':
         item.related_out_id = data['related_out_id'] or None
 

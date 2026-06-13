@@ -15,6 +15,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import (
     GlobalParty,
+    Party,
+    Subcontract,
     Project,
     ProjectMember,
     _ROLE_ORDER,
@@ -44,6 +46,70 @@ def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):
     if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
         return proj, None   # → 403
     return proj, mem
+
+
+# ── Subcontractor / Supplier auto-wiring ──────────────────────────────────────
+# Adding a subcontractor or supplier to this registry must make it appear in the
+# Subcontractors & Suppliers module immediately — no separate "New Subcontract"
+# step. We do that by auto-creating an active Subcontract for it here.
+
+def _next_subcontract_ref(project) -> str:
+    """{PROJECT_CODE}-SUB-NNN — max existing number + 1, zero-padded to 3.
+    Mirrors subcontracts._generate_sub_ref (kept local to avoid a cross-blueprint
+    import cycle)."""
+    existing = Subcontract.query.filter_by(project_id=project.id).all()
+    max_num = 0
+    for s in existing:
+        try:
+            n = int((s.ref or '').rsplit('-', 1)[1])
+            max_num = max(max_num, n)
+        except (ValueError, IndexError):
+            continue
+    return f"{project.code}-SUB-{str(max_num + 1).zfill(3)}"
+
+
+def _ensure_subcontract_for_global_party(project, gp):
+    """Ensure a subcontractor/supplier GlobalParty has a backing Subcontract.
+
+    `Subcontract.party_id` FKs the subcontract-module `Party` table (not
+    `global_parties`), so the GlobalParty is first mirrored into a `Party` row;
+    the Subcontract then links to that. Idempotent — reuses an existing mirror
+    Party / Subcontract so repeated calls (and PUT backfills) never duplicate.
+    """
+    party = Party.query.filter_by(
+        project_id=project.id, role=gp.role, name=gp.name_en,
+    ).first()
+    if not party:
+        party = Party(
+            project_id = project.id,
+            name       = gp.name_en,
+            name_ar    = gp.name_ar or '',
+            role       = gp.role,
+            is_default = False,
+            documents  = '[]',
+        )
+        db.session.add(party)
+        db.session.flush()   # assign party.id for the FK below
+
+    existing = Subcontract.query.filter_by(
+        project_id=project.id, party_id=party.id,
+    ).first()
+    if existing:
+        return existing
+
+    sub = Subcontract(
+        project_id = project.id,
+        party_id   = party.id,
+        ref        = _next_subcontract_ref(project),
+        title      = '',
+        kind       = gp.role,        # 'subcontractor' | 'supplier'
+        status     = 'active',
+        data       = '{}',           # empty blob — contract details filled in later
+        documents  = '[]',
+    )
+    db.session.add(sub)
+    db.session.flush()
+    return sub
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -93,6 +159,13 @@ def create_global_party(project_id):
         is_seeded     = False,
     )
     db.session.add(party)
+    db.session.flush()   # assign party.id
+
+    # Subcontractor / supplier → auto-create its Subcontract so it shows up in
+    # the Subcontractors & Suppliers dashboard with no extra user action.
+    if party.role in ('subcontractor', 'supplier'):
+        _ensure_subcontract_for_global_party(proj, party)
+
     db.session.commit()
     return jsonify({'party': party.to_dict()}), 201
 
@@ -158,6 +231,11 @@ def update_global_party(project_id, party_id):
     if 'notes' in body:
         party.notes = (body['notes'] or '').strip() or None
     # role is immutable after creation
+
+    # Backfill: if this is a subcontractor/supplier with no Subcontract yet
+    # (e.g. predates the auto-wiring), create one now. Idempotent.
+    if party.role in ('subcontractor', 'supplier'):
+        _ensure_subcontract_for_global_party(proj, party)
 
     db.session.commit()
     return jsonify({'party': party.to_dict()}), 200

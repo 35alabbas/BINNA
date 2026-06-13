@@ -135,6 +135,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .gbar:hover{filter:brightness(.92)}
 .gbar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:3px 0 0 3px;background:rgba(255,255,255,.35)}
 .gbar-lbl{font-size:9.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1;color:#fff}
+.gbar-assignee{position:absolute;left:5px;right:5px;bottom:0;font-size:10px;line-height:1.1;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:1;text-shadow:0 0 2px rgba(255,255,255,.65)}
 .gbar.gbar-group{border-radius:2px;height:100%}
 .gbar.gbar-subgroup{border-radius:2px;opacity:.9}
 .gbar.gbar-milestone-span{height:5px;top:50%;transform:translateY(-50%);opacity:.4;border-radius:1px;position:absolute}
@@ -494,6 +495,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
         </div>
       </div>
 
+      <div class="frow full">
+        <div class="fgrp">
+          <label class="flbl">Assigned To</label>
+          <select class="fs" id="f-assignee"><option value="">— Unassigned —</option></select>
+          <div class="fhint">Team member or subcontractor/supplier — shown as a label on the task bar (display only).</div>
+        </div>
+      </div>
+
       <div class="frow full" id="row-parent">
         <div class="fgrp">
           <label class="flbl" id="parent-lbl">Parent Container</label>
@@ -665,6 +674,8 @@ window.addEventListener('DOMContentLoaded', async function() {
   _rowH = parseInt(localStorage.getItem('gantt_row_h')) || 28;
   document.documentElement.style.setProperty('--row-h', _rowH + 'px');
 
+  await loadAssigneeOptions();
+
   try {
     const resp = await BINNA.fetchGantt(PROJECT_ID);
     tasks = (resp.tasks || []).map(sanitizeTask);
@@ -700,6 +711,62 @@ window.addEventListener('DOMContentLoaded', async function() {
   });
 });
 
+// ── Assigned To options (team members + subcontractors/suppliers) ─────────────
+// Display-only field stored on the task blob as assignee:{type,id,name}.
+var ganttMembers = [];   // project members (users)
+var ganttParties = [];   // GlobalParty rows with role subcontractor/supplier
+async function loadAssigneeOptions() {
+  try {
+    const proj = await BINNA.fetchProject(PROJECT_ID);
+    ganttMembers = (proj.project && proj.project.members) || [];
+  } catch (e) { ganttMembers = []; }
+  try {
+    const gp = await BINNA.fetchGlobalParties(PROJECT_ID);
+    ganttParties = (gp.parties || []).filter(function(p){ return p.role === 'subcontractor' || p.role === 'supplier'; });
+  } catch (e) { ganttParties = []; }
+}
+function fillAssigneeSelect(current) {
+  var sel = document.getElementById('f-assignee');
+  if (!sel) return;
+  var html = '<option value="">— Unassigned —</option>';
+  if (ganttMembers.length) {
+    html += '<optgroup label="Team Members">';
+    ganttMembers.forEach(function(m){
+      var nm = m.username || m.email || ('User ' + m.user_id);
+      html += '<option value="member:' + m.user_id + '">' + escHtml(nm) + '</option>';
+    });
+    html += '</optgroup>';
+  }
+  if (ganttParties.length) {
+    html += '<optgroup label="Subcontractors &amp; Suppliers">';
+    ganttParties.forEach(function(p){
+      html += '<option value="party:' + p.id + '">' + escHtml(p.name_en) + '</option>';
+    });
+    html += '</optgroup>';
+  }
+  sel.innerHTML = html;
+  var key = (current && current.type && current.id !== undefined && current.id !== null)
+    ? (current.type + ':' + current.id) : '';
+  // Keep a stale assignee (member removed / party deleted) visible as a fallback.
+  if (key && !sel.querySelector('option[value="' + key + '"]')) {
+    var opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = current.name || '(removed)';
+    sel.appendChild(opt);
+  }
+  sel.value = key;
+}
+function readAssignee() {
+  var sel = document.getElementById('f-assignee');
+  if (!sel || !sel.value) return null;
+  var idx = sel.value.indexOf(':');
+  var atype = sel.value.substring(0, idx);
+  var aid   = sel.value.substring(idx + 1);
+  var aname = (sel.options[sel.selectedIndex] || {}).text || '';
+  var idNum = parseInt(aid, 10);
+  return { type: atype, id: isNaN(idNum) ? aid : idNum, name: aname };
+}
+
 function sanitizeTask(t) {
   return {
     id:         t.id         || ('t' + Date.now() + Math.random()),
@@ -712,6 +779,9 @@ function sanitizeTask(t) {
     pct:        typeof t.pct === 'number' ? t.pct : 0,
     preds:      Array.isArray(t.preds) ? t.preds.filter(p => p && p.id) : [],
     person:     t.person     || '',
+    assignee:   (t.assignee && typeof t.assignee === 'object' && t.assignee.type)
+                  ? { type: t.assignee.type, id: t.assignee.id, name: t.assignee.name || '' }
+                  : null,
     color:      t.color      || COLORS[0],
     notes:      t.notes      || '',
   };
@@ -1195,8 +1265,10 @@ function renderChart(vis, units, cw, min, totalW) {
       } else {
         var fw = Math.max(0, bp.w * (t.pct || 0) / 100);
         var barCls = 'gbar' + (isG?' gbar-group':isSG?' gbar-subgroup':'') + (t.isCritical?' is-critical':'') + (selIds.has(t.id)?' is-selected':'');
+        var aLbl = (t.assignee && t.assignee.name)
+          ? '<div class="gbar-assignee">'+escHtml(t.assignee.name)+'</div>' : '';
         bar = '<div class="gbar-wrap" style="left:'+bp.l+'px;width:'+Math.max(bp.w,4)+'px" onclick="openEdit(\''+t.id+'\')" onmouseenter="showTip(event,\''+t.id+'\')" onmouseleave="hideTip()">'
-          +'<div class="'+barCls+'" style="background:'+(t.color||COLORS[0])+'"><div class="gbar-fill" style="width:'+fw+'px"></div>'+barHatch(t, bp, units, cw, min)+'</div></div>';
+          +'<div class="'+barCls+'" style="background:'+(t.color||COLORS[0])+'"><div class="gbar-fill" style="width:'+fw+'px"></div>'+barHatch(t, bp, units, cw, min)+aLbl+'</div></div>';
       }
     }
     html += '<div class="chart-row '+rowCls+'" style="width:'+totalW+'px">'+cells+bar+'</div>';
@@ -1648,6 +1720,7 @@ function openAddTask() {
   document.getElementById('btn-delete').style.display = 'none';
   document.getElementById('f-name').value   = '';
   document.getElementById('f-person').value = '';
+  fillAssigneeSelect(null);
   document.getElementById('f-notes').value  = '';
   document.getElementById('f-type').value   = 'task';
   document.getElementById('f-pct').value    = 0;
@@ -1682,6 +1755,7 @@ function openEdit(id) {
   document.getElementById('btn-delete').style.display = 'inline-flex';
   document.getElementById('f-name').value   = t.name;
   document.getElementById('f-person').value = t.person || '';
+  fillAssigneeSelect(t.assignee);
   document.getElementById('f-notes').value  = t.notes  || '';
   document.getElementById('f-type').value   = t.type   || 'task';
   document.getElementById('f-pct').value    = t.pct    || 0;
@@ -1895,6 +1969,7 @@ function saveTask() {
     pct:    parseInt(document.getElementById('f-pct').value) || 0,
     preds:  JSON.parse(JSON.stringify(preds)),
     person: document.getElementById('f-person').value.trim(),
+    assignee: readAssignee(),
     color:  selColor,
     notes:  document.getElementById('f-notes').value.trim(),
   });

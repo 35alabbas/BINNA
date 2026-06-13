@@ -208,7 +208,7 @@ let sub = null;                    // full current subcontract (with .data blob)
 let saveTimer = null;
 
 const ROLE_LABELS = {main_contractor:'Main Contractor',consultant:'Consultant',client:'Client',subcontractor:'Subcontractor',supplier:'Supplier'};
-const KIND_LABELS = {lump_sum:'Lump Sum',milestone:'Milestone',monthly:'Monthly',custom:'Custom',open_supply:'Open Supply'};
+const KIND_LABELS = {lump_sum:'Lump Sum',milestone:'Milestone',monthly:'Monthly',custom:'Custom',open_supply:'Open Supply',subcontractor:'Subcontractor',supplier:'Supplier'};
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('collapsed'); }
@@ -322,14 +322,15 @@ function renderDashboard(b){
     strip+='<div style="font-size:11.5px;color:var(--muted);margin:-8px 0 14px">⚠ Mixed currencies — totals above are an unconverted sum. Per-currency Balance Payable: '
       +curKeys.map(c=>'<b>'+esc(c)+' '+Math.round(byCur[c].balance).toLocaleString('en-US')+'</b>').join(' · ')+'</div>';
   }
+  // Subcontracts are created automatically when a subcontractor/supplier party is
+  // added in the project's Parties registry — there is no manual "New" button here.
   let head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
-    +'<div style="font-size:15px;font-weight:700">Subcontracts &amp; Supply Agreements</div>'
-    +'<button class="btn btn-sm btn-primary" onclick="openNewSubModal()">+ New Subcontract</button></div>';
+    +'<div style="font-size:15px;font-weight:700">Subcontracts &amp; Supply Agreements</div></div>';
   const rows=(summary&&summary.contracts)||[];
   let table;
   if(!rows.length){
     table='<div class="empty"><div class="ico">🏗️</div><div style="font-size:15px;font-weight:600;color:var(--text2)">No subcontracts yet</div>'
-      +'<div style="margin-top:6px">Create your first agreement with a subcontractor or supplier.</div></div>';
+      +'<div style="margin-top:6px">Add a subcontractor or supplier in the project\'s Parties registry — its agreement appears here automatically.</div></div>';
   }else{
     const sym=c=>(c==='custom'?'':c);
     table='<table class="data"><thead><tr>'

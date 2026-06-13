@@ -264,8 +264,8 @@ tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--a
 
       <div class="frow">
         <div class="fgrp">
-          <label class="flbl">Lab Name</label>
-          <input class="fi" type="text" id="out-lab" placeholder="Laboratory name"/>
+          <label class="flbl">Testing Lab</label>
+          <select class="fs" id="out-lab-party"></select>
         </div>
         <div class="fgrp">
           <label class="flbl">Sample Location</label>
@@ -356,8 +356,8 @@ tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--a
           </select>
         </div>
         <div class="fgrp">
-          <label class="flbl">Lab Name</label>
-          <input class="fi" type="text" id="in-lab" placeholder="Laboratory name"/>
+          <label class="flbl">Testing Lab</label>
+          <select class="fs" id="in-lab-party"></select>
         </div>
       </div>
 
@@ -432,6 +432,37 @@ let curTab      = 'all';
 let _selId      = null;
 let outFileName = null;
 let inFileName  = null;
+let labParties  = [];   // GlobalParty rows with role === 'laboratory'
+
+// ── Testing Lab picker (sourced from the Global Parties Registry) ─────────────
+async function loadLabParties() {
+  try {
+    const data = await BINNA.fetchGlobalParties(PROJECT_ID);
+    labParties = (data.parties || []).filter(function(p){ return p.role === 'laboratory'; });
+  } catch (e) {
+    labParties = [];
+  }
+}
+function fillLabSelect(selId, currentId) {
+  var sel = document.getElementById(selId);
+  if (!sel) return;
+  if (!labParties.length) {
+    sel.innerHTML = '<option value="">No laboratories added yet — add one in the Parties registry.</option>';
+    sel.value = '';
+    return;
+  }
+  var opts = '<option value="">— Select testing lab —</option>';
+  labParties.forEach(function(p){
+    opts += '<option value="' + p.id + '">' + BINNA.esc(p.name_en) + '</option>';
+  });
+  sel.innerHTML = opts;
+  sel.value = currentId ? String(currentId) : '';
+}
+function labNameById(id) {
+  if (!id) return '';
+  var p = labParties.find(function(x){ return String(x.id) === String(id); });
+  return p ? p.name_en : '';
+}
 
 function selectRow(id) {
   _selId = id;
@@ -444,6 +475,7 @@ window.addEventListener('DOMContentLoaded', async function() {
   BINNA.injectProjectBadge();
   var bl = document.getElementById('back-link');
   if (bl) bl.href = '/project/' + PROJECT_ID;
+  await loadLabParties();
   await loadRecords();
   BINNA.registerDeleteSelected(function() {
     if (!_selId) return;
@@ -482,7 +514,7 @@ async function openAddOut(id){
   document.getElementById('out-date').value       = r?disp(r.date):disp(isoToday());
   document.getElementById('out-material').value   = r?(r.material||''):'';
   document.getElementById('out-test-type').value  = r?(r.test_type||''):'';
-  document.getElementById('out-lab').value        = r?(r.lab||''):'';
+  fillLabSelect('out-lab-party', r?r.lab_party_id:null);
   document.getElementById('out-location').value   = r?(r.location||''):'';
   document.getElementById('out-sample-ref').value = r?(r.sample_ref||''):'';
   document.getElementById('out-qty').value        = r?(r.qty||''):'';
@@ -512,7 +544,7 @@ async function openAddIn(id){
 
   document.getElementById('in-date').value    = r?disp(r.date):disp(isoToday());
   document.getElementById('in-result').value  = r?(r.result||'pending'):'pending';
-  document.getElementById('in-lab').value     = r?(r.lab||''):'';
+  fillLabSelect('in-lab-party', r?r.lab_party_id:null);
   document.getElementById('in-req-val').value = r?(r.req_val||''):'';
   document.getElementById('in-act-val').value = r?(r.act_val||''):'';
   document.getElementById('in-unit').value    = r?(r.unit||''):'';
@@ -541,9 +573,11 @@ async function saveOut(){
   if(!tt){BINNA.toast('Test Type is required.','error');return;}
 
   var r = editId ? allRecords.find(function(x){return x.id===editId;}) : null;
+  var outLabId = document.getElementById('out-lab-party').value || '';
   var payload = {
     direction:'out', date:date, material:mat, test_type:tt,
-    lab:       document.getElementById('out-lab').value.trim(),
+    lab:          labNameById(outLabId),
+    lab_party_id: outLabId ? parseInt(outLabId) : null,
     location:  document.getElementById('out-location').value.trim(),
     sample_ref:document.getElementById('out-sample-ref').value.trim(),
     qty:       document.getElementById('out-qty').value.trim(),
@@ -585,11 +619,13 @@ async function saveIn(){
   if(!relId){BINNA.toast('Please select the related LBTOUT sent sample.','error');return;}
 
   var r = editId ? allRecords.find(function(x){return x.id===editId;}) : null;
+  var inLabId = document.getElementById('in-lab-party').value || '';
   var payload = {
     direction:'in', date:date,
     related_out_id: parseInt(relId),
     result:       document.getElementById('in-result').value,
-    lab:          document.getElementById('in-lab').value.trim(),
+    lab:          labNameById(inLabId),
+    lab_party_id: inLabId ? parseInt(inLabId) : null,
     req_val:      document.getElementById('in-req-val').value.trim(),
     act_val:      document.getElementById('in-act-val').value.trim(),
     unit:         document.getElementById('in-unit').value.trim(),
@@ -742,7 +778,7 @@ function renderTable(){
       +'<td class="muted-cell">'+disp(r.date)+'</td>'
       +'<td>'+(isOut?'<span class="badge badge-out" style="font-size:10px">LBTOUT</span>':'<span class="badge badge-in" style="font-size:10px">LBTIN</span>')+'</td>'
       +'<td style="font-size:12px;word-break:break-word;overflow-wrap:break-word">'+mat+'</td>'
-      +'<td class="muted-cell">'+(r.lab||'—')+'</td>'
+      +'<td class="muted-cell">'+(BINNA.esc(labNameById(r.lab_party_id)||r.lab||'')||'—')+'</td>'
       +'<td class="muted-cell">'+(isOut?(r.location||'—'):(rel?(rel.location||'—'):'—'))+'</td>'
       +'<td>'+result+'</td>'
       +'<td class="muted-cell">'+(r.req_val?(r.req_val+(r.unit?' '+r.unit:'')):'—')+'</td>'

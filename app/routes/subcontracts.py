@@ -154,7 +154,7 @@ def list_parties(project_id):
     # predate the mirroring done in create_party() below.
     existing_gp_names = {
         gp.name_en for gp in GlobalParty.query.filter_by(
-            project_id=project_id, type='subcontractor',
+            project_id=project_id, role='subcontractor',
         ).all()
     }
     added = False
@@ -164,7 +164,8 @@ def list_parties(project_id):
                 project_id = project_id,
                 name_en    = p.name,
                 name_ar    = p.name_ar or '',
-                type       = 'subcontractor',
+                role       = 'subcontractor',
+                is_seeded  = False,
             ))
             existing_gp_names.add(p.name)
             added = True
@@ -212,14 +213,15 @@ def create_party(project_id):
     # selectable project-wide (e.g. the "Party" picker on New Subcontract).
     if role == 'subcontractor':
         exists = GlobalParty.query.filter_by(
-            project_id=project_id, type='subcontractor', name_en=name,
+            project_id=project_id, role='subcontractor', name_en=name,
         ).first()
         if not exists:
             db.session.add(GlobalParty(
                 project_id = project_id,
                 name_en    = name,
                 name_ar    = name_ar,
-                type       = 'subcontractor',
+                role       = 'subcontractor',
+                is_seeded  = False,
             ))
 
     db.session.commit()
