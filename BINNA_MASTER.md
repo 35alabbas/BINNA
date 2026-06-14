@@ -33,7 +33,7 @@ Registered blueprints (`app/__init__.py`):
 - `auth_bp` → `/api/v1/auth`
 - `projects_bp` → `/api/v1/projects`
 - Module blueprints are **nested under a project**: `/api/v1/projects/<int:project_id>/<module>`
-  - `dc`, `submittals`, `dr`, `lbt`, `financial`, `gantt`, `parties`, `subcontracts`, `global-parties` (+ `global-parties/seed` backfill, see Session Log 2026-06-13)
+  - `dc`, `submittals`, `dr`, `lbt`, `financial`, `gantt`, `parties`, `subcontracts`, `supply-agreements`, `global-parties` (+ `global-parties/seed` backfill, see Session Log 2026-06-13). `parties`, `subcontracts` **and** `supply-agreements` are all served by the single `subcontracts_bp`.
 - `uploads_bp` → its own full URL paths (JWT-protected `/api/v1/uploads/<filename>`)
 - `pages_bp` → serves HTML pages
 
@@ -49,15 +49,22 @@ Access control helpers in `projects.py`:
 - Role order: `viewer(0) < member(1) < admin(2) < owner(3)`
 
 ### Models (`app/models.py`)
-`User`, `Project`, `ProjectMember`, `DCLetter`, `Archive`, `Submittal`, `DailyReport`, `LabTest`, `FinancialData`, `GanttData`, `Party`, `Subcontract`, `GlobalParty`.
+`User`, `Project`, `ProjectMember`, `DCLetter`, `Archive`, `Submittal`, `DailyReport`, `LabTest`, `FinancialData`, `GanttData`, `Party`, `Subcontract`, `SupplyAgreement`, `GlobalParty`.
 
-- **`GlobalParty`** (`global_parties` table) — flat per-project directory of every party (client/consultant/contractor/subcontractor/supplier/other). Fields: `name_en`, `name_ar`, `role`, `logo_filename`, `notes`, `is_seeded` (true for the Client/Consultant/Contractor rows auto-seeded from the `Project` record — these can be edited but never deleted). Shared constants: `SEED_GLOBAL_PARTY_ROLES` (Project field → GlobalParty role, used by `create_project()` and the `/global-parties/seed` backfill) and `CREATABLE_GLOBAL_PARTY_ROLES` (roles a user can pick when adding a party manually).
+- **`GlobalParty`** (`global_parties` table) — flat per-project directory of every party (client/consultant/contractor/subcontractor/supplier/**laboratory**/other). Fields: `name_en`, `name_ar`, `role`, `logo_filename`, `notes`, `is_seeded` (true for the Client/Consultant/Contractor rows auto-seeded from the `Project` record — these can be edited but never deleted). Shared constants: `SEED_GLOBAL_PARTY_ROLES` (Project field → GlobalParty role, used by `create_project()` and the `/global-parties/seed` backfill) and `CREATABLE_GLOBAL_PARTY_ROLES` (roles a user can pick when adding a party manually — now includes `laboratory`).
+  - **Auto-wiring (Session Log 2026-06-13/14):** adding a `subcontractor` GlobalParty auto-creates a `Subcontract`; adding a `supplier` auto-creates a `SupplyAgreement`. ⚠️ `Subcontract.party_id` FKs `parties.id` (the `Party` directory), **not** `global_parties.id` — auto-wiring mirrors the GlobalParty into a `Party` row first. `SupplyAgreement.global_party_id` FKs `global_parties` directly.
+
+- **Subcontractor / Supplier module** (`app/routes/subcontracts.py`, payable direction):
+  - **`Party`** (`parties`) — subcontract-module company directory; **`Subcontract`** (`subcontracts`) — agreement + payment blob in `data` JSON; the card template is driven by `data.payment_mode` (`cumulative`|`lump_sum`|`monthly`|`milestone`|`other`, default `cumulative`), **not** by the `kind` column.
+  - **`SupplyAgreement`** (`supply_agreements`) — supplier PO: `global_party_id`, `ref` (`{CODE}-PO-NNN`), `description`, `po_value`, `currency`, `date_issued`, `status` (`open`|`partially_paid`|`closed`, derived server-side), `data` JSON `{payments:[], notes}`. Deliberately simple — no retention / cumulative / certificates. New table → built by `db.create_all()`.
+  - **`LabTest.lab_party_id`** (FK `global_parties`, nullable) — links a lab test to a `laboratory` GlobalParty (the "Testing Lab" picker); added via `_ensure_schema()` `('lab_tests','lab_party_id','INTEGER')`.
 
 - **Relational, countable per project:** `DCLetter`, `Archive`, `Submittal` (has `module_type` ∈ {dwg, fir, mir, ms, rfi}), `DailyReport`, `LabTest`.
 - **JSON blobs (NOT relational), one row per project (`unique=True`):**
   - `FinancialData.data` (Text) → JSON: `{contractDetails:{}, boq:[], vo:[], payments:[], income:[], expenses:[], incomeCategories:[], expenseCategories:[], usdRate:1300, contract_type:'government'|'private', currency:'IQD'|'USD'|'EUR'|'custom', currency_custom:'', decimalPlaces:0, privateSettings:{}, cashflowSummary:{totalCertified,totalReceived,payments}}`
     - `payments[]` items now carry (added 2026-06-06): government fields (`boqItems`, `extraDeductions`, `surplusCredits`, `deductionReversals`, `penaltyDays/penaltyWaived/_penaltyOpen`, `releaseInitial/releaseFinal`, `received[]`, `attachments[]`, `_netDue/_received`) **and** private fields (`payment_mode:'private'`, `summaryRows[]`, `milestoneName/milestonePct`, `invoiceNo/period`, `scheduleLabel/schedulePct`, `privTaxEnabled/privTaxRate`, `relRet1/relRet2`).
-  - `GanttData.tasks` (Text) → JSON array of tasks
+  - `GanttData.tasks` (Text) → JSON array of tasks. Task items may carry a display-only `assignee:{type:'member'|'party', id, name}` (Session Log 2026-06-13/14) — no schema change.
+  - `Subcontract.data` (Text) → JSON payment blob; carries `payment_mode` (drives the card template) plus the payable payment rows.
   - `GanttData.stoppages` (Text, default `'[]'`) → JSON array of **project-level** stoppage periods `{id,name,start,end,type:'holiday'|'weather'|'decision'|'other'}`. New column (added 2026-06-06) — needs a Render DB recreate to materialize; GET has a `getattr` fallback → `[]` and PUT rolls back to tasks-only if the column is missing.
   - ⚠️ Any aggregation over financial/gantt data must `json.loads()` and compute in Python — there are no payment/task columns to `SUM`/`JOIN`.
 
@@ -71,6 +78,8 @@ Access control helpers in `projects.py`:
 - API client `static/js/binna-api.js` → `BINNA.get/post/put/del/upload` + `fetchFinancial`.
 - Token in `localStorage['binna_token']`, sent as `Bearer`.
 - Auth pages in `templates/` (`login.html`, `register.html`); legacy module pages `binna-<module>.html` at repo root, served via `pages_bp`.
+- **No shared CSS/base template** — every page is standalone with its own inline `<style>` and its own per-file `:root` palette (`--bg/--white/--surface/--text/--accent/...`).
+- **Theming (Session Log 2026-06-14):** `static/css/theme.css` is the single source of truth (`:root` light + `[data-theme="dark"]` dark; brand vars mode-invariant; `@media print` forces the light "paper" palette). `static/js/theme.js` sets `data-theme` pre-paint from `localStorage['binna-theme']`/OS pref and wires `#binna-theme-toggle`. Each page's local `:root` vars are **aliased by name** to the canonical set, so existing rules flip automatically; self-contained pastel status pills are kept as literal hex. Both files are linked into all ~22 pages (theme.js first, before any CSS).
 
 ---
 
@@ -204,7 +213,45 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 
 ### Status at end of session
 - Live dev server (port 5000) running with all fixes applied; verified via E2E (register → create project with Client/Consultant/Contractor → 3 seeded `GlobalParty` rows → `my_role: 'owner'` confirmed at `data.project.my_role`).
-- 6 files above remain **uncommitted** — review and commit next session.
+- 6 files above remain **uncommitted** — review and commit next session. *(Committed at the start of the 06-13/14 session below, as `710461a`, together with that session's first feature.)*
+
+## Session Log — 2026-06-13/14 (Subcontractors & Suppliers + Supply Agreements + cross-module auto-wiring)
+
+> Five sequential tasks, each committed separately. Built directly on the Global Parties Registry. Commits: `710461a` (party picker + rename), `0bfde3e` (auto-wiring + laboratory + gantt assignee), `dcd354c` (payment-system dropdown), `51d8286` (Supply Agreements module), `18ca885` (dark mode — its own log below).
+
+### Module rename — "Subcontractors & Suppliers"  (`710461a`)
+- "Subcontractor Management" / "Subcontractor Mgmt" → **"Subcontractors & Suppliers"** everywhere it's a label: module page title + header tag, project card (`templates/project.html`), and the sidebar nav link across **all** served legacy `binna-*.html` pages.
+- **`binna-sub.html` left untouched on purpose** — it's dead code, orphaned by `_LEGACY_FILE_OVERRIDE = {'sub': 'subcontract'}` in `app/pages.py` (so `/legacy/sub` serves `binna-subcontract.html`). `app/pages.py` has no module-title string to change.
+
+### Subcontract party picker sourced from GlobalParty  (`710461a`)
+- "New Subcontract" now picks from the **Global Parties Registry** filtered to `role ∈ {subcontractor, supplier}` (was the old `Party` model). Empty state opens a modal linking to `/project/<id>#parties`; `templates/project.html` boot honours that hash and auto-opens the Parties modal **after** `loadProject()` resolves (so `MY_ROLE` is set and the +Add Party button shows).
+- Completed the Phase-1 `GlobalParty.type → role` rename: fixed stale `type=` refs in `app/routes/subcontracts.py` that were **crashing `GET`/`POST /parties`**. **Guardrail:** `GlobalParty` has `role`, never `type` (the column was dropped — see 06-13 incident).
+
+### Cross-module auto-wiring  (`0bfde3e`, extended by `51d8286`)
+- Removed the manual **"+ New Subcontract"** button — records are created automatically when a party is added in the Parties modal:
+  - **subcontractor → `Subcontract`** (payment-certificate workflow), **supplier → `SupplyAgreement`** (PO) — in both the `POST` and `PUT` handlers of `app/routes/global_parties.py`. Idempotent.
+- ⚠️ **Key deviation + guardrail (read before touching auto-wiring):** the prompt said "set `Subcontract.party_id = global_party.id`". `Subcontract.party_id` **FKs `parties.id`** (the subcontract-module `Party` directory), *not* `global_parties.id`, and the dashboard reads the party name through that relationship — so a literal global-party id would yield **nameless** contracts. Instead the auto-wiring **mirrors the GlobalParty into a `Party` row** and links the Subcontract to that (dedup by `name+role`). SupplyAgreement *does* carry `global_party_id` directly (dedup on it). **No schema change to the FK.**
+- Auto-created subcontracts use `kind='subcontractor'`; the subcontract card template is driven by `data.payment_mode` (below), not by `kind`.
+
+### Laboratory role + Lab Tests "Testing Lab" picker  (`0bfde3e`)
+- Added `'laboratory'` to `CREATABLE_GLOBAL_PARTY_ROLES` (and `VALID_GLOBAL_PARTY_ROLES`, and the registry role dropdown in `templates/project.html`). **Never seeded.**
+- `lab_tests.lab_party_id` (FK `global_parties`, nullable) — new column, added to `_ensure_schema()` as `('lab_tests','lab_party_id','INTEGER')`. The free-text "Lab Name" field is replaced by a **"Testing Lab" dropdown** sourced from `role=='laboratory'` GlobalParties; save stores `lab_party_id` **and** mirrors the name into the existing `lab` column (back-compat for display/search), and the table resolves the live name from `lab_party_id` first.
+- DC From/To datalist confirmed **already** fed by `/global-parties` unfiltered — no change needed (laboratory now appears there automatically).
+
+### Gantt "Assigned To"  (`0bfde3e`)
+- Display-only field stored on the task blob as **`assignee:{type,id,name}`** (`type ∈ {member, party}`). Options: team members from `GET /projects/<id>` → `members[]` + subcontractor/supplier GlobalParties. Rendered as a small grey ellipsis-truncated label on the task bar. **No schema change** (lives in `GanttData.tasks` JSON, preserved through `sanitizeTask`).
+
+### Subcontract "Payment System" dropdown  (`dcd354c`)
+- Header dropdown mirroring `binna-contract.html`: **Cumulative / Lump Sum / Monthly Invoice / Milestone / Other**, stored as **`data.payment_mode`** (default `'cumulative'`, *derived from the server `kind` for pre-existing subs* so their template is preserved). Locks after real payment data (`hasRealData()`). The card template is now driven by `data.payment_mode` via `tmplKind()` instead of the server-side `kind`. **`binna-contract.html` not touched** (verified).
+
+### Supply Agreements (Purchase Orders) module  (`51d8286`)
+- New **`SupplyAgreement`** model (`supply_agreements` table) — PO header + flat payment log in `data` JSON (`{payments:[], notes}`). **No retention, no cumulative درعة, no certificates.** New table → `db.create_all()` handles it (no `_ensure_schema` entry). Uses `_now` (timezone-aware) for `created_at`, matching every other model (the prompt's `datetime.utcnow` was not adopted for consistency).
+- Routes registered on the existing `subcontracts_bp`: `GET/POST /supply-agreements`, `GET/PUT/DELETE /supply-agreements/<id>`, `GET /supply-agreements/summary`. List/detail compute `total_paid` + `balance` and join `GlobalParty.name_en` as `party_name`.
+- **Status is derived server-side** on every PUT (`open` / `partially_paid` / `closed` from `total_paid` vs `po_value`) — the client value is never trusted.
+- Dashboard split into two tabs: **Subcontracts** (unchanged) + **Supply Agreements** (totals strip, table, status badges, no manual "New" button). Detail view: editable PO header that **locks once a real payment is logged**, inline payment log (`+ Log Payment` / edit / delete), live Total Paid / Balance footer.
+
+### Verification
+- Each task verified end-to-end against a **temp SQLite DB** via the Flask test client (auto-wiring routing, PO status transitions, summary math, `lab_party_id` round-trip, `payment_mode` persistence, `_ensure_schema` ALTER on a pre-existing table). Inline JS of every edited page re-checked with `node --check`. Backend `create_app` import-checked after each change.
 
 ## Landing Page
 - Status: OFFLINE (/ redirects to /login)
