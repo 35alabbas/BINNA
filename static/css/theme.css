@@ -1,66 +1,96 @@
-/* ── BINNA THEME VARIABLES ───────────────────── */
+/* ── BINNA THEME VARIABLES — OBSIDIAN CROWN ──────────────────────────
+   Site-wide dark palette. Every module page aliases its local :root vars
+   to the canonical tokens below, so remapping these recolors the whole app.
+   The named Obsidian tokens (--bg-deep, --purple, --gold, …) are also exposed
+   for base.html and any new components.
+   ──────────────────────────────────────────────────────────────────── */
 :root {
-  --bg-base:           #f5f6fa;
-  --bg-surface:        #ffffff;
-  --bg-surface-2:      #f0f2f8;
-  --bg-sidebar:        #ffffff;
-  --bg-modal:          #ffffff;
-  --bg-input:          #ffffff;
-  --bg-hover:          #f0f2f8;
-  --bg-badge:          #e8eaf0;
+  /* Obsidian Crown named tokens */
+  --bg-deep:           #060608;
+  --bg-elevated:       #0f0f16;
+  --purple:            #8B5CF6;
+  --purple-light:      #A78BFA;
+  --purple-dim:        rgba(139,92,246,0.12);
+  --purple-border:     rgba(139,92,246,0.3);
+  --gold:              #C5A85A;
+  --gold-dim:          rgba(197,168,90,0.08);
+  --gold-border:       rgba(197,168,90,0.15);
+  --text-bright:       #ffffff;
+  --text-mid:          rgba(255,255,255,0.55);
+  --text-faint:        rgba(255,255,255,0.18);
+  --border:            rgba(255,255,255,0.05);
+  --border-gold:       rgba(197,168,90,0.1);
 
-  --text-primary:      #1a1d2e;
-  --text-secondary:    #6b7280;
-  --text-muted:        #9ca3af;
+  /* Canonical tokens remapped onto Obsidian Crown (drives all aliased pages) */
+  --bg-base:           #060608;
+  --bg-surface:        #0b0b10;
+  --bg-surface-2:      #0f0f16;
+  --bg-sidebar:        #0b0b10;
+  --bg-modal:          #0b0b10;
+  --bg-input:          #0f0f16;
+  --bg-hover:          #0f0f16;
+  --bg-badge:          rgba(139,92,246,0.12);
+
+  --text-primary:      #ffffff;
+  --text-secondary:    rgba(255,255,255,0.55);
+  --text-muted:        rgba(255,255,255,0.35);
   --text-inverse:      #ffffff;
 
-  --border-color:      #e5e7eb;
-  --border-color-strong: #d1d5db;
+  --border-color:      rgba(255,255,255,0.05);
+  --border-color-strong: rgba(197,168,90,0.1);
 
-  --brand-primary:     #4f46e5;
-  --brand-primary-hover: #4338ca;
+  --brand-primary:     #8B5CF6;
+  --brand-primary-hover: #7C3AED;
   --brand-success:     #10b981;
   --brand-warning:     #f59e0b;
   --brand-danger:      #ef4444;
   --brand-info:        #3b82f6;
 
-  --shadow-sm:         0 1px 3px rgba(0,0,0,0.08);
-  --shadow-md:         0 4px 12px rgba(0,0,0,0.10);
-  --shadow-lg:         0 8px 24px rgba(0,0,0,0.12);
+  --shadow-sm:         0 1px 3px rgba(0,0,0,0.30);
+  --shadow-md:         0 4px 12px rgba(0,0,0,0.40);
+  --shadow-lg:         0 8px 24px rgba(0,0,0,0.50);
 
-  --gantt-bg:          #ffffff;
-  --gantt-row-alt:     #f9fafb;
-  --gantt-grid-line:   #e5e7eb;
-  --gantt-today:       rgba(79,70,229,0.12);
+  --gantt-bg:          #0b0b10;
+  --gantt-row-alt:     #0f0f16;
+  --gantt-grid-line:   rgba(255,255,255,0.05);
+  --gantt-today:       rgba(139,92,246,0.18);
 }
 
+/* Dark mode mirrors :root — the app is Obsidian Crown in both states */
 [data-theme="dark"] {
-  --bg-base:           #0f1117;
-  --bg-surface:        #1a1d2e;
-  --bg-surface-2:      #232740;
-  --bg-sidebar:        #13151f;
-  --bg-modal:          #1e2235;
-  --bg-input:          #232740;
-  --bg-hover:          #2a2f4a;
-  --bg-badge:          #2a2f4a;
+  --bg-base:           #060608;
+  --bg-surface:        #0b0b10;
+  --bg-surface-2:      #0f0f16;
+  --bg-sidebar:        #0b0b10;
+  --bg-modal:          #0b0b10;
+  --bg-input:          #0f0f16;
+  --bg-hover:          #0f0f16;
+  --bg-badge:          rgba(139,92,246,0.12);
 
-  --text-primary:      #e8eaf0;
-  --text-secondary:    #9ca3af;
-  --text-muted:        #6b7280;
-  --text-inverse:      #1a1d2e;
+  --text-primary:      #ffffff;
+  --text-secondary:    rgba(255,255,255,0.55);
+  --text-muted:        rgba(255,255,255,0.35);
+  --text-inverse:      #ffffff;
 
-  --border-color:      #2e3350;
-  --border-color-strong: #3d4468;
+  --border-color:      rgba(255,255,255,0.05);
+  --border-color-strong: rgba(197,168,90,0.1);
+
+  --brand-primary:     #8B5CF6;
+  --brand-primary-hover: #7C3AED;
 
   --shadow-sm:         0 1px 3px rgba(0,0,0,0.30);
   --shadow-md:         0 4px 12px rgba(0,0,0,0.40);
   --shadow-lg:         0 8px 24px rgba(0,0,0,0.50);
 
-  --gantt-bg:          #1a1d2e;
-  --gantt-row-alt:     #1e2235;
-  --gantt-grid-line:   #2e3350;
-  --gantt-today:       rgba(99,102,241,0.18);
+  --gantt-bg:          #0b0b10;
+  --gantt-row-alt:     #0f0f16;
+  --gantt-grid-line:   rgba(255,255,255,0.05);
+  --gantt-today:       rgba(139,92,246,0.18);
 }
+
+/* Site-wide base — lock the app dark regardless of the theme toggle */
+body { background: var(--bg-deep); color: var(--text-bright); }
+[data-theme="light"] body, [data-theme="dark"] body { background: var(--bg-deep) !important; }
 
 /* ── TOGGLE BUTTON ───────────────────────────── */
 .binna-theme-toggle {
@@ -82,7 +112,10 @@
 /* ── PRINT: always force the light "paper" palette regardless of theme so
    certificates / reports never print on a dark background. ──────────────── */
 @media print {
-  :root, [data-theme="dark"] {
+  :root, [data-theme="dark"], [data-theme="light"] {
+    --bg-deep:      #ffffff;
+    --bg-elevated:  #ffffff;
+    --text-bright:  #1a1d2e;
     --bg-base:      #ffffff;
     --bg-surface:   #ffffff;
     --bg-surface-2: #ffffff;
@@ -100,5 +133,7 @@
     --gantt-row-alt:   #f9fafb;
     --gantt-grid-line: #e5e7eb;
   }
+  /* override the dark body-lock so paper output stays white */
+  body, [data-theme="light"] body, [data-theme="dark"] body { background: #ffffff !important; color: #1a1d2e !important; }
   .binna-theme-toggle { display: none !important; }
 }

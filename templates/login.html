@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="/static/js/theme.js"></script>
-<link rel="stylesheet" href="/static/css/theme.css">
-<title>BINNA — Sign In</title>
+{% extends 'base.html' %}
+{% set hide_nav = true %}
+{% block title %}BINNA — Sign In{% endblock %}
+
+{% block extra_css %}
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -31,20 +28,20 @@ body::before{
 .card{
   background:var(--white);border:1px solid var(--border);border-radius:18px;
   padding:44px 40px;width:100%;max-width:420px;position:relative;
-  box-shadow:0 24px 60px rgba(0,0,0,.10);
+  box-shadow:0 24px 60px rgba(0,0,0,.40);
 }
-.logo{font-family:'Inter',sans-serif;font-size:34px;font-weight:800;color:var(--accent);letter-spacing:-1px;line-height:1}
+.logo{font-family:'Syne',sans-serif;font-size:34px;font-weight:900;color:var(--gold);letter-spacing:-1px;line-height:1}
 .logo-sub{font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-top:4px;margin-bottom:36px}
 .heading{font-family:'Inter',sans-serif;font-size:18px;font-weight:700;color:var(--text);margin-bottom:24px}
 .form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
 .form-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
 .form-input{
-  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
   padding:12px 14px;font-size:14px;color:var(--text);font-family:'Inter',sans-serif;
   transition:border-color .15s,box-shadow .15s;width:100%;
 }
-.form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #1a56db18}
-.form-input::placeholder{color:var(--muted2)}
+.form-input:focus{outline:none;border-color:var(--accent);background:rgba(139,92,246,0.06);box-shadow:0 0 0 3px rgba(139,92,246,0.18)}
+.form-input::placeholder{color:var(--text-faint)}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;
   padding:13px 20px;border-radius:var(--radius);font-size:14px;font-weight:500;
@@ -58,16 +55,17 @@ body::before{
   padding:11px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;
   display:none;line-height:1.4;
 }
-.alert-error{background:#fff1f0;border:1px solid #fecdca;color:var(--danger)}
-.alert-success{background:#ecfdf3;border:1px solid #6ce9a6;color:var(--success)}
+.alert-error{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#FCA5A5}
+.alert-success{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:#86EFAC}
 .footer-link{text-align:center;margin-top:28px;font-size:13px;color:var(--muted)}
-.footer-link a{color:var(--accent);text-decoration:none;font-weight:500}
+.footer-link a{color:var(--purple-light);text-decoration:none;font-weight:500}
 .footer-link a:hover{text-decoration:underline}
 .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted2);font-size:12px}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
 </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 <button id="binna-theme-toggle" class="binna-theme-toggle" style="position:fixed;top:14px;right:14px;z-index:9999" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
 
 <div class="card">
@@ -99,7 +97,9 @@ body::before{
     New to BINNA? <a href="/register">Create an account</a>
   </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 // Redirect if already logged in
 if (localStorage.getItem('binna_token')) window.location.href = '/dashboard';
@@ -144,5 +144,4 @@ function showError(msg)   { const e = document.getElementById('alert-error');   
 function showSuccess(msg) { const e = document.getElementById('alert-success'); e.textContent = msg; e.style.display = 'block'; }
 function clearAlerts()    { document.getElementById('alert-error').style.display = 'none'; document.getElementById('alert-success').style.display = 'none'; }
 </script>
-</body>
-</html>
+{% endblock %}

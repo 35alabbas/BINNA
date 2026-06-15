@@ -1,13 +1,8 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="/static/js/theme.js"></script>
-<link rel="stylesheet" href="/static/css/theme.css">
-<title>BINNA — Project</title>
+{% extends 'base.html' %}
+{% block title %}BINNA — Project{% endblock %}
+
+{% block extra_css %}
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="/static/js/binna-api.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -22,9 +17,9 @@
 }
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
 
-/* ── Topbar ─────────────────────────────────────────────────────────────── */
+/* ── Topbar (project-specific; overrides base shared nav) ─────────────────── */
 .topbar{
-  background:var(--surface);border-bottom:1px solid var(--border);
+  background:var(--surface);border-bottom:1px solid var(--border-gold);
   padding:0 24px;height:56px;display:flex;align-items:center;
   justify-content:space-between;position:sticky;top:0;z-index:100;
 }
@@ -36,11 +31,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
   transition:all .15s;text-decoration:none;
 }
 .back-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
-.topbar-logo{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-.5px}
+.topbar-logo{font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--gold);letter-spacing:.02em}
 .topbar-divider{width:1px;height:24px;background:var(--border)}
 .topbar-project{display:flex;align-items:center;gap:8px}
 .proj-code-badge{
-  background:var(--accent-bg);color:var(--accent);border:1px solid #c7d7fd;
+  background:var(--accent-bg);color:var(--accent);border:1px solid var(--purple-border);
   font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;font-family:'Inter',sans-serif;
   letter-spacing:.3px;
 }
@@ -54,11 +49,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 }
 .username-label{font-size:13px;font-weight:500;color:var(--text)}
 .btn-logout{
-  padding:6px 12px;border-radius:var(--radius);border:1px solid var(--border2);
-  background:transparent;font-size:12px;color:var(--muted);cursor:pointer;
+  padding:6px 12px;border-radius:var(--radius);border:1px solid var(--border-gold);
+  background:var(--gold-dim);font-size:12px;color:var(--gold);cursor:pointer;
   font-family:'Inter',sans-serif;transition:all .15s;
 }
-.btn-logout:hover{background:#fff1f0;border-color:#fecdca;color:var(--danger)}
+.btn-logout:hover{background:rgba(197,168,90,0.14)}
 
 /* ── Page layout ─────────────────────────────────────────────────────────── */
 .page{max-width:1200px;margin:0 auto;padding:28px 24px 60px}
@@ -72,7 +67,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .proj-header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .proj-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .proj-code{
-  background:var(--accent-bg);color:var(--accent);border:1px solid #c7d7fd;
+  background:var(--accent-bg);color:var(--accent);border:1px solid var(--purple-border);
   font-size:13px;font-weight:700;padding:4px 10px;border-radius:8px;
   font-family:'Inter',sans-serif;letter-spacing:.4px;
 }
@@ -109,11 +104,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
   letter-spacing:.8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;
 }
 .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
-.consultant-title{color:#6d28d9;letter-spacing:.6px}
-.consultant-title::after{background:#ede9fe}
-.module-card.consultant{border-left:3px solid #7c3aed}
-.module-card.consultant .module-icon{background:#f5f3ff}
-.module-card.consultant:hover{border-color:#7c3aed;box-shadow:0 8px 24px rgba(124,58,237,.1)}
+.consultant-title{color:var(--purple-light);letter-spacing:.6px}
+.consultant-title::after{background:var(--purple-border)}
+.module-card.consultant{border-left:3px solid var(--purple)}
+.module-card.consultant .module-icon{background:var(--purple-dim)}
+.module-card.consultant:hover{border-color:var(--purple);box-shadow:0 8px 24px rgba(139,92,246,.18)}
 
 .modules-grid{
   display:grid;
@@ -128,7 +123,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 }
 .module-card:hover{
   border-color:var(--accent);transform:translateY(-2px);
-  box-shadow:0 8px 24px rgba(26,86,219,.1);
+  box-shadow:0 8px 24px rgba(139,92,246,.18);
 }
 .module-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .module-icon{
@@ -154,7 +149,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .module-card:hover .module-open{text-decoration:underline}
 
 /* ── Skeleton ────────────────────────────────────────────────────────────── */
-.skeleton{background:linear-gradient(90deg,#e4e7ed 25%,#f0f2f5 50%,#e4e7ed 75%);
+.skeleton{background:linear-gradient(90deg,var(--border) 25%,var(--bg-hover) 50%,var(--border) 75%);
   background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
@@ -184,7 +179,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .legend-btn.del:hover{background:var(--danger-bg);border-color:#fecdca;color:var(--danger)}
 
 /* ── Edit modal ──────────────────────────────────────────────────────────── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.overlay{position:fixed;inset:0;background:rgba(6,6,8,0.88);backdrop-filter:blur(8px);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
 .modal{
   background:var(--surface);border:1px solid var(--border);border-radius:16px;
@@ -228,13 +223,12 @@ textarea.form-input{resize:vertical;min-height:72px}
 .parties-table tr:last-child td{border-bottom:none}
 .parties-table .pt-logo{width:28px;height:28px;border-radius:6px;object-fit:cover;border:1px solid var(--border)}
 .parties-table .pt-notes{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.parties-table .pt-actions{white-space:nowrap;text-align:right}
 .seeded-badge{font-size:10px;color:var(--muted2);margin-left:4px}
 </style>
-</head>
-<body>
+{% endblock %}
 
-<!-- Topbar -->
+{% block topbar %}
+<!-- Topbar (project-specific) -->
 <div class="topbar">
   <div class="topbar-left">
     <a href="/dashboard" class="back-btn">← Dashboard</a>
@@ -254,7 +248,9 @@ textarea.form-input{resize:vertical;min-height:72px}
     <button class="btn-logout" onclick="BINNA.logout()">Log out</button>
   </div>
 </div>
+{% endblock %}
 
+{% block content %}
 <!-- Page -->
 <div class="page">
 
@@ -357,7 +353,7 @@ textarea.form-input{resize:vertical;min-height:72px}
     <div class="form-group">
       <label class="form-label">Color</label>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <input type="color" id="m-color" value="#1a56db" style="width:44px;height:36px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;padding:3px;background:var(--surface2)" />
+        <input type="color" id="m-color" value="#8B5CF6" style="width:44px;height:36px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;padding:3px;background:var(--surface2)" />
         <div id="color-presets" style="display:flex;gap:7px;flex-wrap:wrap"></div>
       </div>
     </div>
@@ -418,7 +414,9 @@ textarea.form-input{resize:vertical;min-height:72px}
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 if (!BINNA.requireAuth()) throw 0;
 
@@ -579,7 +577,7 @@ function renderHeader() {
 }
 
 // ── Team Members Legend (localStorage) ───────────────────────────────────
-const PRESET_COLORS = ['#1a56db','#7c3aed','#059669','#dc2626','#d97706','#0891b2','#be185d','#65a30d','#c2410c','#0f766e'];
+const PRESET_COLORS = ['#8B5CF6','#A78BFA','#059669','#dc2626','#d97706','#0891b2','#be185d','#65a30d','#c2410c','#0f766e'];
 let _editingMemberIdx = -1;
 
 function teamKey() { return `binna_team_${PROJECT_ID}`; }
@@ -615,7 +613,7 @@ function buildColorPresets(currentColor) {
   container.innerHTML = PRESET_COLORS.map(c => `
     <button type="button" title="${c}"
       onclick="document.getElementById('m-color').value='${c}';buildColorPresets('${c}')"
-      style="width:22px;height:22px;border-radius:5px;border:2px solid ${c === currentColor ? '#111' : 'transparent'};
+      style="width:22px;height:22px;border-radius:5px;border:2px solid ${c === currentColor ? '#fff' : 'transparent'};
              background:${c};cursor:pointer;padding:0;transition:border-color .1s"></button>
   `).join('');
 }
@@ -934,5 +932,4 @@ loadProject().then(() => {
   if (window.location.hash === '#parties') openPartiesModal();
 });
 </script>
-</body>
-</html>
+{% endblock %}

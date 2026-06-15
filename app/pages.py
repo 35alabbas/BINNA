@@ -15,7 +15,10 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 @pages_bp.route('/')
 def index():
-    return redirect('/login')
+    # Marketing landing page — the canonical file lives at the repo root
+    # (with the split-screen auth modal), served directly like the legacy
+    # module pages rather than via render_template (templates/ holds a stale copy).
+    return send_from_directory(_ROOT, 'index.html')
 
 
 @pages_bp.route('/login')

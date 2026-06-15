@@ -78,8 +78,8 @@ Access control helpers in `projects.py`:
 - API client `static/js/binna-api.js` → `BINNA.get/post/put/del/upload` + `fetchFinancial`.
 - Token in `localStorage['binna_token']`, sent as `Bearer`.
 - Auth pages in `templates/` (`login.html`, `register.html`); legacy module pages `binna-<module>.html` at repo root, served via `pages_bp`.
-- **No shared CSS/base template** — every page is standalone with its own inline `<style>` and its own per-file `:root` palette (`--bg/--white/--surface/--text/--accent/...`).
-- **Theming (Session Log 2026-06-14):** `static/css/theme.css` is the single source of truth (`:root` light + `[data-theme="dark"]` dark; brand vars mode-invariant; `@media print` forces the light "paper" palette). `static/js/theme.js` sets `data-theme` pre-paint from `localStorage['binna-theme']`/OS pref and wires `#binna-theme-toggle`. Each page's local `:root` vars are **aliased by name** to the canonical set, so existing rules flip automatically; self-contained pastel status pills are kept as literal hex. Both files are linked into all ~22 pages (theme.js first, before any CSS).
+- **Base template (Session Log 2026-06-15):** `templates/base.html` is the shared parent for the `templates/` SPA pages. **`dashboard.html`, `project.html`, `login.html`, `register.html` all `{% extends 'base.html' %}`.** base.html owns: `<head>` (meta, theme.js, theme.css, `{% block title %}`, Syne+DM Sans fonts, `{% block extra_css %}`), the shared Obsidian top-nav inside `{% block topbar %}` (guarded by `{% if not hide_nav %}`), `{% block content %}`, `{% block footer %}`, `binna-api.js`, and `{% block extra_js %}`. **login/register set `{% set hide_nav = true %}`** (nav-less). **project.html overrides `{% block topbar %}`** with its own back-button/project-context bar (keeps `#top-code`/`#top-name` JS hooks); dashboard uses the default nav. `extra_css` is injected **after** the base nav `<style>` so a page can override it. ⚠️ The legacy root `binna-*.html` module pages are **standalone** (NOT on base.html) — `index.html` and `404.html` too.
+- **Theming (Session Log 2026-06-14, repalette 2026-06-15):** `static/css/theme.css` is the single source of truth. Each page's local `:root` vars are **aliased by name** to the canonical tokens (`--bg-base/--bg-surface/--brand-primary/...`), so **remapping the canonical tokens in theme.css recolors every page at once** — this is how the **Obsidian Crown** dark palette is applied site-wide (deep `#060608`, purple `#8B5CF6`/`#A78BFA`, gold `#C5A85A`). `:root` and `[data-theme="dark"]` now both carry Obsidian values + named tokens (`--bg-deep/--purple/--gold/--text-bright/--border-gold/...`); `body` is locked dark via `[data-theme] body{background:var(--bg-deep)!important}`. **`@media print` overrides the lock back to white paper** (sets `--bg-deep/--text-bright` + `body{background:#fff!important}`) so certificates never print dark. Self-contained pastel status pills kept as literal hex. theme.js (pre-paint) + theme.css linked into all ~22 pages.
 
 ---
 
@@ -254,9 +254,12 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - Each task verified end-to-end against a **temp SQLite DB** via the Flask test client (auto-wiring routing, PO status transitions, summary math, `lab_party_id` round-trip, `payment_mode` persistence, `_ensure_schema` ALTER on a pre-existing table). Inline JS of every edited page re-checked with `node --check`. Backend `create_app` import-checked after each change.
 
 ## Landing Page
-- Status: OFFLINE (/ redirects to /login)
-- Backup: C:/BINNA/index.html
-- To go live: change redirect('/login') to render_template('index.html')
+- Status: **LIVE** (`/` serves the marketing landing page with the split-screen auth modal)
+- Color scheme: **"Obsidian Crown"** — deep near-black `#060608`/`#0b0b10`/`#0f0f16` backgrounds, **gold** `#C5A85A` as the primary brand accent (the **BINNA wordmark in nav AND footer is gold Syne 900**, plus eyebrow labels, `.st em`, accent lines, nav Sign-In, grid lines, active tab indicator, auth wordmark) and **purple** `#8B5CF6`/`#A78BFA` for buttons, icons, feature tags & `.cv.hi`. Applied via remapped `:root` legacy aliases + an "Obsidian Crown" override block at the end of the inline `<style>`. Page is locked dark regardless of the theme toggle (`[data-theme] body{background:#060608!important}`).
+- Hero visual: **blueprint canvas animation** (`#wall-canvas`) — animated gold survey grid + center crosshair + corner ticks + dashed "PROJECT SCOPE" dimension line + purple survey nodes, settling into a slow pulsing static draw. **Replaced** the old isometric brick-wall animation. Hero is a **normal scrollable section** (the ScrollTrigger pin was removed); hero text shows immediately. The **scrolling module ticker was removed entirely** (HTML had no static element — it was JS-built into a missing `#tk`, which was actually throwing). Footer gained a gold `info@binnapm.com` link + an Arabic tagline.
+- File: `C:/BINNA/index.html` (repo root — the canonical copy; `templates/index.html` is a **stale** older copy, not served)
+- Served via `send_from_directory(_ROOT, 'index.html')` in `app/pages.py` `index()` — **not** `render_template`, because Flask's `template_folder` is `templates/` which holds the outdated copy. (Same pattern as the legacy `binna-*.html` pages.)
+- Auth: in-page split-screen overlay modal (no redirect to `/login`). Three trigger points (nav, hero, CTA) open it; it talks to `/api/v1/auth/login` + `/register` and stores `binna_token`/`binna_user` in `localStorage`, then redirects to `/dashboard`.
 
 
 ## Session Log — 2026-06-14 (Dark Mode — CSS variable architecture)
@@ -277,3 +280,75 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Light-mode hue shift (intentional, centralized):** accent unified blue `#1a56db` → canonical indigo `#4f46e5`; success/danger/warning shifted to the brighter `--brand-*` set. All reversible from one place — edit `theme.css`.
 - **Marketing landing pages** (`index.html`, `templates/index.html`, OFFLINE) are theme-wired with a toggle but keep their bespoke navy/`--off` hero palette — **not** fully darkened by design.
 - Backend/routes/schema untouched (verified). Each page's inline JS syntax re-checked with `node --check`; `theme.css`/`theme.js` confirmed served 200 and present on rendered pages.
+
+## Session Log — 2026-06-15 (Landing page LIVE + split-screen auth modal)
+
+> Files: `index.html` (root), `app/pages.py`. **No** backend routes, models, or `binna-*.html` pages touched (by design).
+
+### Landing page activated
+- `app/pages.py` `index()`: `redirect('/login')` → **`send_from_directory(_ROOT, 'index.html')`**. ⚠️ Deliberately **not** `render_template('index.html')`: Flask's `template_folder` is `templates/`, which holds a **stale 1367-line copy**; the canonical landing page (1705 lines, with the modal) lives at the **repo root** and is served directly like the legacy `binna-*.html` pages. `redirect` import left in place (still harmless; `render_template` still used by other routes).
+
+### Split-screen auth overlay modal (`index.html`)
+- Self-contained overlay (`#auth-overlay`, z-index 10000 — above admin panel/theme toggle). **LEFT** = navy branding panel (`--blue`→`--blue2` gradient + a running-bond **brick pattern drawn on `<canvas id="auth-brick">`**), BINNA headline + 3 bullets. **RIGHT** = white panel with a **Sign In / Create Account** tab switcher.
+- Forms: Sign In (email + password); Create Account (**Name + Email + Password only**). **Eye toggle** (show/hide) on both; **password-strength bar** on register (5-step Weak→Strong). Inline **red error box** + green **success message** (register shows "taking you to your dashboard…" before redirect). **ESC** + **click-outside** close; body scroll locked while open.
+- Wiring: `POST /api/v1/auth/login {email,password}` and `POST /api/v1/auth/register {username,email,password}` — `username` is the "Name" field (server requires ≥3 chars, password ≥6). On success stores `binna_token` (+ `binna_refresh`, `binna_user`) in `localStorage` and redirects to `/dashboard`. All modal CSS/JS namespaced `auth-*` / `authX()` — no collision with the existing lang/admin globals.
+- **Triggers (3):** nav "Sign In" (login tab), hero "Sign In to BINNA" (login) + "Get Started" (register, replaced the old "Explore ↓" — `ht-btn2` EN/AR translation defaults updated to match), CTA "Sign In" (login) + "Get Started" (register, added a second CTA button).
+
+### Verification
+- App boots; `GET /` → **200** with modal markup/JS present. Test-client **register → 201** and **login → 200** using the exact JSON keys the modal sends, both returning `access_token`. Reduced-motion + mobile (left panel hidden ≤720px) handled in CSS.
+
+## Session Log — 2026-06-15 (Landing page redesign — "Obsidian Crown")
+
+> Files: `index.html` only — **CSS + inline-style changes only**. No JS logic, HTML structure, Flask routes, or auth functionality changed.
+
+### What changed
+- Full visual recolor to the **Obsidian Crown** system (deep `#060608`, purple `#8B5CF6`/`#A78BFA`, gold `#C5A85A`). Implementation: (1) the page's local `:root` adds the new tokens and **remaps the legacy aliases** (`--blue/--white/--off/--accent/--accent2/--text/--muted/--ll`) onto the dark palette as a catch-all; (2) a single **"Obsidian Crown" override block** appended to the end of the main inline `<style>` sets explicit per-element values for nav, hero, ticker, sections, feature cards, Iraq bullets, cert card, CTA, footer, theme toggle, and the whole auth modal.
+- Hero gained a **gold CSS grid** (`background-image` 44px) + a **radial purple glow** via `#hero::before`. Auth left panel gained a **gold grid** (40px) + a **2px gold left accent line** via `.auth-left::before`; the JS brick canvas is hidden with `.auth-brick{display:none}` (CSS-only — JS untouched, draws harmlessly to a hidden canvas). Auth tabs switched from purple pill to **gold underline** active indicator.
+- Removed every literal light background from the source (`#fff`/`#F7F9FF`/`#EFF6FF`/`#F1F5F9` in `.nc/.bw/#ticker/.sec/.fc/.fb/.cc/.cr`) — replaced with dark/purple/gold equivalents. `@media print` left untouched. (The one remaining `#E2E8F0` is the admin-editor input **text** color, not a background — admin panel kept per spec; only `#admin-btn` background → `#8B5CF6`.)
+- Page locked dark regardless of theme toggle: `[data-theme="dark"|"light"] body{background:#060608!important}`.
+
+### ⚠️ Pre-existing bug fixed (one char)
+- The Arabic `TRANSLATIONS` object had a **double comma** (`'بِنّا',,'fc1-desc'`) — a real **JS syntax error present in committed HEAD**, which silently broke the entire lang/ticker/admin `<script>` block (page fell back to static English HTML; ticker never rendered). Removed the stray comma so the block parses. This restores intended behavior; it does not change logic. Found via `node --check` on the extracted inline scripts.
+
+### Verification
+- `GET /` → **200**. All three inline `<script>` blocks pass `node --check` (after the comma fix). Grep confirms **zero** light backgrounds in the served HTML (outside `@media print`). New tokens (`#060608`, `#8B5CF6`, `#C5A85A`, hero glow, gold grids) confirmed present.
+
+## Session Log — 2026-06-15 (Landing redesign v2 — blueprint hero, gold-forward, ticker removed)
+
+> Files: `index.html` only — **CSS, inline styles, and the hero canvas animation**. No other JS logic, Flask routes, auth functionality, or other HTML files touched.
+
+### Hero animation swapped: brick wall → blueprint
+- **Removed** the entire isometric brick-wall canvas block (`project/initStates/drawBrick/render` + the `ScrollTrigger.create` **hero pin**) and replaced it with a self-contained **blueprint draw-on animation** on the same `#wall-canvas`: a gold survey grid sweeps in, then center crosshair → corner registration ticks → dashed "PROJECT SCOPE" dimension line → 6 purple survey nodes, finishing in a slow `Math.sin` pulse via `drawStatic()`. Guards with `if(!canvas) return`.
+- Hero is now a **normal scrollable section** (no pin). Hero text (`#ht-eye/#ht-title/#ht-sub/#ht-ar/#ht-btns`) is revealed **immediately** via CSS `opacity:1!important;transform:none!important` (previously driven by the pin's `onUpdate`). The last-turn CSS hero grid + `#hero::before` purple glow were removed (`#hero::before{content:none}`) since the canvas now provides both.
+
+### Ticker removed
+- Deleted the base ticker CSS (`#ticker/.tk-t/.tk-i/.tk-d` + `@keyframes tk`), the override-block ticker rules, and the **orphaned JS builder** (`const tk=getElementById('tk'); …tk.appendChild`). There was never a static ticker element — the builder targeted a missing `#tk` and was **throwing a TypeError on every load**; removing it also clears that console error. (`gsap.registerPlugin` and the 6 remaining `ScrollTrigger.create` calls — shelf, `.rv`/`.fc`/`.ipt` reveals, cert counters — were preserved.)
+
+### Color shift to gold-forward + content
+- **BINNA wordmark is now GOLD** `#C5A85A` in nav (`.nb-m`) **and** footer (`.fb-brand`, Syne 900) and the auth left panel (`.auth-brand-mark`). `.st em` and the CTA `em` switched purple→gold. Nav bg → `rgba(6,6,8,0.97)`; `.nl` 0.42; `.nb-s` 0.6; `.bo` border 0.35; `.st` font-size → `clamp(42px,5vw,68px)`; `.v-ar` 0.4.
+- Feature cards: `.fc:hover` bg `#0f0f16`; `.fc-img` → `#0d0818` + a 28px gold grid overlay.
+- Auth left headline reworded with em spans: **"Iraqi"** gold + **"construction project"** purple (`.hl-g`/`.hl-p`).
+- Footer HTML gained a gold `info@binnapm.com` mailto link + Arabic tagline `بِنّا · Construction Project Management · Iraq`.
+
+### Verification
+- `GET /` → **200**. All 3 inline `<script>` blocks pass `node --check`. Grep confirms: brick-wall refs **0**, ticker (`#tk`/`@keyframes tk`/`.tk-*`) **0**, `pin:true` **0**, light backgrounds **0** (outside `@media print`); blueprint (`PROJECT SCOPE`), footer email, `.hl-g` spans, `#0d0818`, and gold `.nb-m` all present.
+
+## Session Log — 2026-06-15 (base.html + Obsidian Crown site-wide + landing canvases)
+
+> Three parts. Files: `templates/base.html` (new), `templates/{dashboard,project,login,register}.html` (refactored), `static/css/theme.css`, `index.html`. No backend/routes/models touched.
+
+### Part 1 — base.html + template inheritance
+- Created **`templates/base.html`** (see Frontend reality sheet for block layout). Refactored the 4 SPA pages to extend it; `index.html`/`404.html` left standalone per instructions.
+- **Key decision — two different navs:** dashboard and project had divergent topbars (project carries a back-button + `#top-code`/`#top-name` that its JS writes). A single shared nav would null-crash project's `renderHeader`. So base provides the dashboard-style nav as the default `{% block topbar %}`; **project overrides the whole block** with its own bar (all JS hooks preserved); login/register suppress it via `{% set hide_nav = true %}` (top-level child `set` propagates to the parent `{% if %}`). Pages keep their **Inter** font via `extra_css` (base loads Syne+DM Sans).
+- ⚠️ Gotcha hit + fixed: a literal `{% block topbar %}` string sitting **inside a CSS comment** in base.html was parsed by Jinja as a real (unclosed) tag → 500 on every page. Don't put `{%`/`{{` inside template comments/CSS. Reworded the comment.
+
+### Part 2 — Obsidian Crown site-wide via theme.css
+- Rather than hand-edit 15 `binna-*.html` files (~17.5k lines, JS-risky), drove the recolor through **theme.css**: remapped the canonical tokens (`--bg-base→#060608`, `--bg-surface→#0b0b10`, `--bg-surface-2→#0f0f16`, `--brand-primary→#8B5CF6`, text/border tokens, gantt tokens) to Obsidian values in **both** `:root` and `[data-theme="dark"]`, added the named Obsidian tokens, and a `body` dark-lock. Because every page already aliases its local `:root` to these canonicals (2026-06-14 dark-mode architecture), all module + SPA pages flip at once. Verified `/legacy/{dc,gantt,contract,financial}` → 200 and still link theme.css. base.html nav styled with the new tokens (gold wordmark, gold-dim user pill/logout).
+- **Print guard:** the new `body` `!important` lock would have forced dark printing, so `@media print` now also resets `--bg-deep`/`--bg-elevated`/`--text-bright` and forces `body{background:#fff!important}`.
+
+### Part 3 — index.html landing canvases
+- **Vision section:** removed the 3D isometric shelf canvas markup, replaced with `<canvas id="vision-canvas">` (transparent 500px wrapper) + a self-contained **floating project-hierarchy animation** (root→phase→task nodes, animated dependency links + travelling gold flow dots, per-task progress bars, summary chips, corner ticks). The old shelf JS IIFE is left in place but no-ops via its `if(!sc) return;` guard.
+- **Hero blueprint:** the idle pulse loop now spawns **12 drifting gold particles** (halo + core, sine-pulsed alpha, edge-wrap), and `drawStatic` takes a time arg so the **grid alpha pulses** (`0.045+sin(t/900)*0.018`) and the **purple glow radius breathes** (`maxR*(0.82+sin(t/1100)*0.18)`).
+
+### Verification
+- `GET /`, `/dashboard`, `/project/1`, `/login`, `/register` all → **200** (no Jinja/500). Nav inheritance confirmed at markup level: login/register have no base nav button, dashboard renders it, project renders its own back-button bar (no base default). All 4 SPA pages load Syne+DM Sans from base. All 4 inline `<script>` blocks in index.html pass `node --check`. `/legacy/*` module pages 200 + theme.css-linked (Obsidian via aliases).
