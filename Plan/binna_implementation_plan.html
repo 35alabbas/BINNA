@@ -1,0 +1,158 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#060608;font-family:'DM Sans',system-ui,sans-serif;padding:24px;color:#fff}
+h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px}
+.sub{font-size:13px;color:rgba(255,255,255,0.35);margin-bottom:28px}
+.phases{display:flex;flex-direction:column;gap:12px}
+.phase{background:#0b0b10;border:1px solid rgba(197,168,90,0.1);border-radius:8px;overflow:hidden}
+.phase-head{padding:16px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.05)}
+.phase-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:900;flex-shrink:0}
+.phase-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:900;color:#fff}
+.phase-sub{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+.phase-time{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.08em;padding:4px 10px;border-radius:3px}
+.phase-body{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.task-group{display:flex;flex-direction:column;gap:8px}
+.task-label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:4px}
+.task{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5}
+.td{width:5px;height:5px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.dep{background:#0f0f16;border-top:1px solid rgba(255,255,255,0.04);padding:10px 20px;font-size:11px;color:rgba(255,255,255,0.25);display:flex;align-items:center;gap:8px}
+.stack{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+.tag{font-size:10px;letter-spacing:.06em;padding:3px 10px;border-radius:3px;font-weight:700}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:opsz,wght@9..40,400;9..40,700&display=swap" rel="stylesheet">
+
+<h2>BINNA — Implementation Plan</h2>
+<div class="sub">4 phases · Claude Code executes each · you approve before next phase starts</div>
+
+<div class="phases">
+
+  <!-- PHASE 1 -->
+  <div class="phase">
+    <div class="phase-head">
+      <div class="phase-num" style="background:rgba(197,168,90,0.15);color:#C5A85A;border:1px solid rgba(197,168,90,0.3)">1</div>
+      <div>
+        <div class="phase-title">Multi-Tenant Database Structure</div>
+        <div class="phase-sub">The foundation — everything else depends on this</div>
+      </div>
+      <div class="phase-time" style="background:rgba(197,168,90,0.1);color:#C5A85A">Do first</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-group">
+        <div class="task-label">Database changes</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>Create <strong style="color:#fff">companies</strong> table (id, name, slug, plan, created_at)</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>Add <strong style="color:#fff">company_id</strong> foreign key to users table</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>Add <strong style="color:#fff">company_id</strong> to all project/data tables</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>Add <strong style="color:#fff">role</strong> column to users (owner, admin, member, viewer)</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>Migration script — safe, no data loss</div>
+      </div>
+      <div class="task-group">
+        <div class="task-label">Backend logic</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>All DB queries scoped to current user's company_id</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>Company registration flow (CEO creates workspace)</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>User invite system (CEO invites engineers)</div>
+        <div class="task"><div class="td" style="background:#C5A85A"></div>Role-based access middleware</div>
+      </div>
+    </div>
+    <div class="dep">⚠ Prerequisite for everything below — must be done and verified first</div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase">
+    <div class="phase-head">
+      <div class="phase-num" style="background:rgba(139,92,246,0.15);color:#A78BFA;border:1px solid rgba(139,92,246,0.3)">2</div>
+      <div>
+        <div class="phase-title">Supabase Auth Integration</div>
+        <div class="phase-sub">Replace current login system with email + SMS verification</div>
+      </div>
+      <div class="phase-time" style="background:rgba(139,92,246,0.1);color:#A78BFA">After Phase 1</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-group">
+        <div class="task-label">Setup</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Create Supabase project (free)</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Configure email provider (SMTP)</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Configure SMS provider (Twilio — free trial)</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Set redirect URLs for binnapm.com</div>
+      </div>
+      <div class="task-group">
+        <div class="task-label">BINNA integration</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Replace Flask JWT auth with Supabase tokens</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Email verification on sign up</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>SMS OTP as second factor</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Password reset flow</div>
+        <div class="task"><div class="td" style="background:#A78BFA"></div>Session management (auto-refresh tokens)</div>
+      </div>
+    </div>
+    <div class="dep">⚠ Requires Phase 1 — users must have company_id before auth is wired</div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase">
+    <div class="phase-head">
+      <div class="phase-num" style="background:rgba(34,197,94,0.12);color:#86efac;border:1px solid rgba(34,197,94,0.25)">3</div>
+      <div>
+        <div class="phase-title">Cloudflare R2 File Storage</div>
+        <div class="phase-sub">PDF uploads, drawings, reports — served globally, free egress</div>
+      </div>
+      <div class="phase-time" style="background:rgba(34,197,94,0.08);color:#86efac">After Phase 2</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-group">
+        <div class="task-label">Setup</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>Create Cloudflare account + R2 bucket</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>Create API token (R2 read + write)</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>Add R2 credentials to Render env vars</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>Configure CORS for binnapm.com</div>
+      </div>
+      <div class="task-group">
+        <div class="task-label">BINNA integration</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>File upload API endpoint (Flask → R2)</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>Files stored as: company_id/project_id/filename</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>File URL stored in PostgreSQL (not the file)</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>Presigned URLs for secure downloads</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>File size limit: 50MB per file</div>
+        <div class="task"><div class="td" style="background:#86efac"></div>Allowed types: PDF, PNG, JPG, DWG, XLSX</div>
+      </div>
+    </div>
+    <div class="dep">⚠ Requires Phase 1 — file paths must include company_id for tenant isolation</div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase">
+    <div class="phase-head">
+      <div class="phase-num" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.1)">4</div>
+      <div>
+        <div class="phase-title">Company Dashboard + Billing Tracking</div>
+        <div class="phase-sub">CEO workspace — manage users, plan, invoices</div>
+      </div>
+      <div class="phase-time" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35)">Last</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-group">
+        <div class="task-label">CEO workspace</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>Company settings page</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>Invite users by email + assign role</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>Remove / deactivate users</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>Storage usage indicator (how much R2 used)</div>
+      </div>
+      <div class="task-group">
+        <div class="task-label">Your admin panel</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>List all companies + plan + status</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>Activate / suspend accounts manually</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>Mark invoice as paid → activate plan</div>
+        <div class="task"><div class="td" style="background:rgba(255,255,255,0.3)"></div>Revenue tracker (who paid, when, how much)</div>
+      </div>
+    </div>
+    <div class="dep">⚠ Requires Phases 1–3 — builds on top of everything</div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;background:#0b0b10;border:1px solid rgba(139,92,246,0.2);border-radius:8px;padding:16px 20px">
+  <div style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#A78BFA;margin-bottom:10px">Decision needed before Phase 1 starts</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+    <div style="font-size:13px;color:rgba(255,255,255,0.55)"><strong style="color:#C5A85A">Trial period?</strong><br>Do new companies get a free trial? How many days?</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.55)"><strong style="color:#C5A85A">User limits?</strong><br>Starter = 3 users, Pro = 10 users — enforce in code?</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.55)"><strong style="color:#C5A85A">Invite method?</strong><br>CEO invites by email link, or you manually create accounts?</div>
+  </div>
+</div>

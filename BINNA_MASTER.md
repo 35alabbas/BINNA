@@ -25,7 +25,7 @@
 - Flask-SQLAlchemy, Flask-JWT-Extended, Flask-CORS
 - Flask-Migrate is **installed but there is NO migrations folder** — the schema is created via `db.create_all()` at startup, **not** `flask db upgrade`. `create_all()` only adds missing *tables*, never new *columns* on existing tables.
 - **⚠️ NEVER drop/recreate the DB to pick up a new column — that destroys all production data.** Instead, new columns are added in place by the idempotent `_ensure_schema()` auto-migration in `run.py` (`ALTER TABLE … ADD COLUMN`), which runs after `create_all()` on every boot and self-heals on deploy. **When a model gains a column, append it to the `additions` list in `_ensure_schema()`.** (See the 2026-06-06 incident in the Session Log.)
-- **DB:** SQLite locally (`binna.db`, git-ignored) · PostgreSQL on Render (`config.py` rewrites `postgres://` → `postgresql+psycopg://`)
+- **DB:** SQLite locally (`binna.db`, git-ignored). A Render PostgreSQL instance **`binna-db` now exists** (provisioned 2026-06-16, free tier — **expires ~30 days, must upgrade before launch**) and is **empty**. `config.py` line 12 falls back to `sqlite:///binna.db` whenever `DATABASE_URL` is unset; the web service is currently **suspended** and its `DATABASE_URL` wiring to `binna-db` was **deliberately deferred** this session (see the credential incident in the 2026-06-16 Phase 0 log). ⚠️ **When the service is resumed, wire its `DATABASE_URL` to `binna-db`'s Internal URL** — otherwise it falls back to ephemeral container SQLite (wiped on every deploy/restart). `config.py` rewrites `postgres://` → `postgresql+psycopg://` automatically. **See the OPEN SECURITY TODO (password rotation) in the 2026-06-16 Phase 0 log before any real data enters the DB.**
 - **Deploy:** push to `main` = live production deploy
 
 ### API surface — base `/api/v1`
@@ -49,7 +49,9 @@ Access control helpers in `projects.py`:
 - Role order: `viewer(0) < member(1) < admin(2) < owner(3)`
 
 ### Models (`app/models.py`)
-`User`, `Project`, `ProjectMember`, `DCLetter`, `Archive`, `Submittal`, `DailyReport`, `LabTest`, `FinancialData`, `GanttData`, `Party`, `Subcontract`, `SupplyAgreement`, `GlobalParty`.
+`Company`, `User`, `Project`, `ProjectMember`, `DCLetter`, `Archive`, `Submittal`, `DailyReport`, `LabTest`, `FinancialData`, `GanttData`, `Party`, `Subcontract`, `SupplyAgreement`, `GlobalParty`.
+
+- **Multi-tenant (Phase 1, 2026-06-16):** `Company` (`companies` table) is the tenant root: `id, name, slug (unique), plan, max_users, trial_ends_at, grace_ends_at, status, created_at` (`plan`/`status` default `'trial'`, `max_users` 999, `status` ∈ `trial`/`active`/`grace`/`locked` = `VALID_COMPANY_STATUSES`). **Every tenant table carries `company_id`** (FK `companies.id`, nullable+indexed): `users, projects, project_members, dc_letters, archives, submittals, daily_reports, lab_tests, financial_data, gantt_data, parties, subcontracts, global_parties, supply_agreements`. ⚠️ **Two distinct role columns on `users`:** the pre-existing **`role`** is the PLATFORM role (`admin`|`user`; first-ever signup → `admin` = BINNA super-admin, set in `app/auth.py`) — **left untouched**; the NEW **`company_role`** is the TENANT role (`owner`|`admin`|`member`|`viewer`, default `viewer`). Also new on `users`: `email_verified` (bool, default false) + `email_verification_token` — **columns only; verification logic is Phase 2.** `company_id` is nullable because the signup→company wiring is Phase 2; nothing is backfilled (DB was emptied in Phase 0).
 
 - **`GlobalParty`** (`global_parties` table) — flat per-project directory of every party (client/consultant/contractor/subcontractor/supplier/**laboratory**/other). Fields: `name_en`, `name_ar`, `role`, `logo_filename`, `notes`, `is_seeded` (true for the Client/Consultant/Contractor rows auto-seeded from the `Project` record — these can be edited but never deleted). Shared constants: `SEED_GLOBAL_PARTY_ROLES` (Project field → GlobalParty role, used by `create_project()` and the `/global-parties/seed` backfill) and `CREATABLE_GLOBAL_PARTY_ROLES` (roles a user can pick when adding a party manually — now includes `laboratory`).
   - **Auto-wiring (Session Log 2026-06-13/14):** adding a `subcontractor` GlobalParty auto-creates a `Subcontract`; adding a `supplier` auto-creates a `SupplyAgreement`. ⚠️ `Subcontract.party_id` FKs `parties.id` (the `Party` directory), **not** `global_parties.id` — auto-wiring mirrors the GlobalParty into a `Party` row first. `SupplyAgreement.global_party_id` FKs `global_parties` directly.
@@ -352,3 +354,62 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 
 ### Verification
 - `GET /`, `/dashboard`, `/project/1`, `/login`, `/register` all → **200** (no Jinja/500). Nav inheritance confirmed at markup level: login/register have no base nav button, dashboard renders it, project renders its own back-button bar (no base default). All 4 SPA pages load Syne+DM Sans from base. All 4 inline `<script>` blocks in index.html pass `node --check`. `/legacy/*` module pages 200 + theme.css-linked (Obsidian via aliases).
+
+## Session Log — 2026-06-16 (Phase 0 — Clean slate for the multi-tenant SaaS rebuild)
+
+> First step of the BINNA → multi-tenant SaaS plan (`BINNA_SAAS_PLAN.md` Phase 0). Goal: clear the dummy/test data so Phase 1 builds the multi-tenant structure (`companies`, `company_id`, roles) on an empty database — **without** forming the habit of dropping/recreating the DB. No real customer data exists yet. Phase 1 NOT started; awaiting go-ahead.
+
+### Local `binna.db` — cleared (schema-preserving)
+- **Before:** 14 tables holding dummy data — `users` 12, `project_members` 8, `projects` 7, `financial_data` 7, `global_parties` 7, `parties` 12, `subcontracts` 3, `daily_reports`/`dc_letters`/`gantt_data` 1 each; `archives`/`lab_tests`/`submittals`/`supply_agreements` 0.
+- **Method:** `DELETE FROM` every table (FKs off for the sweep) + `DELETE FROM sqlite_sequence` to reset AUTOINCREMENT so fresh IDs start at 1, then `VACUUM`. **No table or column was dropped** — the schema built by `db.create_all()` + `_ensure_schema()` is fully intact. This deliberately practices the production-safe discipline even on disposable data.
+- **After:** 14 tables, **0 rows total**.
+- **Boot verified:** importing `run.py` (runs the exact prod startup path `create_app` → `db.create_all()` → `_ensure_schema()`) succeeds; test client `GET /` → 200, `GET /login` → 200, `POST /api/v1/auth/register` → 201 on the empty DB (smoke-test user then deleted, re-confirmed 0 rows). `_ensure_schema()`-managed columns all present post-clear: `gantt_data.stoppages`, `global_parties.role` + `is_seeded` (legacy `type` correctly absent), `lab_tests.lab_party_id`.
+
+### Render production — evolved during the session (Postgres provisioned)
+- **Start of session:** no Render PostgreSQL existed — the account had only the BINNA web service, and `config.py:12` fell back to ephemeral container SQLite (wiped on every deploy/restart, never durable). So there was **no persistent production data to clear**; the only real database to clean was local `binna.db` (done above).
+- **During the session:** a free Render PostgreSQL instance **`binna-db` was provisioned** and starts **empty** (a fresh Postgres needs no clearing). The web service's `DATABASE_URL` was **not** wired to it before work paused (see credential incident below), and the service is **suspended**.
+- `clear_render_db.py` (single `psycopg` connection, terminates other backends, `SET statement_timeout`, one `TRUNCATE … RESTART IDENTITY CASCADE`; reads `DATABASE_URL` from `os.environ`, never prints it) is **retained as the guardrailed re-clear utility** for when the DB is wired and ever needs resetting during testing. (First version self-deadlocked by holding a Flask app-context SELECT open against a second TRUNCATE connection — rewritten to one connection.)
+
+### ⚠️ Credential incident — password rotation attempted, then DEFERRED by decision
+- Render's "create a new default credential" (`binna_users`) did **not** create a separate, independently-rotatable Postgres login on this plan — it authenticates as the **same underlying role `binna_db_user`** (verified: connecting with the new password reports `current_user = binna_db_user`). PostgreSQL roles have exactly one password; the only thing that invalidates a leaked password is **changing that role's password** (`ALTER ROLE binna_db_user WITH PASSWORD …`), not adding a credential.
+- **Verified the old setup password still authenticates (`AUTH OK`).** A full reset path was built and tested-ready (`reset_password.py` via `ALTER ROLE`, `rotate_db_url.py`, `check_credential.py` — all read secrets from env, never print them, verify against the **external** host since the **internal** host only resolves inside Render).
+- **DECISION (Mohammed, 2026-06-16): SKIP rotation for now** — DB empty, app suspended, no customers, accepted low risk. Not rotated.
+
+### 🔴 OPEN SECURITY TODO — rotate the exposed DB password before any real data (HARD pre-launch checkpoint)
+- **Issue:** the `binna_db_user` PostgreSQL password was **exposed in plaintext during setup** (and also appears in this session's chat transcript) and **still works** — verified `AUTH OK` via `check_credential.py` on 2026-06-16.
+- **Required action:** rotate it with `ALTER ROLE binna_db_user WITH PASSWORD '<new strong pw>'` (tooling already staged: `reset_password.py` → verify with `check_credential.py` that the new pw is `AUTH OK` and the old pw is `AUTH FAILED` → update the web service `DATABASE_URL` → redeploy).
+- **Deadline / gate:** **MUST be done before any real customer data enters the database — hard checkpoint in Phase 4 / pre-launch.** Do not onboard a real company until the old password returns `AUTH FAILED`.
+
+### Standing rule reaffirmed
+- Column additions go through the `additions` list in `_ensure_schema()` (`run.py`) via `ALTER TABLE … ADD COLUMN`. **Never drop/recreate the DB** (see the 2026-06-06 stoppages and 2026-06-13 `global_parties` incidents). Phase 1's new `companies` table arrives via `db.create_all()`; new columns on existing tables (`users.company_id`, `users.role`, every data table's `company_id`) arrive via `_ensure_schema()`.
+
+### ⚠️ Pre-launch items carried to the Launch Track (not Phase 0 tasks)
+1. **Wire `DATABASE_URL`** on the BINNA web service to `binna-db`'s **Internal Database URL** when the service is resumed (otherwise it falls back to ephemeral SQLite). `config.py` auto-rewrites the scheme to `postgresql+psycopg://`.
+2. **Rotate the exposed `binna_db_user` password** — see the 🔴 OPEN SECURITY TODO above. Hard gate before real customer data.
+3. **Upgrade the free Postgres** (`binna-db` free tier expires ~30 days from 2026-06-16) to a paid instance before launch, or the DB + data are deleted.
+
+### Status — Phase 0 COMPLETE ✅
+- **Local `binna.db`:** cleared, schema intact, app boots — verified.
+- **Render production:** no durable data existed to clear; `binna-db` Postgres provisioned and empty. Password rotation **consciously deferred** (logged as an open security TODO + hard pre-launch gate).
+- **Phase 1 NOT started.** Ready to begin Phase 1 (multi-tenant DB structure) on Mohammed's go-ahead.
+
+## Session Log — 2026-06-16 (Phase 1 — Multi-tenant database structure)
+
+> `BINNA_SAAS_PLAN.md` Phase 1. Schema only — **no API scoping, no auth-flow changes** (those are Phase 2, deliberately untouched). Files: `app/models.py`, `run.py`. Phase 2 NOT started.
+
+### What changed
+- **New `Company` model** (`companies` table) — tenant root: `id, name, slug (unique, indexed), plan ('trial'), max_users (999), trial_ends_at, grace_ends_at, status ('trial'; ∈ trial/active/grace/locked), created_at`. New table → built by `db.create_all()` (no `_ensure_schema` entry).
+- **`company_id` added to all 14 tenant tables** (`users` + 13 data tables) — FK `companies.id`, **nullable + indexed**. Nullable because Phase 2 wires signup→company; no backfill (DB emptied in Phase 0).
+- **`users` gained:** `company_role` (tenant role `owner/admin/member/viewer`, default `viewer`), `email_verified` (bool, default false), `email_verification_token`. The verification *columns* exist now; the *logic* is Phase 2.
+- **All new columns registered in `_ensure_schema()`** (`run.py` `additions` list) via `ALTER TABLE … ADD COLUMN`. **Nothing dropped/recreated.** Boolean DDL uses `DEFAULT FALSE` (not `DEFAULT 0`) so it is valid on PostgreSQL as well as SQLite.
+
+### ⚠️ Key deviation (read before touching user roles)
+- The plan said "add a `role` column to `users` (owner/admin/member/viewer)". **`users.role` already existed** as the PLATFORM role (`admin`|`user`; first-ever signup → `admin`, the BINNA super-admin — `app/auth.py:52`). Overwriting it would conflate "is this the platform super-admin?" with "what's this user's role inside their company?". So the tenant role was added as a **separate `company_role`** column; `users.role` is **untouched**. Guardrail: **platform role = `users.role`; tenant role = `users.company_role`** — never merge them.
+- `ProjectMember.role` (project-scoped owner/admin/member/viewer) is unchanged and still independent of both — it governs per-project membership, not company membership.
+
+### Verification
+- **Local SQLite (`binna.db`, predates Phase 1 → exercises the `_ensure_schema` ALTER path):** app boots (`create_all` + `_ensure_schema` clean); 15 tables incl. `companies` with all 9 columns; `company_id` present on all 14 tenant tables; `users` has `company_role`/`email_verified`/`email_verification_token` and still has platform `role`. ORM round-trip (Company → owner User → Project, all `company_id`-linked, `company_role='owner'`, defaults `trial/trial/999`, `email_verified=False`) succeeded, then **rolled back → 0 rows** (DB stays empty for Phase 2). `GET /`, `/login` → 200. `py_compile` clean on `models.py`/`run.py`.
+- **PostgreSQL (`binna-db`):** ✅ **CONFIRMED** — Mohammed ran `verify_phase1.py` against binna-db's EXTERNAL url: `RESULT: PASS — Phase 1 schema present on postgresql`. App boots against production Postgres; `companies` table + `company_id` on all 14 data tables + `users.company_role`/`email_verified`/`email_verification_token` present; `users.role` preserved. (Running it also materialized the empty Phase-1 schema on binna-db — the production schema, no rows.) `_ensure_schema` DDL written Postgres-safe; `verify_phase1.py` writes no data.
+
+### Status
+- Phase 1 schema **COMPLETE and verified on BOTH SQLite and production PostgreSQL** (`binna-db`). **Phase 2 NOT started** — awaiting Mohammed's go-ahead.

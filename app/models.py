@@ -13,6 +13,44 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+# ── Company (tenant) ──────────────────────────────────────────────────────────
+# Phase 1 multi-tenant root. One row per customer company. Every user and every
+# data row belongs to exactly one company (via company_id). New table → built by
+# db.create_all() (no _ensure_schema entry; that list is for new *columns*).
+
+VALID_COMPANY_STATUSES = ('trial', 'active', 'grace', 'locked')
+
+
+class Company(db.Model):
+    __tablename__ = 'companies'
+
+    id            = db.Column(db.Integer,     primary_key=True)
+    name          = db.Column(db.String(200), nullable=False)
+    slug          = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    plan          = db.Column(db.String(20),  nullable=False, default='trial')   # 'trial' until pricing tiers exist
+    max_users     = db.Column(db.Integer,     nullable=False, default=999)        # 999 = effectively unlimited for now
+    trial_ends_at = db.Column(db.DateTime)                                        # set to +14 days at signup (Phase 2)
+    grace_ends_at = db.Column(db.DateTime)                                        # set to +7 days after trial (Phase 4)
+    status        = db.Column(db.String(20),  nullable=False, default='trial')   # trial | active | grace | locked
+    created_at    = db.Column(db.DateTime,    default=_now)
+
+    def to_dict(self) -> dict:
+        return {
+            'id':            self.id,
+            'name':          self.name,
+            'slug':          self.slug,
+            'plan':          self.plan,
+            'max_users':     self.max_users,
+            'trial_ends_at': self.trial_ends_at.isoformat() if self.trial_ends_at else None,
+            'grace_ends_at': self.grace_ends_at.isoformat() if self.grace_ends_at else None,
+            'status':        self.status,
+            'created_at':    self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Company {self.slug}>'
+
+
 # ── User ──────────────────────────────────────────────────────────────────────
 
 class User(db.Model):
@@ -22,9 +60,21 @@ class User(db.Model):
     username      = db.Column(db.String(80),  unique=True, nullable=False)
     email         = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role          = db.Column(db.String(20),  default='user')   # admin | user
+    role          = db.Column(db.String(20),  default='user')   # PLATFORM role: admin | user (admin = BINNA super-admin)
     is_active     = db.Column(db.Boolean,     default=True)
     created_at    = db.Column(db.DateTime,    default=_now)
+
+    # ── Multi-tenant (Phase 1) ──────────────────────────────────────────────────
+    # company_id: which tenant this user belongs to (nullable until Phase 2 wires
+    # the signup→company flow). company_role: TENANT role, distinct from the
+    # platform `role` above. email_verified/token: columns built now; the
+    # verification *logic* is wired in Phase 2.
+    company_id               = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=True, index=True)
+    company_role             = db.Column(db.String(20), default='viewer')   # owner | admin | member | viewer
+    email_verified           = db.Column(db.Boolean, nullable=False, default=False)
+    email_verification_token = db.Column(db.String(255))
+
+    company = db.relationship('Company', foreign_keys=[company_id])
 
     # back-ref from ProjectMember
     memberships   = db.relationship('ProjectMember', back_populates='user',
@@ -61,6 +111,7 @@ class Project(db.Model):
     __tablename__ = 'projects'
 
     id          = db.Column(db.Integer,     primary_key=True)
+    company_id  = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     code        = db.Column(db.String(20),  nullable=False)          # e.g. APS
     name        = db.Column(db.String(200), nullable=False)
     client      = db.Column(db.String(200))
@@ -109,6 +160,7 @@ class ProjectMember(db.Model):
     __tablename__ = 'project_members'
 
     id         = db.Column(db.Integer,  primary_key=True)
+    company_id = db.Column(db.Integer,  db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id = db.Column(db.Integer,  db.ForeignKey('projects.id'), nullable=False)
     user_id    = db.Column(db.Integer,  db.ForeignKey('users.id'),    nullable=False)
     role       = db.Column(db.String(20), default='member')           # owner | admin | member | viewer
@@ -147,6 +199,7 @@ class DCLetter(db.Model):
     __tablename__ = 'dc_letters'
 
     id            = db.Column(db.Integer,     primary_key=True)
+    company_id    = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id    = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False)
     code          = db.Column(db.String(60),  nullable=False)          # APS-LetterIN-001
     direction     = db.Column(db.String(10),  nullable=False)          # incoming | outgoing
@@ -200,6 +253,7 @@ class Archive(db.Model):
     __tablename__ = 'archives'
 
     id              = db.Column(db.Integer,     primary_key=True)
+    company_id      = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id      = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False)
     archive_number  = db.Column(db.String(60),  nullable=False)          # APS-ARC-001
     name            = db.Column(db.String(500), nullable=False)          # user-supplied
@@ -241,6 +295,7 @@ class Submittal(db.Model):
     __tablename__ = 'submittals'
 
     id             = db.Column(db.Integer,     primary_key=True)
+    company_id     = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id     = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False)
     module_type    = db.Column(db.String(10),  nullable=False)          # dwg | fir | mir | ms | rfi
     code           = db.Column(db.String(60),  nullable=False)          # TST-DWG-001-A
@@ -315,6 +370,7 @@ class DailyReport(db.Model):
     __tablename__ = 'daily_reports'
 
     id            = db.Column(db.Integer,     primary_key=True)
+    company_id    = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id    = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False)
     code          = db.Column(db.String(60),  nullable=False)          # APS-DR-001
     doc_number    = db.Column(db.Integer,     nullable=False)
@@ -378,6 +434,7 @@ class LabTest(db.Model):
     __tablename__ = 'lab_tests'
 
     id             = db.Column(db.Integer,     primary_key=True)
+    company_id     = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id     = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False)
     code           = db.Column(db.String(60),  nullable=False)          # APS-LBTOUT-001
     doc_number     = db.Column(db.Integer,     nullable=False)
@@ -450,6 +507,7 @@ class FinancialData(db.Model):
     __tablename__ = 'financial_data'
 
     id         = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, unique=True)
     data       = db.Column(db.Text)                                    # JSON blob
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -469,6 +527,7 @@ class GanttData(db.Model):
     __tablename__ = 'gantt_data'
 
     id         = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, unique=True)
     tasks      = db.Column(db.Text)                                    # JSON array
     stoppages  = db.Column(db.Text, default='[]')                      # JSON array of project-level stoppage periods
@@ -497,6 +556,7 @@ class Party(db.Model):
     __tablename__ = 'parties'
 
     id           = db.Column(db.Integer,     primary_key=True)
+    company_id   = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id   = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
     name         = db.Column(db.String(200), nullable=False)
     name_ar      = db.Column(db.String(200))
@@ -545,6 +605,7 @@ class Subcontract(db.Model):
     __tablename__ = 'subcontracts'
 
     id          = db.Column(db.Integer,     primary_key=True)
+    company_id  = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id  = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
     party_id    = db.Column(db.Integer,     db.ForeignKey('parties.id'),  nullable=False)
     ref         = db.Column(db.String(50))                  # {PROJECT_CODE}-SUB-001
@@ -624,6 +685,7 @@ class GlobalParty(db.Model):
     __tablename__ = 'global_parties'
 
     id            = db.Column(db.Integer,     primary_key=True)
+    company_id    = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id    = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
     name_en       = db.Column(db.String(200), nullable=False)
     name_ar       = db.Column(db.String(200))
@@ -664,6 +726,7 @@ class SupplyAgreement(db.Model):
     __tablename__ = 'supply_agreements'
 
     id              = db.Column(db.Integer,     primary_key=True)
+    company_id      = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
     project_id      = db.Column(db.Integer,     db.ForeignKey('projects.id'), nullable=False, index=True)
     global_party_id = db.Column(db.Integer,     db.ForeignKey('global_parties.id'), nullable=True)
     ref             = db.Column(db.String(50))                 # {PROJECT_CODE}-PO-NNN

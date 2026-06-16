@@ -39,6 +39,32 @@ def _ensure_schema():
         ('global_parties', 'logo_filename', "VARCHAR(500)"),
         ('global_parties', 'notes',         "TEXT"),
         ('global_parties', 'is_seeded',     "BOOLEAN NOT NULL DEFAULT 0"),
+        # ── Phase 1: multi-tenant structure ────────────────────────────────────
+        # `company_id` on every tenant-scoped table — plain INTEGER (matching the
+        # lab_party_id precedent). The model declares the ForeignKey + index;
+        # create_all() materializes those on a fresh DB, and these ALTERs add the
+        # bare column in place on a DB that predates Phase 1. The `companies`
+        # table itself is NOT here — new tables are built by create_all().
+        ('users',             'company_id', 'INTEGER'),
+        ('projects',          'company_id', 'INTEGER'),
+        ('project_members',   'company_id', 'INTEGER'),
+        ('dc_letters',        'company_id', 'INTEGER'),
+        ('archives',          'company_id', 'INTEGER'),
+        ('submittals',        'company_id', 'INTEGER'),
+        ('daily_reports',     'company_id', 'INTEGER'),
+        ('lab_tests',         'company_id', 'INTEGER'),
+        ('financial_data',    'company_id', 'INTEGER'),
+        ('gantt_data',        'company_id', 'INTEGER'),
+        ('parties',           'company_id', 'INTEGER'),
+        ('subcontracts',      'company_id', 'INTEGER'),
+        ('global_parties',    'company_id', 'INTEGER'),
+        ('supply_agreements', 'company_id', 'INTEGER'),
+        # users: TENANT role + email-verification columns (verification *logic*
+        # is wired in Phase 2; the columns are built now). DEFAULT FALSE — not
+        # DEFAULT 0 — so the boolean DDL is valid on PostgreSQL as well as SQLite.
+        ('users', 'company_role',             "VARCHAR(20) DEFAULT 'viewer'"),
+        ('users', 'email_verified',           'BOOLEAN NOT NULL DEFAULT FALSE'),
+        ('users', 'email_verification_token', 'VARCHAR(255)'),
     ]
     for table, column, ddl in additions:
         if table not in tables:
