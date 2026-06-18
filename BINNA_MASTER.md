@@ -375,22 +375,24 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Verified the old setup password still authenticates (`AUTH OK`).** A full reset path was built and tested-ready (`reset_password.py` via `ALTER ROLE`, `rotate_db_url.py`, `check_credential.py` — all read secrets from env, never print them, verify against the **external** host since the **internal** host only resolves inside Render).
 - **DECISION (Mohammed, 2026-06-16): SKIP rotation for now** — DB empty, app suspended, no customers, accepted low risk. Not rotated.
 
-### 🔴 OPEN SECURITY TODO — rotate the exposed DB password before any real data (HARD pre-launch checkpoint)
-- **Issue:** the `binna_db_user` PostgreSQL password was **exposed in plaintext during setup** (and also appears in this session's chat transcript) and **still works** — verified `AUTH OK` via `check_credential.py` on 2026-06-16.
-- **Required action:** rotate it with `ALTER ROLE binna_db_user WITH PASSWORD '<new strong pw>'` (tooling already staged: `reset_password.py` → verify with `check_credential.py` that the new pw is `AUTH OK` and the old pw is `AUTH FAILED` → update the web service `DATABASE_URL` → redeploy).
-- **Deadline / gate:** **MUST be done before any real customer data enters the database — hard checkpoint in Phase 4 / pre-launch.** Do not onboard a real company until the old password returns `AUTH FAILED`.
+### ✅ RESOLVED (2026-06-18) — exposed DB password rotated; leaked credential dead
+- **Original issue:** the `binna_db_user` PostgreSQL password was **exposed in plaintext during setup** (and also appeared in chat transcripts) and still authenticated (`AUTH OK` via `check_credential.py` on 2026-06-16).
+- **Resolution (2026-06-18):** the database credential was **rotated via Render's credential-rotation feature**. The DB now uses a **new default credential, `users_database`**. **Both prior logins — `binna_users` and `binna_db_user` — have been deleted/revoked in Render**, so the exposed setup password no longer maps to any live role.
+- **Resolved — AUTH FAILED independently verified (2026-06-18):** the old exposed password now returns **`AUTH FAILED`** against `binna_db_user` via `check_credential.py` (a real database-level auth attempt, not a dashboard label). This is the decisive proof the June 16 attempt lacked — unlike then (when the old password still returned `AUTH OK`), the leaked secret is now confirmed **dead**.
+- **Web service:** `DATABASE_URL` updated to the new `users_database` credential (see Pre-launch item #1).
+- **Note:** the rotation itself was performed by Mohammed directly in Render (not via `reset_password.py`); `check_credential.py` was then used to confirm the kill, run in Mohammed's own terminal so the live secret never entered the AI session. The tooling remains available for any future role-level rotation.
 
 ### Standing rule reaffirmed
 - Column additions go through the `additions` list in `_ensure_schema()` (`run.py`) via `ALTER TABLE … ADD COLUMN`. **Never drop/recreate the DB** (see the 2026-06-06 stoppages and 2026-06-13 `global_parties` incidents). Phase 1's new `companies` table arrives via `db.create_all()`; new columns on existing tables (`users.company_id`, `users.role`, every data table's `company_id`) arrive via `_ensure_schema()`.
 
 ### ⚠️ Pre-launch items carried to the Launch Track (not Phase 0 tasks)
 1. **Wire `DATABASE_URL`** on the BINNA web service to `binna-db`'s **Internal Database URL** when the service is resumed (otherwise it falls back to ephemeral SQLite). `config.py` auto-rewrites the scheme to `postgresql+psycopg://`.
-2. **Rotate the exposed `binna_db_user` password** — see the 🔴 OPEN SECURITY TODO above. Hard gate before real customer data.
+2. ✅ **DONE (2026-06-18) — exposed `binna_db_user` password rotated.** Credential rotated via Render's rotation feature to new default `users_database`; old roles `binna_users` + `binna_db_user` deleted/revoked. See the ✅ RESOLVED note above.
 3. **Upgrade the free Postgres** (`binna-db` free tier expires ~30 days from 2026-06-16) to a paid instance before launch, or the DB + data are deleted.
 
 ### Status — Phase 0 COMPLETE ✅
 - **Local `binna.db`:** cleared, schema intact, app boots — verified.
-- **Render production:** no durable data existed to clear; `binna-db` Postgres provisioned and empty. Password rotation **consciously deferred** (logged as an open security TODO + hard pre-launch gate).
+- **Render production:** no durable data existed to clear; `binna-db` Postgres provisioned and empty. Password rotation was deferred at the time, then **completed 2026-06-18** — credential rotated to new default `users_database`, old `binna_users`/`binna_db_user` revoked (see ✅ RESOLVED note above).
 - **Phase 1 NOT started.** Ready to begin Phase 1 (multi-tenant DB structure) on Mohammed's go-ahead.
 
 ## Session Log — 2026-06-16 (Phase 1 — Multi-tenant database structure)
