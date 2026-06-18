@@ -70,6 +70,11 @@ def _ensure_schema():
         ('users', 'invite_pending',           'BOOLEAN NOT NULL DEFAULT FALSE'),
         ('users', 'password_reset_token',     'VARCHAR(255)'),
         ('users', 'password_reset_expires',   'TIMESTAMP'),
+        # ── Per-member module permissions ──────────────────────────────────────
+        # JSON map {module: {view, edit}} on each membership. Column is added here
+        # so existing DBs can read the new model field on boot; the one-time
+        # role-based backfill lives in migrate_member_permissions.py (run once).
+        ('project_members', 'permissions',     "TEXT DEFAULT '{}'"),
     ]
     for table, column, ddl in additions:
         if table not in tables:

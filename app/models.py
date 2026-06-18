@@ -179,6 +179,10 @@ class ProjectMember(db.Model):
     user_id    = db.Column(db.Integer,  db.ForeignKey('users.id'),    nullable=False)
     role       = db.Column(db.String(20), default='member')           # owner | admin | member | viewer
     joined_at  = db.Column(db.DateTime,  default=_now)
+    # Per-module view/edit permission map (JSON): {module: {'view': bool, 'edit': bool}}.
+    # '{}' means "not yet provisioned" (no route reads this yet). Both flags false for
+    # a module = no access at all — the member can't even open it in read-only form.
+    permissions = db.Column(db.Text, default='{}')
 
     # Relationships
     project    = db.relationship('Project',     back_populates='members')
@@ -191,6 +195,14 @@ class ProjectMember(db.Model):
     @property
     def role_level(self) -> int:
         return _ROLE_ORDER.get(self.role, 0)
+
+    def get_permissions(self) -> dict:
+        """Parsed per-module permission map, or {} if unset/malformed."""
+        import json
+        try:
+            return json.loads(self.permissions) if self.permissions else {}
+        except (ValueError, TypeError):
+            return {}
 
     def to_dict(self) -> dict:
         return {
@@ -205,6 +217,81 @@ class ProjectMember(db.Model):
 
     def __repr__(self):
         return f'<ProjectMember user={self.user_id} project={self.project_id} role={self.role}>'
+
+
+# ── Per-member module permissions (single source of truth) ────────────────────
+# Each module maps to the minimum project role that grants EDIT under today's
+# route logic (_requires_role / _check_access). VIEW is granted to every member
+# in every module, because no module hides itself today. The permission backfill
+# and any future route checks both read their policy from here.
+#   - dc/dr/lbt/submittals/global_parties/subcontracts: create/update gate on 'member'
+#   - financial/gantt/uploads: no route gate today; pinned to 'member' so current
+#     viewers are NOT granted edit (matches role intent, not the open loophole)
+#   - projects: every write (member admin, project update/delete) gates on 'admin'
+_MODULE_EDIT_MIN_ROLE = {
+    'financial':      'member',
+    'gantt':          'member',
+    'uploads':        'member',
+    'dc':             'member',
+    'dr':             'member',
+    'lbt':            'member',
+    'submittals':     'member',
+    'global_parties': 'member',
+    'subcontracts':   'member',
+    'projects':       'admin',
+}
+PERMISSION_MODULES = tuple(_MODULE_EDIT_MIN_ROLE.keys())
+
+
+def default_permissions_for_role(role: str) -> dict:
+    """The view/edit flags a given project role is granted under today's rules.
+
+    VIEW is True for every module (nothing hides itself today). EDIT is True only
+    where the role meets the module's current edit threshold. A viewer is therefore
+    read-only everywhere — including financial/gantt/uploads — and never receives
+    more access than the role already has. Never produces an all-false (hidden)
+    module, so backfilled members are never migrated into a hidden state.
+    """
+    level = _ROLE_ORDER.get(role, 0)
+    return {
+        module: {
+            'view': True,
+            'edit': level >= _ROLE_ORDER.get(min_role, 0),
+        }
+        for module, min_role in _MODULE_EDIT_MIN_ROLE.items()
+    }
+
+
+# ── Upload (file ownership record) ────────────────────────────────────────────
+# Every stored file gets one row here, linking its on-disk name to the company +
+# project that own it. The serve endpoint (/api/v1/uploads/<filename>) looks the
+# file up here and routes through the same tenancy gate as every other endpoint,
+# so a file can only be fetched by a member of its owning project/company.
+# New table → built by db.create_all(); no _ensure_schema column entry needed.
+
+class Upload(db.Model):
+    __tablename__ = 'uploads'
+
+    id            = db.Column(db.Integer,     primary_key=True)
+    stored_name   = db.Column(db.String(500), unique=True, nullable=False, index=True)
+    original_name = db.Column(db.String(500))
+    company_id    = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True,  index=True)
+    project_id    = db.Column(db.Integer,     db.ForeignKey('projects.id'),  nullable=False, index=True)
+    uploaded_by   = db.Column(db.Integer,     db.ForeignKey('users.id'))
+    created_at    = db.Column(db.DateTime,    default=_now)
+
+    def to_dict(self) -> dict:
+        return {
+            'id':            self.id,
+            'stored_name':   self.stored_name,
+            'original_name': self.original_name or '',
+            'project_id':    self.project_id,
+            'url':           f'/api/v1/uploads/{self.stored_name}',
+            'created_at':    self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Upload {self.stored_name} project={self.project_id}>'
 
 
 # ── DCLetter ──────────────────────────────────────────────────────────────────

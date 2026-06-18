@@ -461,13 +461,17 @@ function renderPhotoPreview() {
   var el = document.getElementById('photo-preview');
   if (!drPhotos.length) { el.innerHTML = ''; return; }
   el.innerHTML = drPhotos.map(function(f, i) {
-    var src = typeof f === 'string' ? f : URL.createObjectURL(f);
-    var name = typeof f === 'string' ? f : f.name;
+    var isStr = typeof f === 'string';                       // stored server name
+    var src   = isStr ? '' : URL.createObjectURL(f);         // File → local preview
+    var name  = isStr ? BINNA.uploadDisplayName(f) : f.name;
+    var click = isStr ? ' onclick="BINNA.openUpload(\''+f+'\')"' : '';
     return '<div style="position:relative;display:inline-block">'
-      +'<img src="'+src+'" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border2)" title="'+escHtml(name)+'"/>'
+      +'<img id="drthumb-'+i+'" src="'+src+'"'+click+' style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border2);cursor:'+(isStr?'pointer':'default')+'" title="'+escHtml(name)+'"/>'
       +'<button onclick="removePhoto('+i+')" type="button" style="position:absolute;top:-4px;right:-4px;background:#b42318;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;padding:0">✕</button>'
       +'</div>';
   }).join('');
+  // Stored photos can't use a plain src (would 401) — load each via auth blob.
+  drPhotos.forEach(function(f, i){ if (typeof f === 'string') BINNA.loadThumb('drthumb-' + i, f); });
 }
 
 const WEATHER_MAP = {
@@ -509,6 +513,10 @@ async function openAdd(id) {
   works = []; visitors = []; selWeather = 'sunny'; drPhotos = [];
   document.getElementById('photo-preview').innerHTML = '';
   var r = id ? allRecords.find(x => x.id === id) : null;
+
+  // Preload already-saved photos (stored-name strings) so editing preserves them
+  // instead of wiping them on save, and shows them in the preview strip.
+  if (r && Array.isArray(r.photos)) { drPhotos = r.photos.slice(); renderPhotoPreview(); }
 
   document.getElementById('modal-title').textContent = r ? 'Edit Daily Report' : 'New Daily Report';
   document.getElementById('btn-delete').style.display = r ? 'inline-flex' : 'none';
@@ -637,6 +645,22 @@ async function saveDR() {
   var date = getISO('f-date');
   if (!date) { BINNA.toast('Report date is required (DD/MM/YYYY).', 'error'); return; }
 
+  // Upload any newly-added photos (File objects) to the server, keeping already-
+  // stored names (strings) as-is. Without this the photos were never persisted —
+  // only the local filename string was saved, so they vanished on reload.
+  var photoNames = [];
+  for (var _pi = 0; _pi < drPhotos.length; _pi++) {
+    var _ph = drPhotos[_pi];
+    if (typeof _ph === 'string') { photoNames.push(_ph); continue; }
+    try {
+      var _up = await BINNA.uploadProjectFile(PROJECT_ID, _ph);
+      photoNames.push(_up.file_name);
+    } catch (e) {
+      BINNA.toast('Photo upload failed: ' + (e.error || e.message || e), 'error');
+      return;
+    }
+  }
+
   const payload = {
     date:          date,
     weather:       selWeather,
@@ -651,7 +675,7 @@ async function saveDR() {
     notes:         document.getElementById('f-notes').value.trim(),
     prepared_by:   document.getElementById('f-prepared-by').value.trim(),
     reviewed_by:   document.getElementById('f-reviewed-by').value.trim(),
-    photos:        drPhotos.map(function(f){ return typeof f === 'string' ? f : f.name; }),
+    photos:        photoNames,
   };
 
   try {
@@ -748,7 +772,7 @@ function viewDR(id) {
     +'<div class="detail-section"><div class="detail-section-title">Works Done Today</div><ul class="works-view-list">'+worksHTML+'</ul></div>'
     +(r.next_plan?'<div class="detail-section"><div class="detail-section-title">Next Day Plan</div><div style="font-size:13px;white-space:pre-wrap;color:var(--text)">'+escHtml(r.next_plan)+'</div></div>':'')
     +(r.notes?'<div class="detail-section"><div class="detail-section-title">Notes / Issues</div><div style="font-size:13px;color:var(--muted);white-space:pre-wrap">'+escHtml(r.notes)+'</div></div>':'')
-    +(r.photos&&r.photos.length?'<div class="detail-section"><div class="detail-section-title">Site Photos ('+r.photos.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+r.photos.map(function(p){return '<div style="font-size:12px;background:var(--accent-light);color:var(--accent);border:1px solid #c7d7fd;border-radius:5px;padding:3px 8px">📷 '+escHtml(p)+'</div>';}).join('')+'</div></div>':'')
+    +(r.photos&&r.photos.length?'<div class="detail-section"><div class="detail-section-title">Site Photos ('+r.photos.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+r.photos.map(function(p){return '<button type="button" onclick="BINNA.openUpload(\''+p+'\')" style="font-size:12px;background:var(--accent-light);color:var(--accent);border:1px solid #c7d7fd;border-radius:5px;padding:3px 8px;cursor:pointer" title="Open photo">📷 '+escHtml(BINNA.uploadDisplayName(p))+'</button>';}).join('')+'</div></div>':'')
     +'<div class="detail-section"><div class="detail-section-title">Signatures</div>'
     +'<div class="drow"><div class="dkey">Prepared By</div><div class="dval">'+(r.prepared_by||'—')+'</div></div>'
     +'<div class="drow"><div class="dkey">Reviewed By</div><div class="dval">'+(r.reviewed_by||'—')+'</div></div>'

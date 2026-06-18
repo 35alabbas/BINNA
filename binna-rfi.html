@@ -527,6 +527,18 @@ async function saveRecord() {
   if (!title) { alert('Title is required.'); document.getElementById('f-title').focus(); return; }
   const description = document.getElementById('f-description').value.trim();
   if (!description) { alert('Description is required.'); document.getElementById('f-description').focus(); return; }
+  // Upload a newly-attached submit file → server stored name. Previously only the
+  // local filename was saved, so the attachment never existed server-side.
+  let submitFileName = editId ? ((allRecords.find(x=>x.id===editId)||{}).file_name || '') : '';
+  if (submitFileAttached) {
+    try {
+      const _up = await BINNA.uploadProjectFile(PROJECT_ID, submitFileAttached);
+      submitFileName = _up.file_name;
+    } catch (e) {
+      BINNA.toast('File upload failed: ' + (e.error || e.message || e), 'error');
+      return;
+    }
+  }
   const payload = {
     doc_number:    parseInt(docnum),
     revision:      document.getElementById('f-revision').value || 'A',
@@ -539,7 +551,7 @@ async function saveRecord() {
     submitted_to:  document.getElementById('f-submitted-to').value.trim(),
     cc_party:      document.getElementById('f-cc').value.trim(),
     notes:         document.getElementById('f-notes').value.trim(),
-    file_name:     submitFileAttached ? submitFileAttached.name : (editId ? (allRecords.find(x=>x.id===editId)||{}).file_name||'' : ''),
+    file_name:     submitFileName,
   };
   try {
     let result;
@@ -600,14 +612,24 @@ function openResponse(id) {
 // ── SAVE RESPONSE ─────────────────────────────────────────────────────────────
 async function saveResponse() {
   const status = document.getElementById('r-status').value;
+  // Upload a newly-attached response file → server stored name (see save() above).
+  let responseFileName = (allRecords.find(x=>x.id===respEditId)||{}).response_file || '';
+  if (responseFileAttached) {
+    try {
+      const _up = await BINNA.uploadProjectFile(PROJECT_ID, responseFileAttached);
+      responseFileName = _up.file_name;
+    } catch (e) {
+      BINNA.toast('File upload failed: ' + (e.error || e.message || e), 'error');
+      return;
+    }
+  }
   const payload = {
     response_status:   status,
     response_date:     getISO('r-date') || '',
     response_by:       document.getElementById('r-by').value.trim(),
     response_location: document.getElementById('r-location').value.trim(),
     response_notes:    document.getElementById('r-notes').value.trim(),
-    response_file:     responseFileAttached ? responseFileAttached.name
-                       : (allRecords.find(x=>x.id===respEditId)||{}).response_file || '',
+    response_file:     responseFileName,
   };
   try {
     const oldRec = JSON.parse(JSON.stringify(allRecords.find(x => x.id === respEditId) || {}));

@@ -525,7 +525,8 @@ let allArchives = [];
 let currentTab  = 'all';
 let editingId   = null;
 let _selId      = null;
-let selectedFileNames = []; // now an array for multiple files
+let selectedFileNames = []; // display names of newly-picked files
+let selectedFiles     = []; // the actual File objects, uploaded on save
 let selectedArchiveFile = null; // single File for archive upload
 let statsVisible = true;
 let globalParties = []; // Global Parties Registry — suggestions for From/To
@@ -682,6 +683,7 @@ function closeModal(id) {
 function openAddModal(existing = null) {
   editingId         = existing ? existing.id : null;
   selectedFileNames = [];
+  selectedFiles     = [];
 
   document.getElementById('modal-title').textContent = existing ? 'Edit Letter' : 'New Letter';
   document.getElementById('file-info').style.display = 'none';
@@ -705,7 +707,7 @@ function openAddModal(existing = null) {
       const fi = document.getElementById('file-info');
       fi.style.display = 'flex';
       fi.style.flexDirection = 'column';
-      fi.innerHTML = files.map(n => `<div class="file-list-item">📎 <span>${BINNA.esc(n)}</span></div>`).join('');
+      fi.innerHTML = files.map(n => `<div class="file-list-item">📎 <span>${BINNA.esc(BINNA.uploadDisplayName(n))}</span></div>`).join('');
     }
   } else {
     resetForm();
@@ -726,6 +728,7 @@ function resetForm() {
   setDateField('f-date','');
   setDateField('f-received-date','');
   selectedFileNames = [];
+  selectedFiles     = [];
   editingId = null;
   onDirectionChange();
 }
@@ -733,7 +736,8 @@ function resetForm() {
 // ── File — multiple files ─────────────────────────────────────────────────────
 function handleFileSelect(input) {
   if (input.files && input.files.length) {
-    selectedFileNames = Array.from(input.files).map(f => f.name);
+    selectedFiles     = Array.from(input.files);
+    selectedFileNames = selectedFiles.map(f => f.name);
     const fi = document.getElementById('file-info');
     fi.style.display = 'flex';
     fi.style.flexDirection = 'column';
@@ -842,6 +846,23 @@ async function saveLetter() {
 
   const direction = document.getElementById('f-direction').value;
   const existingFiles = editingId ? ((allLetters.find(l=>l.id===editingId)||{}).file_names || []) : [];
+
+  // Upload any newly-picked files → server stored names. Previously only the
+  // local filename was saved, so the attachment never existed server-side and
+  // could not be opened. Already-saved attachments (existingFiles) are kept.
+  let uploadedNames = [];
+  if (selectedFiles.length) {
+    try {
+      for (const f of selectedFiles) {
+        const up = await BINNA.uploadProjectFile(PROJECT_ID, f);
+        uploadedNames.push(up.file_name);
+      }
+    } catch (e) {
+      BINNA.toast('File upload failed: ' + (e.error || e.message || e), 'error');
+      return;
+    }
+  }
+
   const payload = {
     direction,
     subject,
@@ -853,9 +874,9 @@ async function saveLetter() {
     cc:            direction === 'outgoing' ? document.getElementById('f-cc').value.trim() : '',
     received_date: direction === 'incoming' ? (getISO('f-received-date') || null) : null,
     orig_no:       direction === 'incoming' ? document.getElementById('f-orig-no').value.trim() : '',
-    file_names:    selectedFileNames.length ? selectedFileNames : existingFiles,
+    file_names:    uploadedNames.length ? uploadedNames : existingFiles,
     // legacy compat: keep file_name as first entry
-    file_name:     (selectedFileNames.length ? selectedFileNames[0] : (existingFiles[0] || '')),
+    file_name:     (uploadedNames.length ? uploadedNames[0] : (existingFiles[0] || '')),
   };
 
   const btn = document.getElementById('btn-save-letter');
@@ -937,7 +958,7 @@ function viewLetter(id) {
   const dirLabel = l.direction === 'incoming' ? '↓ Incoming' : '↑ Outgoing';
   const files = l.file_names || (l.file_name ? [l.file_name] : []);
   const fileHtml = files.length
-    ? files.map(f => `<span class="attach-badge has-file" style="margin-right:4px;margin-bottom:4px">📎 ${BINNA.esc(f)}</span>`).join('')
+    ? files.map(f => `<button type="button" class="attach-badge has-file" onclick="BINNA.openUpload('${f}')" style="margin-right:4px;margin-bottom:4px;cursor:pointer" title="Open attachment">📎 ${BINNA.esc(BINNA.uploadDisplayName(f))}</button>`).join('')
     : `<span style="color:var(--muted2);font-size:13px">No attachment</span>`;
 
   document.getElementById('view-body').innerHTML = `

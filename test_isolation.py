@@ -11,6 +11,7 @@ automatically.
 Runs entirely offline against a throwaway SQLite DB (RESEND_API_KEY unset → the
 email module logs links instead of sending). Exit code 0 = isolation holds.
 """
+import io
 import os
 import sys
 import tempfile
@@ -99,6 +100,15 @@ def seed_data(headers, pid):
                json={'tasks': [{'name': 'secret task'}]}, headers=headers)
 
 
+def upload_file(headers, pid, content):
+    """Upload a file to a project; return its stored_name."""
+    r = client.post(f'/api/v1/projects/{pid}/uploads',
+                    data={'file': (io.BytesIO(content), 'secret.txt')},
+                    content_type='multipart/form-data', headers=headers)
+    assert r.status_code == 201, f'upload failed: {r.status_code} {r.get_json()}'
+    return r.get_json()['file_name']
+
+
 print('═' * 70)
 print('  PHASE 2 TENANT-ISOLATION TEST')
 print('═' * 70)
@@ -115,7 +125,10 @@ pid_a = create_project(hdr_a, 'APA', 'Alpha Project')
 pid_b = create_project(hdr_b, 'BPB', 'Beta Project')
 seed_data(hdr_a, pid_a)
 seed_data(hdr_b, pid_b)
-print(f'[setup] A: user={uid_a} project={pid_a}   B: user={uid_b} project={pid_b}')
+file_a = upload_file(hdr_a, pid_a, b'ALPHA SECRET FILE')
+file_b = upload_file(hdr_b, pid_b, b'BETA SECRET FILE')
+print(f'[setup] A: user={uid_a} project={pid_a} file={file_a[:16]}…')
+print(f'[setup] B: user={uid_b} project={pid_b} file={file_b[:16]}…')
 
 # Sanity: each tenant lives in its own company.
 with app.app_context():
@@ -182,6 +195,16 @@ print('\n[5] membership endpoints are isolated')
 am = client.post(f'/api/v1/projects/{pid_b}/members',
                  json={'email': 'a@aco.test', 'role': 'admin'}, headers=hdr_a)
 check('A cannot add members to B project', am.status_code in (403, 404))
+
+# ── 6b. Uploaded files are tenant-gated (the closed gap) ────────────────────────
+print('\n[6b] uploaded files cannot be fetched across tenants')
+ua = client.get(f'/api/v1/uploads/{file_b}', headers=hdr_a)
+check("A cannot fetch B's uploaded file (404)", ua.status_code == 404)
+ub = client.get(f'/api/v1/uploads/{file_b}', headers=hdr_b)
+check("B CAN fetch its own uploaded file (200)", ub.status_code == 200)
+check("B's file content is intact", ub.data == b'BETA SECRET FILE')
+unauth = client.get(f'/api/v1/uploads/{file_b}')
+check('unauthenticated fetch is rejected (401)', unauth.status_code == 401)
 
 # ── 6. Company member listing is scoped ─────────────────────────────────────────
 print('\n[6] company member directory is scoped')

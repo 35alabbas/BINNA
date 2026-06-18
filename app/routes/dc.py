@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from app.models import Archive, DCLetter, Project, ProjectMember, _ROLE_ORDER
 from app.tenancy import membership_or_none
+from app.routes.uploads import record_upload
 
 dc_bp = Blueprint('dc', __name__)
 
@@ -396,6 +397,8 @@ def upload_archive_file(project_id: int, archive_id: int):
     f.save(os.path.join(upload_folder, stored_name))
 
     archive.file_attachment = stored_name
+    # Ownership record so the file serves through the tenancy gate like any other.
+    record_upload(stored_name, orig, proj, uid)
     db.session.commit()
 
     return jsonify({

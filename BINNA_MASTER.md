@@ -413,3 +413,26 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 
 ### Status
 - Phase 1 schema **COMPLETE and verified on BOTH SQLite and production PostgreSQL** (`binna-db`). **Phase 2 NOT started** — awaiting Mohammed's go-ahead.
+
+## Session Log — 2026-06-18 (Per-member module permissions — storage + backfill)
+
+> Foundation for an admin-controlled, per-member permission system. **Storage + one-time backfill only — no route files touched.** A future phase wires the route checks.
+
+### What changed
+- **New `ProjectMember.permissions` column** (`app/models.py`) — `TEXT`, JSON map `{module: {'view': bool, 'edit': bool}}` over the 10 modules (`financial, gantt, uploads, dc, dr, lbt, projects, submittals, global_parties, subcontracts`). Default `'{}'` = "not yet provisioned". **Both flags false for a module = no access at all** (member can't even open it read-only) — supported by the schema for future admin use, but no existing member is migrated into that state.
+- **Single source of truth** (`app/models.py`): `_MODULE_EDIT_MIN_ROLE` (module → minimum project role that grants EDIT today) + `default_permissions_for_role(role)`. VIEW is granted for every module (nothing hides itself today); EDIT only where the role meets the module's current threshold. Derived from actual route logic: `dc/dr/lbt/submittals/global_parties/subcontracts` create/update gate on `member`; `financial/gantt/uploads` have **no** route gate today but are pinned to `member` so current viewers are **not** granted edit (role intent, not the open loophole); `projects` writes gate on `admin`.
+- **Column registered in `_ensure_schema()`** (`run.py` `additions` list) per the standing rule — `ALTER TABLE project_members ADD COLUMN permissions TEXT DEFAULT '{}'`. Boot-safe on existing DBs; nothing dropped.
+- **One-time migration `migrate_member_permissions.py`** (new, top-level alongside `check_db.py` etc.) — dry-run by default (reads only, writes/alters nothing), `--apply` adds the column + backfills. Idempotent: only rows where `permissions` is NULL/`''`/`'{}'`. Raw SQL so it runs even on a pre-migration DB. After `--apply` it asserts the invariant that **no member ended up hidden** (both flags false) from any module.
+
+### Backfill policy (what each role gets)
+- **viewer** → `view=true` everywhere, `edit=false` everywhere (read-only, incl. financial/gantt/uploads — no carry-over of the route loophole).
+- **member** → `edit=true` on all modules **except `projects`** (project admin stays `edit=false`).
+- **admin / owner** → `edit=true` on all 10 modules.
+- Invariant: every member keeps `view=true` on every module → **nobody is migrated to a hidden state.**
+
+### Verification
+- Dry run on local dev DB: **0 `project_members` rows** (real members live in the Render production DB), so a local `--apply` is a no-op. Policy + exact per-role JSON generated straight from `default_permissions_for_role()` and sanity-checked (viewer all-view/no-edit; member edit-all-but-projects; admin edit-all). `py_compile` clean.
+- **NOT yet applied to any DB.** Production backfill: run `migrate_member_permissions.py --apply` against `binna-db` (with `DATABASE_URL`/`FLASK_ENV=production`) once reviewed.
+
+### Status
+- Permission **storage + backfill tooling COMPLETE**; route enforcement **NOT started** (deliberately — next phase). Migration not yet run against production.

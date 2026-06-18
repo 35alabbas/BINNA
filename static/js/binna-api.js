@@ -209,6 +209,69 @@ const BINNA = {
   // ── Uploads API ───────────────────────────────────────────────────────────
   async uploadFile(pid, formData) { return this.upload(`/projects/${pid}/uploads`, formData); },
 
+  /**
+   * Upload a single File object to a project and return its server-side record
+   * { file_name (stored uuid name), original_name, url }. ALWAYS persist
+   * file_name (the stored name) on records — never File.name, which is just the
+   * user's local filename and does not exist on the server.
+   */
+  async uploadProjectFile(pid, file) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.uploadFile(pid, fd);
+  },
+
+  /**
+   * Load a JWT-protected image into an <img> element (by element or id). Fetches
+   * the blob with the auth header and sets src — used for thumbnails of stored
+   * files, which can't use a plain src (would 401).
+   */
+  async loadThumb(imgEl, storedName) {
+    if (typeof imgEl === 'string') imgEl = document.getElementById(imgEl);
+    if (!imgEl || !storedName) return;
+    try {
+      const res = await fetch(`${API_BASE}/uploads/${encodeURIComponent(storedName)}`, {
+        headers: { 'Authorization': 'Bearer ' + (this.getToken() || '') },
+      });
+      if (!res.ok) return;
+      imgEl.src = URL.createObjectURL(await res.blob());
+    } catch (_) { /* leave placeholder */ }
+  },
+
+  /** Strip the stored uuid_ prefix to recover a human-readable filename. */
+  uploadDisplayName(storedName) {
+    if (!storedName) return '';
+    return storedName.includes('_') ? storedName.split('_').slice(1).join('_') : storedName;
+  },
+
+  /**
+   * Open / download a JWT-protected stored file. The serve endpoint requires an
+   * Authorization header, so a plain <a href>/<img src> would 401 — we fetch as
+   * a blob with the token, then open it. `download=true` saves instead of opens.
+   */
+  async openUpload(storedName, originalName, download = false) {
+    try {
+      const res = await fetch(`${API_BASE}/uploads/${encodeURIComponent(storedName)}`, {
+        headers: { 'Authorization': 'Bearer ' + (this.getToken() || '') },
+      });
+      if (!res.ok) throw new Error('Could not open file (' + res.status + ')');
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const display = originalName
+        || (storedName.includes('_') ? storedName.split('_').slice(1).join('_') : storedName);
+      if (download) {
+        const a = document.createElement('a');
+        a.href = url; a.download = display;
+        document.body.appendChild(a); a.click(); a.remove();
+      } else {
+        window.open(url, '_blank');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      this.toast(e.message || 'Could not open file', 'error');
+    }
+  },
+
   // ── UI helpers ─────────────────────────────────────────────────────────────
   /** Inject the project badge text into elements with [data-proj-code] / [data-proj-name]. */
   injectProjectBadge() {
