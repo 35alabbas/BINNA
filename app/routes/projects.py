@@ -30,6 +30,7 @@ from app.models import (
     Submittal,
     User,
 )
+from app.tenancy import membership_or_none
 
 # Blank financial structure seeded for every new project — matches the schema
 # the contract / financial frontends read (contractDetails, boq, vo, payments,
@@ -55,16 +56,12 @@ _VALID_ROLES = {'admin', 'member', 'viewer'}
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_membership(project_id: int, user_id: int) -> tuple:
-    """Return (Project, ProjectMember) or (None, None) if no access."""
-    project = Project.query.get(project_id)
-    if not project:
-        return None, None
-    member = ProjectMember.query.filter_by(
-        project_id=project_id, user_id=user_id
-    ).first()
-    if not member:
-        return None, None
-    return project, member
+    """Return (Project, ProjectMember) or (None, None) if no access.
+
+    Delegates to the central tenant-isolation gate — access requires the project
+    to belong to the caller's company AND the user to be a member.
+    """
+    return membership_or_none(project_id, user_id)
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str):
@@ -82,11 +79,19 @@ def _requires_role(project_id: int, user_id: int, min_role: str):
 @projects_bp.route('', methods=['GET'])
 @jwt_required()
 def list_projects():
-    user_id     = int(get_jwt_identity())
+    user_id = int(get_jwt_identity())
+    user    = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    # SCOPED: only memberships whose project belongs to the caller's own company.
+    # The company filter is defence-in-depth — a stale cross-company membership
+    # row can never surface another tenant's project in the list.
     memberships = (
         ProjectMember.query
         .filter_by(user_id=user_id)
         .join(Project)
+        .filter(Project.company_id == user.company_id)
         .order_by(Project.created_at.desc())
         .all()
     )
@@ -107,6 +112,9 @@ def list_projects():
 @jwt_required()
 def create_project():
     user_id = int(get_jwt_identity())
+    user    = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
     data    = request.get_json(silent=True) or {}
 
     code = (data.get('code') or '').strip().upper()
@@ -117,7 +125,11 @@ def create_project():
     if len(code) > 10:
         return jsonify({'error': 'Project code must be ≤ 10 characters'}), 400
 
+    # Stamp the creator's company onto the project (the tenant that owns it).
+    company_id = user.company_id
+
     project = Project(
+        company_id  = company_id,
         code        = code,
         name        = name,
         client      = (data.get('client')      or '').strip(),
@@ -130,13 +142,15 @@ def create_project():
     db.session.add(project)
     db.session.flush()          # populate project.id before member insert
 
-    # Creator is the owner
-    member = ProjectMember(project_id=project.id, user_id=user_id, role='owner')
+    # Creator is the owner — membership row also carries the company stamp.
+    member = ProjectMember(project_id=project.id, user_id=user_id,
+                           role='owner', company_id=company_id)
     db.session.add(member)
 
     # Seed a blank financial record so the contract / financial pages open empty
     db.session.add(FinancialData(
         project_id = project.id,
+        company_id = company_id,
         data       = json.dumps(_BLANK_FINANCIAL, ensure_ascii=False),
         updated_by = user_id,
     ))
@@ -149,6 +163,7 @@ def create_project():
         if val:
             db.session.add(GlobalParty(
                 project_id = project.id,
+                company_id = company_id,
                 name_en    = val,
                 name_ar    = '',
                 role       = prole,
@@ -386,6 +401,12 @@ def add_member(project_id):
     if not target:
         return jsonify({'error': f'No user found with email/username "{identifier}"'}), 404
 
+    # TENANT ISOLATION: a project may only include members of its own company.
+    # Surfacing whether a foreign-company user exists would itself leak, so this
+    # mirrors the generic "no user found" message.
+    if target.company_id != project.company_id:
+        return jsonify({'error': f'No user found with email/username "{identifier}"'}), 404
+
     if ProjectMember.query.filter_by(project_id=project_id, user_id=target.id).first():
         return jsonify({'error': 'User is already a member of this project'}), 409
 
@@ -393,7 +414,8 @@ def add_member(project_id):
     if role not in _VALID_ROLES:
         role = 'member'
 
-    new_member = ProjectMember(project_id=project_id, user_id=target.id, role=role)
+    new_member = ProjectMember(project_id=project_id, user_id=target.id, role=role,
+                               company_id=project.company_id)
     db.session.add(new_member)
     db.session.commit()
 

@@ -11,17 +11,15 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
 from app.models import FinancialData, Project, ProjectMember
+from app.tenancy import membership_or_none
 
 financial_bp = Blueprint('financial', __name__)
 
 
 def _check_access(project_id, user_id):
-    proj = Project.query.get(project_id)
-    if not proj:
-        return None
-    mem = ProjectMember.query.filter_by(
-        project_id=project_id, user_id=user_id
-    ).first()
+    # Company-scoped gate: returns the project only when it belongs to the
+    # caller's company AND the user is a member; otherwise None.
+    proj, mem = membership_or_none(project_id, user_id)
     return proj if mem else None
 
 

@@ -65,6 +65,11 @@ def _ensure_schema():
         ('users', 'company_role',             "VARCHAR(20) DEFAULT 'viewer'"),
         ('users', 'email_verified',           'BOOLEAN NOT NULL DEFAULT FALSE'),
         ('users', 'email_verification_token', 'VARCHAR(255)'),
+        # ── Phase 2: account-flow columns ──────────────────────────────────────
+        ('users', 'pending_company_name',     'VARCHAR(200)'),
+        ('users', 'invite_pending',           'BOOLEAN NOT NULL DEFAULT FALSE'),
+        ('users', 'password_reset_token',     'VARCHAR(255)'),
+        ('users', 'password_reset_expires',   'TIMESTAMP'),
     ]
     for table, column, ddl in additions:
         if table not in tables:
@@ -99,6 +104,21 @@ def _ensure_schema():
                 conn.execute(text('ALTER TABLE global_parties DROP COLUMN type'))
                 if 'logo' in legacy_cols:
                     conn.execute(text('ALTER TABLE global_parties DROP COLUMN logo'))
+
+    # ── Phase 2: legacy-account backfill ───────────────────────────────────────
+    # Login now requires email_verified=TRUE. Accounts that predate Phase 2 were
+    # created with the column DEFAULT FALSE and would be locked out. Backfill them
+    # to verified — but ONLY rows with no verification token, i.e. genuine legacy
+    # users. A real pending self-signup/invite always carries a token, so those
+    # correctly stay unverified. Idempotent: re-running re-matches nothing new.
+    if 'users' in tables:
+        ucols = [c['name'] for c in inspect(db.engine).get_columns('users')]
+        if 'email_verified' in ucols and 'email_verification_token' in ucols:
+            with db.engine.begin() as conn:
+                conn.execute(text(
+                    "UPDATE users SET email_verified = TRUE "
+                    "WHERE email_verified = FALSE AND email_verification_token IS NULL"
+                ))
 
 
 # Create tables on startup — runs for both gunicorn and direct python run.py

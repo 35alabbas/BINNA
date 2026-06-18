@@ -18,6 +18,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import (Submittal, Project, ProjectMember, _ROLE_ORDER,
                         VALID_SUBMITTAL_TYPES, VALID_SUBMITTAL_STATUSES)
+from app.tenancy import membership_or_none
 
 submittals_bp = Blueprint('submittals', __name__)
 
@@ -34,13 +35,8 @@ _MODULE_CODES = {
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
 def _get_membership(project_id: int, user_id: int):
-    proj = Project.query.get(project_id)
-    if not proj:
-        return None, None
-    mem = ProjectMember.query.filter_by(
-        project_id=project_id, user_id=user_id
-    ).first()
-    return (proj, mem) if mem else (None, None)
+    # Delegates to the central tenant-isolation gate (company match + membership).
+    return membership_or_none(project_id, user_id)
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):

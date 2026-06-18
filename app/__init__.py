@@ -66,6 +66,7 @@ def create_app(config_name: str = 'default') -> Flask:
 
     # ── Blueprints ────────────────────────────────────────────────────────────
     from app.auth import auth_bp
+    from app.company import company_bp
     from app.routes.projects import projects_bp
     from app.routes.dc import dc_bp
     from app.routes.submittals import submittals_bp
@@ -79,6 +80,7 @@ def create_app(config_name: str = 'default') -> Flask:
     from app.pages import pages_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(company_bp)
     app.register_blueprint(projects_bp)
     app.register_blueprint(dc_bp,
         url_prefix='/api/v1/projects/<int:project_id>/dc')

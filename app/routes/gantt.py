@@ -21,6 +21,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
 from app.models import GanttData, Project, ProjectMember
+from app.tenancy import membership_or_none
 
 gantt_bp = Blueprint('gantt', __name__)
 
@@ -28,12 +29,8 @@ gantt_bp = Blueprint('gantt', __name__)
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _check_access(project_id, user_id):
-    proj = Project.query.get(project_id)
-    if not proj:
-        return None
-    mem = ProjectMember.query.filter_by(
-        project_id=project_id, user_id=user_id
-    ).first()
+    # Company-scoped gate (company match + membership) — returns project or None.
+    proj, mem = membership_or_none(project_id, user_id)
     return proj if mem else None
 
 

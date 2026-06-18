@@ -11,6 +11,7 @@ from sqlalchemy import func
 
 from app import db
 from app.models import LabTest, VALID_LBT_RESULTS, Project, ProjectMember, _ROLE_ORDER
+from app.tenancy import membership_or_none
 
 lbt_bp = Blueprint('lbt', __name__)
 
@@ -20,13 +21,8 @@ VALID_DIRECTIONS = ('out', 'in')
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_membership(project_id, user_id):
-    proj = Project.query.get(project_id)
-    if not proj:
-        return None, None
-    mem = ProjectMember.query.filter_by(
-        project_id=project_id, user_id=user_id
-    ).first()
-    return (proj, mem) if mem else (None, None)
+    # Delegates to the central tenant-isolation gate (company match + membership).
+    return membership_or_none(project_id, user_id)
 
 
 def _requires_role(project_id, user_id, min_role='viewer'):

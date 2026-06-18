@@ -26,6 +26,7 @@ from app.models import (
     CREATABLE_GLOBAL_PARTY_ROLES,
     SEED_GLOBAL_PARTY_ROLES,
 )
+from app.tenancy import membership_or_none
 
 global_parties_bp = Blueprint('global_parties', __name__)
 
@@ -33,13 +34,8 @@ global_parties_bp = Blueprint('global_parties', __name__)
 # ── Access control (mirrors the other module blueprints) ──────────────────────
 
 def _get_membership(project_id: int, user_id: int):
-    proj = Project.query.get(project_id)
-    if not proj:
-        return None, None
-    mem = ProjectMember.query.filter_by(
-        project_id=project_id, user_id=user_id
-    ).first()
-    return (proj, mem) if mem else (None, None)
+    # Delegates to the central tenant-isolation gate (company match + membership).
+    return membership_or_none(project_id, user_id)
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):

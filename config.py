@@ -27,6 +27,18 @@ class Config:
     UPLOAD_FOLDER      = os.path.join(basedir, 'uploads')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB
 
+    # ── Email (Resend) ──────────────────────────────────────────────────────────────
+    # Phase 2 account flows (verification / invite / password-reset) send mail via
+    # Resend's HTTP API (https://resend.com). Free tier: 3,000/mo, 100/day.
+    # When RESEND_API_KEY is unset (local dev / tests) the email module logs the
+    # message + link to stderr instead of sending — so the flows are fully testable
+    # offline. Wire RESEND_API_KEY into Render env vars for production.
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+    MAIL_FROM      = os.environ.get('MAIL_FROM', 'BINNA <onboarding@resend.dev>')
+    # Public base URL used to build the tokenised links inside emails. Defaults to
+    # localhost for dev; set APP_BASE_URL on Render to the live origin.
+    APP_BASE_URL   = os.environ.get('APP_BASE_URL', 'http://localhost:5000')
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

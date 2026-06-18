@@ -74,6 +74,17 @@ class User(db.Model):
     email_verified           = db.Column(db.Boolean, nullable=False, default=False)
     email_verification_token = db.Column(db.String(255))
 
+    # ── Phase 2: account flows ──────────────────────────────────────────────────
+    # pending_company_name: carried from self-signup → company is created at the
+    # moment of verification (not at signup) per the Phase 2 spec.
+    # invite_pending: an invited user who has not yet set a password; their
+    # email_verification_token doubles as the verification proof.
+    # password_reset_*: single-use, time-boxed reset token.
+    pending_company_name     = db.Column(db.String(200))
+    invite_pending           = db.Column(db.Boolean, nullable=False, default=False)
+    password_reset_token     = db.Column(db.String(255))
+    password_reset_expires   = db.Column(db.DateTime)
+
     company = db.relationship('Company', foreign_keys=[company_id])
 
     # back-ref from ProjectMember
@@ -94,11 +105,14 @@ class User(db.Model):
     # ── Serialise ─────────────────────────────────────────────────────────────
     def to_dict(self) -> dict:
         return {
-            'id':         self.id,
-            'username':   self.username,
-            'email':      self.email,
-            'role':       self.role,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'id':             self.id,
+            'username':       self.username,
+            'email':          self.email,
+            'role':           self.role,            # PLATFORM role (admin | user)
+            'company_id':     self.company_id,      # TENANT this user belongs to
+            'company_role':   self.company_role,    # TENANT role (owner|admin|member|viewer)
+            'email_verified': self.email_verified,
+            'created_at':     self.created_at.isoformat() if self.created_at else None,
         }
 
     def __repr__(self):

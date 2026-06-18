@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 
 from app import db
 from app.models import Archive, DCLetter, Project, ProjectMember, _ROLE_ORDER
+from app.tenancy import membership_or_none
 
 dc_bp = Blueprint('dc', __name__)
 
@@ -22,14 +23,12 @@ dc_bp = Blueprint('dc', __name__)
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
 def _get_membership(project_id: int, user_id: int):
-    """Return (Project, ProjectMember) or (None, None) if no access."""
-    proj = Project.query.get(project_id)
-    if not proj:
-        return None, None
-    mem = ProjectMember.query.filter_by(
-        project_id=project_id, user_id=user_id
-    ).first()
-    return (proj, mem) if mem else (None, None)
+    """Return (Project, ProjectMember) or (None, None) if no access.
+
+    Delegates to the central tenant-isolation gate — access requires the project
+    to belong to the caller's company AND the user to be a member.
+    """
+    return membership_or_none(project_id, user_id)
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):
