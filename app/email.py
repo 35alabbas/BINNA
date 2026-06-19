@@ -50,6 +50,11 @@ def send_email(to: str, subject: str, html: str) -> bool:
         headers={
             'Authorization': f'Bearer {api_key}',
             'Content-Type':  'application/json',
+            # Cloudflare (which fronts api.resend.com) blocks the default
+            # "Python-urllib/x.y" client signature with HTTP 403 "error code: 1010".
+            # A normal User-Agent + Accept clears that block.
+            'User-Agent':    'BINNA/1.0',
+            'Accept':        'application/json',
         },
         method='POST',
     )
