@@ -1817,6 +1817,15 @@ adminLoadSaved();applyLang('en');
   overlay.addEventListener('mousedown', function(e){
     if(e.target === overlay) closeAuth();
   });
+
+  /* ── Auto-open Sign In when redirected here with ?signin=1 ──────────
+     logout() and requireAuth() (binna-api.js) now send unauthenticated
+     users to / instead of /login, so they land directly on this modal. */
+  try{
+    if(new URLSearchParams(location.search).has('signin')){
+      openAuth('login');
+    }
+  }catch(_){}
 })();
 </script>
 

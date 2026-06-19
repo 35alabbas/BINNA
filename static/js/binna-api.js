@@ -31,12 +31,15 @@ const BINNA = {
     localStorage.removeItem('binna_token');
     localStorage.removeItem('binna_user');
     localStorage.removeItem('binna_current_project');
-    window.location.href = '/login';
+    // Land on the marketing page's split-screen auth modal (Sign In tab),
+    // not the standalone /login page. ?signin=1 auto-opens the modal.
+    window.location.href = '/?signin=1';
   },
 
   requireAuth() {
     if (!this.getToken()) {
-      window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+      // Send unauthenticated users to the landing-page modal, not /login.
+      window.location.href = '/?signin=1';
       return false;
     }
     return true;
