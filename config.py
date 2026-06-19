@@ -34,7 +34,7 @@ class Config:
     # message + link to stderr instead of sending — so the flows are fully testable
     # offline. Wire RESEND_API_KEY into Render env vars for production.
     RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
-    MAIL_FROM      = os.environ.get('MAIL_FROM', 'BINNA <onboarding@resend.dev>')
+    MAIL_FROM      = os.environ.get('MAIL_FROM', 'BINNA <noreply@binnapm.com>')
     # Public base URL used to build the tokenised links inside emails. Defaults to
     # localhost for dev; set APP_BASE_URL on Render to the live origin.
     APP_BASE_URL   = os.environ.get('APP_BASE_URL', 'http://localhost:5000')
