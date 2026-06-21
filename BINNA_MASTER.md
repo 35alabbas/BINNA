@@ -389,6 +389,7 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 1. **Wire `DATABASE_URL`** on the BINNA web service to `binna-db`'s **Internal Database URL** when the service is resumed (otherwise it falls back to ephemeral SQLite). `config.py` auto-rewrites the scheme to `postgresql+psycopg://`.
 2. ✅ **DONE (2026-06-18) — exposed `binna_db_user` password rotated.** Credential rotated via Render's rotation feature to new default `users_database`; old roles `binna_users` + `binna_db_user` deleted/revoked. See the ✅ RESOLVED note above.
 3. **Upgrade the free Postgres** (`binna-db` free tier expires ~30 days from 2026-06-16) to a paid instance before launch, or the DB + data are deleted.
+4. ✅ **RESOLVED (2026-06-20) — Resend sending domain verified; real-customer registration unblocked.** `binnapm.com` is now **fully verified on Resend (DKIM, MX, SPF all confirmed)** and **`MAIL_FROM` updated to `BINNA <noreply@binnapm.com>`** (commit `ed01ce9`, deployed). **End-to-end proof:** an independent third-party test by **Mohammed's brother** completed the **full registration → verify → login flow.** Separately, registering `mohamadalabasi4@gmail.com` (a real, previously-unused address) showed **'Delivered' in Resend — confirming the email reached Gmail's servers, but the verification link was not clicked, so that account remains unverified** (delivery proof only, not E2E). *(Original blocker, added 2026-06-19: the sandbox sender `onboarding@resend.dev` only delivered to the one address registered on the Resend account, so no outside customer could register — this gated earlier than, and was resolved independently of, the Hostinger DNS cutover.)* Full detail in the **2026-06-19 (later) → 2026-06-20** session log.
 
 ### Status — Phase 0 COMPLETE ✅
 - **Local `binna.db`:** cleared, schema intact, app boots — verified.
@@ -402,7 +403,7 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### What changed
 - **New `Company` model** (`companies` table) — tenant root: `id, name, slug (unique, indexed), plan ('trial'), max_users (999), trial_ends_at, grace_ends_at, status ('trial'; ∈ trial/active/grace/locked), created_at`. New table → built by `db.create_all()` (no `_ensure_schema` entry).
 - **`company_id` added to all 14 tenant tables** (`users` + 13 data tables) — FK `companies.id`, **nullable + indexed**. Nullable because Phase 2 wires signup→company; no backfill (DB emptied in Phase 0).
-- **`users` gained:** `company_role` (tenant role `owner/admin/member/viewer`, default `viewer`), `email_verified` (bool, default false), `email_verification_token`. The verification *columns* exist now; the *logic* is Phase 2.
+- **`users` gained:** `company_role` (tenant role `owner/admin/member/viewer`, default `viewer`), `email_verified` (bool, default false), `email_verification_token`. At Phase 1 these were just the verification *columns*; the *logic* landed in **Phase 2** (commit `695a3c8`) and is **live in production** — `register()` creates accounts `email_verified=false`, `verify_email()` flips them, and `login()` (`app/auth.py:177-182`) **rejects unverified users**. (See the 2026-06-19 session log: this gate, combined with the email-delivery failures, is what locked accounts out.)
 - **All new columns registered in `_ensure_schema()`** (`run.py` `additions` list) via `ALTER TABLE … ADD COLUMN`. **Nothing dropped/recreated.** Boolean DDL uses `DEFAULT FALSE` (not `DEFAULT 0`) so it is valid on PostgreSQL as well as SQLite.
 
 ### ⚠️ Key deviation (read before touching user roles)
@@ -414,7 +415,7 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **PostgreSQL (`binna-db`):** ✅ **CONFIRMED** — Mohammed ran `verify_phase1.py` against binna-db's EXTERNAL url: `RESULT: PASS — Phase 1 schema present on postgresql`. App boots against production Postgres; `companies` table + `company_id` on all 14 data tables + `users.company_role`/`email_verified`/`email_verification_token` present; `users.role` preserved. (Running it also materialized the empty Phase-1 schema on binna-db — the production schema, no rows.) `_ensure_schema` DDL written Postgres-safe; `verify_phase1.py` writes no data.
 
 ### Status
-- Phase 1 schema **COMPLETE and verified on BOTH SQLite and production PostgreSQL** (`binna-db`). **Phase 2 NOT started** — awaiting Mohammed's go-ahead.
+- Phase 1 schema **COMPLETE and verified on BOTH SQLite and production PostgreSQL** (`binna-db`). **Phase 2 NOT started** — awaiting Mohammed's go-ahead. *(Point-in-time as of 2026-06-16 — **SUPERSEDED**: Phase 2 has since shipped and is live in production; see the Phase 2 session log (commit `695a3c8`) and the 2026-06-19 incident log.)*
 
 ## Session Log — 2026-06-18 (Per-member module permissions — storage + backfill)
 
@@ -438,3 +439,58 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 
 ### Status
 - Permission **storage + backfill tooling COMPLETE**; route enforcement **NOT started** (deliberately — next phase). Migration not yet run against production.
+
+## Session Log — 2026-06-19 (Account-flow incident — "Token missing" + verification emails never sent)
+
+> Live-production debugging of why users couldn't open any module ("Token missing") and why no verification email ever arrived. The web service is now **resumed/live** with `DATABASE_URL` wired to `binna-db` (Pre-launch item #1). End-to-end this turned out to be **three separate production failures stacked on top of each other** plus two known-open code defects. **One code fix shipped (User-Agent); the rest were env/config + a manual DB unblock.** Diagnosis was done read-only first; nothing else in code was changed this session.
+
+### (1) ✅ FIXED — Cloudflare 1010 blocked every Resend API call
+- **Symptom (Render logs):** `[EMAIL] Resend HTTPError 403: error code: 1010`. Cloudflare (which fronts `api.resend.com`) was blocking the request's client signature — bare `urllib` sends `User-Agent: Python-urllib/x.y`, which CF bans.
+- **Fix (`app/email.py`, commit `1703814`, pushed to `main`):** added `User-Agent: BINNA/1.0` + `Accept: application/json` headers to the `urllib` POST in `send_email`. No new dependency (kept stdlib `urllib`).
+- **Verified against the REAL Resend API:** `test_resend_send.py` (new helper, replicates `send_email`'s exact urllib request) sent to Mohammed's real address → **HTTP 200, email received.** The connection/auth path itself is proven working.
+
+### (2) ✅ FIXED — missing `JWT_SECRET_KEY` env var was the real cause of "Token missing"
+- The original module-access error ("Token missing" — surfaced from the server's `unauthorized_loader` "Missing or invalid token" 401, `app/__init__.py:53`) was traced to **`JWT_SECRET_KEY` not being set on the Render web service**. It is **now set**, and that **resolved the "Token missing" error** on module access.
+- **Guardrail:** `JWT_SECRET_KEY` (and `SECRET_KEY`) must remain set on the live service. Treat them as required production env vars alongside `DATABASE_URL` and `RESEND_API_KEY`. (`config.py:22` has a hardcoded dev fallback — do **not** rely on it in production; a real, stable secret must be set, and changing it later invalidates all issued tokens.)
+
+### (3) ✅ RESOLVED (2026-06-20) — Resend sandbox sender couldn't reach real customers (now fixed: sending domain verified)
+- Even with (1) fixed, **registering two fresh accounts on the live site produced no email** (`+test3@`/`+test4@`, inbox+spam both empty), while `test_resend_send.py` to Mohammed's own address worked. **Why:** the sandbox sender **`onboarding@resend.dev` only delivers to the single email address registered on the Resend account.** The test "worked" only because it sent to that exact owner address.
+- **This contradicts the launch plan's assumption that verification logic works before the August domain/DNS migration.** In reality **no real customer can complete registration** until a sending domain is **verified at resend.com/domains** and **`MAIL_FROM`** is pointed at it. Logged as **Pre-launch item #4 (HIGH PRIORITY)** in the Launch Track — **separate from and earlier than the Hostinger DNS timeline** (the Resend domain verification can/should be done ahead of the full site DNS cutover).
+- **✅ RESOLVED (2026-06-20):** `binnapm.com` verified on Resend (DKIM/MX/SPF); `MAIL_FROM` → `BINNA <noreply@binnapm.com>` (commit `ed01ce9`, deployed). **A third-party test by Mohammed's brother completed register→verify→login end-to-end** — the genuine pipeline proof the manual flip in section (4) below explicitly was *not*. (Also `mohamadalabasi4@gmail.com`, a real previously-unused address, showed **'Delivered' in Resend** — delivery to Gmail confirmed, but link not yet clicked, so that account is still unverified.) See the **2026-06-19 (later) → 2026-06-20** session log.
+
+### (4) ⚠️ Manual verification flip — testing-only, NOT a real signup
+- To unblock end-to-end testing while the above is sorted, **`mohamadalabasi2001@gmail.com` was manually set `email_verified = true`** via direct SQL against `binna-db` (`UPDATE users SET email_verified=true WHERE email='mohamadalabasi2001@gmail.com';`, scoped to the single row, run by Mohammed on the Render shell). **This account did NOT complete the real email-verification flow — do not treat it as evidence the verification pipeline works, and don't mistake it for a genuine verified signup in later audits.**
+
+### 🐞 Known-open defects (NOT fixed this session — logged for a future fix)
+- **D1 — `register()` lies about email delivery.** `app/auth.py:122` calls `send_verification_email(...)` but **ignores its return value** and unconditionally returns `201 "Account created. Check your email."` Combined with `send_email` returning `False` on a Resend error (and `True` on the missing-key dev no-op, `app/email.py:29-38`), **the user is always told "check your email" even when nothing was sent.** Fix later: check the return and surface a real failure (and/or fail the registration / queue a retry).
+- **D2 — no "resend verification email" path.** A user stuck unverified (email lost, expired, or never sent) has **no way to request a new verification email** — no endpoint, no UI. They are permanently stuck unless an admin flips the flag manually (as in (4)). Fix later: add a resend-verification endpoint + UI.
+
+### Status
+- "Token missing" module access: **RESOLVED** (JWT_SECRET_KEY set). Resend API connectivity: **RESOLVED** (User-Agent fix, commit `1703814`). Real-customer registration: **RESOLVED (2026-06-20)** — `binnapm.com` verified on Resend, `MAIL_FROM` → `BINNA <noreply@binnapm.com>` (commit `ed01ce9`); see the **2026-06-19 (later) → 2026-06-20** session log. D1/D2 remain open. No code changed beyond the committed User-Agent fix.
+
+## Session Log — 2026-06-19 (later) → 2026-06-20 (Resend domain verified — registration unblocked — + login consolidation)
+
+> Direct continuation of the 2026-06-19 account-flow incident above. Two things landed: the **Pre-launch #4 email blocker is RESOLVED** (real customers can now register end-to-end), and the standalone `/login` page was **consolidated into the landing-page modal**. **Documentation + two small frontend commits (`ed01ce9`, `4e4e536`); no schema or route logic changed.**
+
+### ✅ RESOLVED — Pre-launch #4: Resend sending domain verified, real-customer registration unblocked
+- **`binnapm.com` is now fully verified on Resend** — **DKIM, MX, and SPF all confirmed.** This clears the sandbox-sender limitation (`onboarding@resend.dev` reached only the Resend account owner) from section (3) of the 2026-06-19 log.
+- **`MAIL_FROM` updated to `BINNA <noreply@binnapm.com>`** (commit `ed01ce9`), deployed to production.
+- **Proven end-to-end (sole E2E proof):** an independent third-party test by **Mohammed's brother** **completed the full registration → verify → login flow** — received the verification email, clicked the link, and signed in. This is the genuine pipeline proof that the manual `email_verified` flip in section (4) of the 2026-06-19 log explicitly was *not*: the verification email pipeline now works for outside users, not just the account owner.
+- **Separately — delivery confirmed (NOT E2E):** `mohamadalabasi4@gmail.com`, a real, previously-unused address, was registered and shows **'Delivered' in Resend** — confirming the email reached Gmail's servers. **The verification link was not clicked (no inbox access), so this account remains unverified.** Delivery proof to a real outside address only — not an end-to-end test.
+- **Launch Track updated:** Pre-launch item #4 flipped 🔴 BLOCKING → ✅ RESOLVED (see the Launch Track list in the 2026-06-16 Phase 0 log); section (3) of the 2026-06-19 log and its Status line updated to match.
+
+### ✅ Login consolidation — main-site auth flows now route through the landing modal
+- **`static/js/binna-api.js`:** `logout()` and `requireAuth()` now redirect to **`/?signin=1`** (was `/login`); **`index.html` auto-opens the modal's Sign In tab** when the `?signin=1` param is present (commit `4e4e536`), deployed and confirmed live.
+- The landing nav/hero/CTA "Sign In" buttons already opened the modal (since `d099ccd`); this change brings the *redirect* paths (logout, and the 401 / expired-session bounce) onto the same modal instead of the standalone page.
+- **`/login` is intentionally LEFT in place and functional** — it still backs the server-side post-action redirects (email-verification links → `/login?verified=1`, password reset → `/login?reset=1`). **Do not delete it.**
+
+### Deferred loose ends from this consolidation (open, LOW priority — pending a decision)
+- **`templates/register.html:122`** still links "Already have an account? Sign in" to **`/login`** instead of the modal. Not actioned.
+- **`templates/index.html`** is a **stale, unserved duplicate** of the real landing page (`/` serves repo-root `index.html`). Could be deleted or synced to avoid future confusion. Not actioned.
+
+### Reconfirmed still-open defects (unchanged from the 2026-06-19 log)
+- **D1 — `register()` doesn't surface email-send failures** (`app/auth.py:122` ignores `send_verification_email()`'s return and always returns "Account created. Check your email."). **Still open.**
+- **D2 — no "resend verification email" path** for stuck-unverified users (no endpoint, no UI). **Still open.**
+
+### Status
+- Resend domain verification + real-customer registration: **RESOLVED** (`binnapm.com` verified; `MAIL_FROM` = `noreply@binnapm.com`; commit `ed01ce9`; **proven E2E by one real outside test — Mohammed's brother — full register→verify→login**; `mohamadalabasi4@gmail.com` is delivery-confirmed only, link not yet clicked). Login consolidation: **DONE** (commit `4e4e536`, live). Two template loose ends: **open, low-priority.** D1/D2: **still open.** No backend/schema/route logic changed.
