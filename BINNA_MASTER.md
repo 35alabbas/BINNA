@@ -547,3 +547,46 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Mohammed → Cloudflare/R2 account setup (only he can do this):** create/enable R2 (needs a card on file even for the free tier), create the bucket, decide the **bucket name** (recommend `binna-files-prod`), create a scoped **R2 API token** (Object Read & Write), and set the R2 env vars in **Render** himself (so secrets never enter the AI session): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`. Configure CORS for `binnapm.com`.
 - **Claude (code, once creds exist):** add `boto3` (S3-compatible client), wire `R2_*` into `config.py`, swap `uploads.py` (+ the shared DC-archive `record_upload` path) from local-disk save to R2 `put_object` with key `company_id/project_id/stored_name`, serve via presigned GET URLs, keep the tenancy + `member` role gates unchanged, and keep a local-disk fallback when `R2_*` is unset (mirrors the email module's dev fallback). No data migration needed (0 files).
 - **First concrete step:** Mohammed creates the R2 bucket + API token and sets the five Render env vars; that single action unblocks all Phase 3 code. **Blocked on:** Mohammed (Cloudflare account access — the AI cannot create accounts, buckets, or tokens).
+
+## Session Log — 2026-06-22 (Phase 3 — Cloudflare R2 file storage, core path live + E2E-confirmed)
+
+> Same session as the Phase 2 closure above, continuing straight into Phase 3. File storage moved from Render's ephemeral local disk to Cloudflare R2 (S3-compatible), with a local-disk fallback for dev/tests. Connectivity proven before any code; the upload path then wired through a single storage chokepoint; finished with a **real** end-to-end round-trip against the live bucket.
+>
+> **Same-session Phase 2 closure (happened first, before Phase 3 — see the entry directly above):** consolidated `/login` into the `/?signin` landing modal (commit `37ce2ec`); found and patched a real **viewer-edit authorization gap** in `financial`/`gantt`/`uploads` (commit `7b1c9af`); and **verified the entire Phase 2 isolation/role checklist with evidence** (`test_isolation.py` 46, `test_account_flows.py` 16, `test_viewer_edit.py` 12). Phase 3 was not started until all of that was closed.
+
+### ✅ R2 account setup (Mohammed, Cloudflare side)
+- **Cloudflare Professional account**, R2 enabled. Bucket **`binna-files-prod`** created (private — downloads go through presigned URLs, no public access).
+- **Account API Token scoped to that bucket** (Object Read & Write). The five credentials/targets set as **Render env vars on the web service** (so secrets never entered the AI session): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`.
+
+### ✅ Connectivity proven before wiring (commit `26b0e8b`)
+- Added `boto3` to `requirements.txt`; wired `R2_*` into `config.py` (+ an `R2_ENABLED` helper; unset ⇒ local-disk fallback). `test_r2_connectivity.py` (read-only `head_bucket` + `list_objects_v2`, env-direct) **confirmed live in the Render shell: `head_bucket` OK, bucket reachable, 0 objects.**
+
+### ✅ ALLOWED_EXTENSIONS locked in (commit `eea3673`)
+- Final allowlist (Mohammed's call): **`pdf, doc, docx, xls, xlsx, dwg, jpg, jpeg, png, webp, zip, rar`** (12). **Added `dwg`** (CAD — was missing); **dropped `gif, bmp, txt, csv`**. Settled before R2 wiring locked it in.
+
+### ✅ `app/storage.py` — single storage chokepoint (commit `08b51a3`)
+- `r2_enabled()` (checks the four R2 keys), lazy + injectable boto3 client, `key_for() = "<company_id>/<project_id>/<stored_name>"` (tenant isolation in the path, per plan).
+- `save_file(f, company_id, project_id, stored_name)` → R2 `put_object` when enabled, else local disk.
+- `download_response(upload)` → **302 redirect to a 300s presigned GET URL** on R2, else `send_from_directory`. Bytes live in R2; Postgres keeps only the `Upload` ownership row (key reconstructable from it — **no schema change**).
+
+### ✅ Route updates — both upload paths through storage
+- **`uploads.py`**: `upload_file` → `storage.save_file(...)`; `serve_file` → `storage.download_response(...)` **after** the existing `membership_or_none` tenancy gate (so cross-tenant requests 404 with **no presign generated**). Dead `os`/`current_app`/`send_from_directory` imports removed.
+- **`dc.py`**: the DC-archive upload shares the same serve route, so it was routed through `storage.save_file(...)` too — otherwise archive downloads would break under R2. Dead `os`/`current_app` imports removed.
+
+### ✅ Stale test-fixture fix
+- `eea3673` had **silently broken** `test_isolation.py` + `test_viewer_edit.py` — they upload `.txt` fixtures the new allowlist rejects — and it sat undetected on `main` because only the allowlist change's immediate context was re-run then. Fixtures switched `.txt` → `.pdf`. **(Prompted a new standing rule: run the FULL test suite after every change, not just the touched module's.)** Production code was always correct; only fixtures were stale.
+
+### ✅ Tests — full suite green (offline)
+- `test_r2_upload.py` (**new**, stubbed S3 client, no network): object lands at `company/project/stored_name` with exact bytes; serve returns a 302 presigned URL for that key; **company B → 404 with no presign**; anon → 401. **10 passed.**
+- `test_isolation.py` **46**, `test_account_flows.py` **16**, `test_viewer_edit.py` **12** — all pass with R2 unset (disk fallback), confirming both backends work.
+
+### ✅ Live end-to-end R2 round-trip — CONFIRMED
+- Run by Mohammed in the Render shell against the **real `binna-files-prod` bucket** via the deployed `storage.py` code path: real `put_object` upload → real presigned GET URL → **HTTP download → byte-match** → test object **deleted (cleanup)**. **RESULT: REAL R2 ROUND-TRIP CONFIRMED.** This is the genuine proof, not the mocked suite.
+
+### Status — ✅ PHASE 3 CORE UPLOAD PATH DONE & LIVE
+- R2 storage is live in production (commit `08b51a3` deployed; `R2_*` set on Render). Uploads + DC-archive uploads write to `binna-files-prod` under `company_id/project_id/stored_name`; downloads serve via short-lived presigned URLs behind the tenancy gate. Local-disk fallback intact for dev/tests. Verified by full offline suite **and** a real live round-trip.
+
+### Next Step
+- **Verify the frontend file download UX against the new 302→presigned-URL serve behavior** — confirm the upload/download UI follows the redirect correctly (browser navigation vs. `fetch()` with auth headers); adjust the client if a `fetch` follows the redirect to R2 with stale `Authorization`. **Owner:** Claude, pending Mohammed pointing at the relevant upload UI / giving go-ahead.
+- **Optional R2 hardening:** configure bucket **CORS for `binnapm.com`** (only needed if the browser ever talks to R2 directly; current flow is same-origin 302, so not blocking).
+- **Then → Phase 4 (billing / subscription + company lock)** per `BINNA_SAAS_PLAN.md`: invoice-paid flips company to `active`, locked company cannot edit, revenue tracker. **Blocked on:** Mohammed's go-ahead to start Phase 4 (and confirmation the frontend download UX check above is clear).
