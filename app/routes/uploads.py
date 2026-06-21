@@ -125,6 +125,6 @@ def serve_file(filename):
     if not mem:
         abort(404)
 
-    # Gate passed → hand off to the storage backend (R2 presigned redirect, or
-    # local-disk stream when R2 is unset).
-    return storage.download_response(upload)
+    # Gate passed → hand off to the storage backend. R2: JSON {url: presigned} for
+    # the client to navigate to. Disk: stream the bytes. ?download=1 forces save.
+    return storage.serve(upload, download=(request.args.get('download') == '1'))

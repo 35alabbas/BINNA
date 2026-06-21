@@ -237,7 +237,16 @@ const BINNA = {
         headers: { 'Authorization': 'Bearer ' + (this.getToken() || '') },
       });
       if (!res.ok) return;
-      imgEl.src = URL.createObjectURL(await res.blob());
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        // R2: presigned URL. <img src> to a cross-origin URL is fine for display
+        // (no auth header, no CORS — CORS only gates fetch reads / canvas pixels).
+        const { url } = await res.json();
+        if (url) imgEl.src = url;
+      } else {
+        // Disk fallback: same-origin bytes.
+        imgEl.src = URL.createObjectURL(await res.blob());
+      }
     } catch (_) { /* leave placeholder */ }
   },
 
@@ -249,19 +258,38 @@ const BINNA = {
 
   /**
    * Open / download a JWT-protected stored file. The serve endpoint requires an
-   * Authorization header, so a plain <a href>/<img src> would 401 — we fetch as
-   * a blob with the token, then open it. `download=true` saves instead of opens.
+   * Authorization header, so we always fetch IT with the token (same-origin — the
+   * header is safe and never rides a cross-origin hop). Two backends:
+   *   • R2  → endpoint returns JSON {url: presigned}. We navigate straight to that
+   *           URL. It self-authorizes via its signature, so no auth header is sent
+   *           to Cloudflare and there's no CORS-gated blob read.
+   *   • disk → endpoint streams the bytes; we blob + open as before.
+   * `download=true` saves instead of opening inline.
    */
   async openUpload(storedName, originalName, download = false) {
     try {
-      const res = await fetch(`${API_BASE}/uploads/${encodeURIComponent(storedName)}`, {
+      const qs  = download ? '?download=1' : '';
+      const res = await fetch(`${API_BASE}/uploads/${encodeURIComponent(storedName)}${qs}`, {
         headers: { 'Authorization': 'Bearer ' + (this.getToken() || '') },
       });
       if (!res.ok) throw new Error('Could not open file (' + res.status + ')');
+      const ct = res.headers.get('content-type') || '';
+
+      if (ct.includes('application/json')) {
+        // R2: navigate to the presigned URL directly (Content-Disposition on the
+        // signed URL drives save-vs-inline when download=1).
+        const { url } = await res.json();
+        if (!url) throw new Error('Could not open file (no URL)');
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+        document.body.appendChild(a); a.click(); a.remove();
+        return;
+      }
+
+      // Disk fallback: same-origin bytes → object URL.
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
-      const display = originalName
-        || (storedName.includes('_') ? storedName.split('_').slice(1).join('_') : storedName);
+      const display = originalName || this.uploadDisplayName(storedName);
       if (download) {
         const a = document.createElement('a');
         a.href = url; a.download = display;

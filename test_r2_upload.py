@@ -50,8 +50,9 @@ class FakeR2:
         return {'ETag': '"stub"'}
 
     def generate_presigned_url(self, op, Params, ExpiresIn):
-        self.presigned.append((op, Params['Bucket'], Params['Key'], ExpiresIn))
-        return f"https://fake.r2.example/{Params['Bucket']}/{Params['Key']}?sig=stub&exp={ExpiresIn}"
+        self.presigned.append({'op': op, 'key': Params['Key'], 'ttl': ExpiresIn, 'params': Params})
+        disp = '&disp=attachment' if 'ResponseContentDisposition' in Params else ''
+        return f"https://fake.r2.example/{Params['Bucket']}/{Params['Key']}?sig=stub{disp}"
 
 
 fake = FakeR2()
@@ -116,14 +117,26 @@ check(f'key is company/project/stored_name ({expected_key})',
 check('stored bytes match the uploaded bytes',
       fake.objects.get(('binna-files-test', expected_key)) == CONTENT)
 
-# ── 2. Serve → 302 presigned URL for that key ─────────────────────────────────
-print('\n[2] serve returns a 302 presigned URL for the key')
+# ── 2. Serve → JSON {url: presigned} for that key (NOT a 302, no blob) ─────────
+print('\n[2] serve returns JSON {url: presigned} for the key (no 302, no CORS blob)')
 sv = client.get(f'/api/v1/uploads/{stored}', headers=hdr_a)
-loc = sv.headers.get('Location', '')
-check(f'[{sv.status_code}] owner serve is a 302 redirect', sv.status_code == 302)
-check('redirect points at the presigned URL for the right key', expected_key in loc)
-check('a presign was generated with a finite TTL',
-      bool(fake.presigned) and fake.presigned[-1][3] == storage.PRESIGN_TTL)
+ct = sv.headers.get('Content-Type', '')
+check(f'[{sv.status_code}] owner serve is 200 JSON (not a 302)',
+      sv.status_code == 200 and 'application/json' in ct)
+body = sv.get_json() or {}
+check('JSON url points at the presigned URL for the right key',
+      expected_key in body.get('url', ''))
+check('presign generated with the configured TTL',
+      bool(fake.presigned) and fake.presigned[-1]['ttl'] == storage.PRESIGN_TTL)
+check('inline view does NOT set attachment disposition',
+      'ResponseContentDisposition' not in fake.presigned[-1]['params'])
+
+# download=1 → presigned URL carries attachment Content-Disposition (forces save)
+svd = client.get(f'/api/v1/uploads/{stored}?download=1', headers=hdr_a)
+check(f'[{svd.status_code}] download serve is 200 JSON',
+      svd.status_code == 200 and 'application/json' in svd.headers.get('Content-Type', ''))
+check('download presign sets attachment Content-Disposition',
+      'ResponseContentDisposition' in fake.presigned[-1]['params'])
 
 # ── 3. Tenant isolation carries over to R2 ────────────────────────────────────
 print('\n[3] isolation: company B cannot fetch company A file; unauth blocked')

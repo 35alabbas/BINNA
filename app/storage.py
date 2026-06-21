@@ -12,7 +12,7 @@ project_id and stored_name, so the key is reconstructable at serve time without 
 schema change. Bytes live in R2; Postgres stores only the ownership record.
 """
 import os
-from flask import current_app, redirect, send_from_directory, abort
+from flask import current_app, jsonify, send_from_directory, abort
 
 # Lazily-built boto3 client (one per process). Tests may inject a stub here.
 _client = None
@@ -63,19 +63,38 @@ def save_file(f, company_id, project_id, stored_name):
     f.save(os.path.join(folder, stored_name))
 
 
-def download_response(upload):
+def _display_name(stored_name, original_name):
+    """Human filename: prefer the original, else strip the stored "<uuid>_" prefix."""
+    if original_name:
+        return original_name
+    return stored_name.split('_', 1)[1] if '_' in stored_name else stored_name
+
+
+def serve(upload, download=False):
     """Deliver a stored file to an ALREADY-authorized caller (the route runs the
-    tenancy gate first). R2: 302 redirect to a short-lived presigned GET URL.
-    Disk: stream from UPLOAD_FOLDER."""
+    tenancy gate first).
+
+    R2: return JSON {"url": <presigned GET>} — the frontend navigates to it
+    directly. We deliberately do NOT 302-redirect: the only client is a fetch()
+    that carries an Authorization header, and a cross-origin redirect would (a)
+    force a CORS-gated blob read against R2 (no bucket CORS) and (b) is needless
+    since the presigned URL self-authorizes. Navigating to the URL (or using it as
+    an <img src>) needs neither the auth header nor CORS.
+
+    Disk (local dev / tests): stream the bytes back same-origin.
+    """
+    display = _display_name(upload.stored_name, upload.original_name)
     if r2_enabled():
+        params = {'Bucket': current_app.config['R2_BUCKET'],
+                  'Key': key_for(upload.company_id, upload.project_id, upload.stored_name)}
+        if download:
+            params['ResponseContentDisposition'] = f'attachment; filename="{display}"'
         url = _client_or_build().generate_presigned_url(
-            'get_object',
-            Params={'Bucket': current_app.config['R2_BUCKET'],
-                    'Key': key_for(upload.company_id, upload.project_id, upload.stored_name)},
-            ExpiresIn=PRESIGN_TTL,
+            'get_object', Params=params, ExpiresIn=PRESIGN_TTL,
         )
-        return redirect(url)
+        return jsonify({'url': url})
     folder = current_app.config['UPLOAD_FOLDER']
     if not os.path.isfile(os.path.join(folder, upload.stored_name)):
         abort(404)
-    return send_from_directory(folder, upload.stored_name, as_attachment=False)
+    return send_from_directory(folder, upload.stored_name,
+                               as_attachment=download, download_name=display)
