@@ -10,17 +10,28 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
-from app.models import FinancialData, Project, ProjectMember
+from app.models import FinancialData, Project, ProjectMember, _ROLE_ORDER
 from app.tenancy import membership_or_none
 
 financial_bp = Blueprint('financial', __name__)
 
 
 def _check_access(project_id, user_id):
-    # Company-scoped gate: returns the project only when it belongs to the
+    # Company-scoped gate (READ): returns the project only when it belongs to the
     # caller's company AND the user is a member; otherwise None.
     proj, mem = membership_or_none(project_id, user_id)
     return proj if mem else None
+
+
+def _requires_role(project_id, user_id, min_role='member'):
+    """Company-scoped gate (WRITE) — mirrors the seven already-gated modules.
+    (None, None) → 404 (no access / wrong tenant); (project, None) → 403 (role too low)."""
+    proj, mem = membership_or_none(project_id, user_id)
+    if not proj:
+        return None, None
+    if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
+        return proj, None
+    return proj, mem
 
 
 @financial_bp.route('', methods=['GET'])
@@ -47,9 +58,11 @@ def get_financial(project_id):
 @jwt_required()
 def save_financial(project_id):
     uid = int(get_jwt_identity())
-    proj = _check_access(project_id, uid)
-    if not proj:
-        return jsonify({'error': 'Project not found or access denied'}), 404
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if proj is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions — member role required'}), 403
 
     body = request.get_json(silent=True) or {}
     payload = body.get('data')
@@ -71,9 +84,11 @@ def save_financial(project_id):
 def save_income_expenses(project_id):
     """Partial update — only writes income/expense fields, never touches BOQ/VO/payments."""
     uid = int(get_jwt_identity())
-    proj = _check_access(project_id, uid)
-    if not proj:
-        return jsonify({'error': 'Project not found or access denied'}), 404
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if proj is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions — member role required'}), 403
 
     body = request.get_json(silent=True) or {}
 

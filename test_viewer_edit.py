@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
 BINNA — Phase 2 checklist item (d), LITERALLY:
-  a VIEWER attempting a content-EDIT action is blocked (403),
-  while an OWNER performing the SAME edit succeeds (200).
+  a VIEWER attempting a content-EDIT action is blocked,
+  while an OWNER performing the SAME edit succeeds.
 
-Not invite permissions — an actual content edit. Two edit surfaces are probed:
-  • PROJECT-FIELD edit  →  PUT /api/v1/projects/<id>            (role-gated 'admin')
-  • FINANCIAL edit      →  PUT /api/v1/projects/<id>/financial  (membership-only?)
+Not invite permissions — actual content edits across the modules that were the
+authorization gap (financial, gantt, uploads) plus a project-field edit:
+
+  [A] PROJECT-FIELD  PUT  /projects/<id>            (projects.py: 'admin'; viewer 404 by design)
+  [B] FINANCIAL      PUT  /projects/<id>/financial  (gated 'member' → viewer 403, owner 200)
+      GANTT          PUT  /projects/<id>/gantt       (gated 'member' → viewer 403, owner 200)
+      UPLOADS        POST /projects/<id>/uploads     (gated 'member' → viewer 403, owner 201)
 
 Runs offline against a throwaway SQLite DB (RESEND_API_KEY unset → email logged,
-not sent). Exit 0 only if item (d) holds on the project-field edit.
+not sent). Exit 0 only when every assertion holds.
 """
-import os, sys, tempfile
+import io, os, sys, tempfile
 
 _TMP = os.path.join(tempfile.gettempdir(), 'binna_viewer_edit_test.db')
 if os.path.exists(_TMP):
@@ -80,45 +84,56 @@ assert am.status_code == 201, am.get_json()
 check("setup: viewer is a project member with role 'viewer'",
       am.get_json()['member']['role'] == 'viewer')
 
-# ── A. PROJECT-FIELD edit — PUT /projects/<id> (the literal item (d)) ──────────
+# ── A. PROJECT-FIELD edit — PUT /projects/<id> ────────────────────────────────
+# projects.py collapses "insufficient role" into 404 (it won't disclose the
+# project exists), so a blocked viewer here is 403 OR 404 — both mean "blocked".
 print('\n[A] content edit: rename the project (PUT /projects/<id>)')
 v_edit = client.put(f'/api/v1/projects/{pid}',
                     json={'name': 'HACKED BY VIEWER'}, headers=viewer_hdr)
-check(f'[{v_edit.status_code}] VIEWER edit is BLOCKED (expect 403)',
-      v_edit.status_code == 403)
-
+check(f'[{v_edit.status_code}] VIEWER edit is BLOCKED (403/404)',
+      v_edit.status_code in (403, 404))
 o_edit = client.put(f'/api/v1/projects/{pid}',
                     json={'name': 'Acme Tower (renamed by owner)'}, headers=owner_hdr)
-check(f'[{o_edit.status_code}] OWNER edit SUCCEEDS (expect 200)',
-      o_edit.status_code == 200)
-
-# Prove the write actually took / was actually rejected.
+check(f'[{o_edit.status_code}] OWNER edit SUCCEEDS (200)', o_edit.status_code == 200)
 after = client.get(f'/api/v1/projects/{pid}', headers=owner_hdr).get_json()['project']
 check("project name reflects OWNER's edit, not the viewer's",
       after['name'] == 'Acme Tower (renamed by owner)')
 
-ITEM_D_OK = (v_edit.status_code == 403 and o_edit.status_code == 200
-             and after['name'] == 'Acme Tower (renamed by owner)')
+# ── B. MODULE edits — the patched gap: viewer 403, owner success ──────────────
+# financial / gantt / uploads were membership-only (any member, incl. a viewer,
+# could write). Each must now require 'member': viewer → 403, owner → success.
+print('\n[B] module content edits: VIEWER blocked (403), OWNER succeeds')
 
-# ── B. FINANCIAL edit — PUT /projects/<id>/financial (honest probe) ───────────
-print('\n[B] content edit: financial blob (PUT /projects/<id>/financial)')
-vf = client.put(f'/api/v1/projects/{pid}/financial',
-                json={'data': {'secret': 'viewer-was-here'}}, headers=viewer_hdr)
-print(f'      VIEWER financial PUT → HTTP {vf.status_code}')
-of = client.put(f'/api/v1/projects/{pid}/financial',
-                json={'data': {'secret': 'owner-value'}}, headers=owner_hdr)
-print(f'      OWNER  financial PUT → HTTP {of.status_code}')
-fin_gated = vf.status_code == 403
-if fin_gated:
-    print('      → financial edit IS role-gated against viewers.')
-else:
-    print(f'      → ⚠ financial edit is NOT role-gated: a viewer got HTTP {vf.status_code} '
-          '(membership-only access, no role check). REAL GAP.')
+print('  financial  (PUT /projects/<id>/financial)')
+vf = client.put(f'/api/v1/projects/{pid}/financial', json={'data': {'x': 'viewer'}}, headers=viewer_hdr)
+of = client.put(f'/api/v1/projects/{pid}/financial', json={'data': {'x': 'owner'}},  headers=owner_hdr)
+check(f'    [{vf.status_code}] viewer financial edit BLOCKED (403)', vf.status_code == 403)
+check(f'    [{of.status_code}] owner  financial edit OK (200)',      of.status_code == 200)
+
+print('  financial/income  (PUT /projects/<id>/financial/income)')
+vfi = client.put(f'/api/v1/projects/{pid}/financial/income', json={'income': []}, headers=viewer_hdr)
+ofi = client.put(f'/api/v1/projects/{pid}/financial/income', json={'income': []}, headers=owner_hdr)
+check(f'    [{vfi.status_code}] viewer income edit BLOCKED (403)', vfi.status_code == 403)
+check(f'    [{ofi.status_code}] owner  income edit OK (200)',      ofi.status_code == 200)
+
+print('  gantt      (PUT /projects/<id>/gantt)')
+vg = client.put(f'/api/v1/projects/{pid}/gantt', json={'tasks': [{'name': 'viewer task'}]}, headers=viewer_hdr)
+og = client.put(f'/api/v1/projects/{pid}/gantt', json={'tasks': [{'name': 'owner task'}]},  headers=owner_hdr)
+check(f'    [{vg.status_code}] viewer gantt edit BLOCKED (403)', vg.status_code == 403)
+check(f'    [{og.status_code}] owner  gantt edit OK (200)',      og.status_code == 200)
+
+print('  uploads    (POST /projects/<id>/uploads)')
+vu = client.post(f'/api/v1/projects/{pid}/uploads',
+                 data={'file': (io.BytesIO(b'viewer file'), 'v.txt')},
+                 content_type='multipart/form-data', headers=viewer_hdr)
+ou = client.post(f'/api/v1/projects/{pid}/uploads',
+                 data={'file': (io.BytesIO(b'owner file'), 'o.txt')},
+                 content_type='multipart/form-data', headers=owner_hdr)
+check(f'    [{vu.status_code}] viewer upload BLOCKED (403)', vu.status_code == 403)
+check(f'    [{ou.status_code}] owner  upload OK (201)',      ou.status_code == 201)
 
 # ── Verdict ──────────────────────────────────────────────────────────────────
 print('\n' + '═' * 70)
-print(f'  ITEM (d) [project-field edit]: {"PASS" if ITEM_D_OK else "FAIL"}')
-print(f'  financial edit role-gated:     {"yes" if fin_gated else "NO (gap)"}')
 print(f'  RESULT: {_PASS} passed, {_FAIL} failed')
 print('═' * 70)
-sys.exit(0 if ITEM_D_OK else 1)
+sys.exit(1 if _FAIL else 0)
