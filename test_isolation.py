@@ -103,7 +103,7 @@ def seed_data(headers, pid):
 def upload_file(headers, pid, content):
     """Upload a file to a project; return its stored_name."""
     r = client.post(f'/api/v1/projects/{pid}/uploads',
-                    data={'file': (io.BytesIO(content), 'secret.txt')},
+                    data={'file': (io.BytesIO(content), 'secret.pdf')},
                     content_type='multipart/form-data', headers=headers)
     assert r.status_code == 201, f'upload failed: {r.status_code} {r.get_json()}'
     return r.get_json()['file_name']

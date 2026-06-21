@@ -5,15 +5,14 @@ Phase 2
 All routes are nested under:
     /api/v1/projects/<project_id>/dc
 """
-import os
 import uuid
 from datetime import date
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 
-from app import db
+from app import db, storage
 from app.models import Archive, DCLetter, Project, ProjectMember, _ROLE_ORDER
 from app.tenancy import membership_or_none
 from app.routes.uploads import record_upload
@@ -392,9 +391,8 @@ def upload_archive_file(project_id: int, archive_id: int):
     orig        = secure_filename(f.filename)
     stored_name = f"{uuid.uuid4().hex}_{orig}"
 
-    upload_folder = current_app.config['UPLOAD_FOLDER']
-    os.makedirs(upload_folder, exist_ok=True)
-    f.save(os.path.join(upload_folder, stored_name))
+    # Persist to R2 (or local disk when R2 is unset). Key = company/project/name.
+    storage.save_file(f, proj.company_id, proj.id, stored_name)
 
     archive.file_attachment = stored_name
     # Ownership record so the file serves through the tenancy gate like any other.

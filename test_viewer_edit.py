@@ -124,10 +124,10 @@ check(f'    [{og.status_code}] owner  gantt edit OK (200)',      og.status_code 
 
 print('  uploads    (POST /projects/<id>/uploads)')
 vu = client.post(f'/api/v1/projects/{pid}/uploads',
-                 data={'file': (io.BytesIO(b'viewer file'), 'v.txt')},
+                 data={'file': (io.BytesIO(b'viewer file'), 'v.pdf')},
                  content_type='multipart/form-data', headers=viewer_hdr)
 ou = client.post(f'/api/v1/projects/{pid}/uploads',
-                 data={'file': (io.BytesIO(b'owner file'), 'o.txt')},
+                 data={'file': (io.BytesIO(b'owner file'), 'o.pdf')},
                  content_type='multipart/form-data', headers=owner_hdr)
 check(f'    [{vu.status_code}] viewer upload BLOCKED (403)', vu.status_code == 403)
 check(f'    [{ou.status_code}] owner  upload OK (201)',      ou.status_code == 201)

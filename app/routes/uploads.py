@@ -8,14 +8,13 @@ serve endpoint resolves that row and routes through the SAME tenancy gate as
 every other endpoint, so a file can only be fetched by a member of its owning
 project/company. There is no longer any authenticated-but-unscoped file access.
 """
-import os
 import uuid
 
-from flask import Blueprint, jsonify, request, send_from_directory, current_app, abort
+from flask import Blueprint, jsonify, request, abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 
-from app import db
+from app import db, storage
 from app.models import Project, ProjectMember, Upload, User, _ROLE_ORDER
 from app.tenancy import membership_or_none
 
@@ -91,9 +90,8 @@ def upload_file(project_id):
     orig         = secure_filename(f.filename)
     stored_name  = f"{uuid.uuid4().hex}_{orig}"
 
-    upload_folder = current_app.config['UPLOAD_FOLDER']
-    os.makedirs(upload_folder, exist_ok=True)
-    f.save(os.path.join(upload_folder, stored_name))
+    # Persist to R2 (or local disk when R2 is unset). Key = company/project/name.
+    storage.save_file(f, proj.company_id, proj.id, stored_name)
 
     # Ownership record — scopes this file to the project's company/tenant.
     record_upload(stored_name, orig, proj, uid)
@@ -127,8 +125,6 @@ def serve_file(filename):
     if not mem:
         abort(404)
 
-    upload_folder = current_app.config['UPLOAD_FOLDER']
-    full_path = os.path.join(upload_folder, safe)
-    if not os.path.isfile(full_path):
-        abort(404)
-    return send_from_directory(upload_folder, safe, as_attachment=False)
+    # Gate passed → hand off to the storage backend (R2 presigned redirect, or
+    # local-disk stream when R2 is unset).
+    return storage.download_response(upload)
