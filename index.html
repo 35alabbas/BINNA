@@ -1886,11 +1886,21 @@ adminLoadSaved();applyLang('en');
   });
 
   /* ── Auto-open Sign In when redirected here with ?signin=1 ──────────
-     logout() and requireAuth() (binna-api.js) now send unauthenticated
-     users to / instead of /login, so they land directly on this modal. */
+     logout() and requireAuth() (binna-api.js), plus the retired /login route
+     and the email verification / password-reset links, all send users to
+     /?signin=1 so they land directly on this modal. Carry over the status
+     params (verified / reset) into a confirmation message. */
   try{
-    if(new URLSearchParams(location.search).has('signin')){
-      openAuth('login');
+    const _q = new URLSearchParams(location.search);
+    if(_q.has('signin')){
+      openAuth('login');                       // openAuth clears messages first
+      if(_q.get('verified') === '1'){
+        showSuccess('✓ Email verified — sign in to continue.');
+      }else if(_q.get('verified') === 'already'){
+        showSuccess('Your email is already verified — sign in to continue.');
+      }else if(_q.has('reset')){
+        showSuccess('✓ Password updated — sign in with your new password.');
+      }
     }
   }catch(_){}
 })();

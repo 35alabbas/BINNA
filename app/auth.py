@@ -145,7 +145,7 @@ def verify_email(token):
     user = User.query.filter_by(email_verification_token=token).first()
     if not user:
         # Already-verified links land here too (token cleared); send them to login.
-        return redirect(f"{current_app.config['APP_BASE_URL']}/login?verified=already")
+        return redirect(f"{current_app.config['APP_BASE_URL']}/?signin=1&verified=already")
 
     if not user.email_verified:
         user.email_verified = True
@@ -158,7 +158,7 @@ def verify_email(token):
         user.pending_company_name     = None
         db.session.commit()
 
-    return redirect(f"{current_app.config['APP_BASE_URL']}/login?verified=1")
+    return redirect(f"{current_app.config['APP_BASE_URL']}/?signin=1&verified=1")
 
 
 # ── Resend verification email (D2 fix) ──────────────────────────────────────────

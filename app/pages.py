@@ -4,7 +4,7 @@ All authentication / authorisation is handled client-side (JWT in localStorage).
 Flask simply serves the HTML; the JS on each page calls the API.
 """
 import os
-from flask import Blueprint, render_template, redirect, send_from_directory, abort
+from flask import Blueprint, render_template, redirect, send_from_directory, abort, request
 
 pages_bp = Blueprint('pages', __name__)
 
@@ -23,7 +23,12 @@ def index():
 
 @pages_bp.route('/login')
 def login_page():
-    return render_template('login.html')
+    # Retired as a standalone page (Phase 2 consolidation). The sign-in UI is now
+    # the landing-page modal, auto-opened by '?signin=1'. Redirect there, carrying
+    # over any query params (verified=1 / verified=already / reset=1) so the modal
+    # can surface the right confirmation message.
+    qs = request.query_string.decode()
+    return redirect('/?signin=1' + ('&' + qs if qs else ''))
 
 
 @pages_bp.route('/register')
@@ -89,7 +94,7 @@ def reset_password_page():
         'Reset password',
         'Choose a new password for your BINNA account.',
         '<input type="password" name="new_password" placeholder="New password" minlength="6" required>',
-        '/api/v1/auth/reset-password', '/login?reset=1',
+        '/api/v1/auth/reset-password', '/?signin=1&reset=1',
     )
 
 

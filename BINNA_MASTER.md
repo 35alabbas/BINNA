@@ -482,11 +482,11 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### ✅ Login consolidation — main-site auth flows now route through the landing modal
 - **`static/js/binna-api.js`:** `logout()` and `requireAuth()` now redirect to **`/?signin=1`** (was `/login`); **`index.html` auto-opens the modal's Sign In tab** when the `?signin=1` param is present (commit `4e4e536`), deployed and confirmed live.
 - The landing nav/hero/CTA "Sign In" buttons already opened the modal (since `d099ccd`); this change brings the *redirect* paths (logout, and the 401 / expired-session bounce) onto the same modal instead of the standalone page.
-- **`/login` is intentionally LEFT in place and functional** — it still backs the server-side post-action redirects (email-verification links → `/login?verified=1`, password reset → `/login?reset=1`). **Do not delete it.**
+- **`/login` is intentionally LEFT in place and functional** — it still backs the server-side post-action redirects (email-verification links → `/login?verified=1`, password reset → `/login?reset=1`). **Do not delete it.** *(SUPERSEDED 2026-06-22: `/login` has since been retired — it now `302`-redirects to `/?signin=1` carrying the query params, the server redirects point straight at `/?signin=1&…`, and `templates/login.html` was deleted. See the 2026-06-22 session log.)*
 
-### Deferred loose ends from this consolidation (open, LOW priority — pending a decision)
-- **`templates/register.html:122`** still links "Already have an account? Sign in" to **`/login`** instead of the modal. Not actioned.
-- **`templates/index.html`** is a **stale, unserved duplicate** of the real landing page (`/` serves repo-root `index.html`). Could be deleted or synced to avoid future confusion. Not actioned.
+### Deferred loose ends from this consolidation (✅ ALL RESOLVED 2026-06-22 — see that session log)
+- **`templates/register.html:122`** still links "Already have an account? Sign in" to **`/login`** instead of the modal. Not actioned. *(✅ RESOLVED 2026-06-22 → now `/?signin`, commit `5f39bc2`.)*
+- **`templates/index.html`** is a **stale, unserved duplicate** of the real landing page (`/` serves repo-root `index.html`). Could be deleted or synced to avoid future confusion. Not actioned. *(✅ RESOLVED 2026-06-22 → deleted, commit `5f39bc2`.)*
 
 ### Defects D1/D2 (open as of this log — both ✅ RESOLVED 2026-06-21, see that session log)
 - **D1 — `register()` doesn't surface email-send failures** (`app/auth.py:122` ignores `send_verification_email()`'s return and always returns "Account created. Check your email."). **✅ RESOLVED (2026-06-21).**
@@ -513,4 +513,34 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - The four user-facing strings were normalized to **plain straight apostrophes + regular hyphens**. The two previously dead/overridden server-side `register()` messages were rewritten to **match the client wording exactly**, so no mismatched copy is left in the code.
 
 ### Status
-- **D1: RESOLVED. D2: RESOLVED.** (Supersedes the "still-open"/"Known-open" notes in the 2026-06-19 and 2026-06-19→06-20 logs.) Code + this doc update shipped in commit **`784927f`** (`app/auth.py`, `index.html`, `BINNA_MASTER.md`), preceded by the E2E-wording doc correction in commit **`a8f618f`**. The two `templates/` loose ends from the 2026-06-20 consolidation remain **open, low-priority** (unchanged).
+- **D1: RESOLVED. D2: RESOLVED.** (Supersedes the "still-open"/"Known-open" notes in the 2026-06-19 and 2026-06-19→06-20 logs.) Code + this doc update shipped in commit **`784927f`** (`app/auth.py`, `index.html`, `BINNA_MASTER.md`), preceded by the E2E-wording doc correction in commit **`a8f618f`**. The two `templates/` loose ends from the 2026-06-20 consolidation remain **open, low-priority** (unchanged). *(Both ✅ RESOLVED 2026-06-22 — see the next session log.)*
+
+## Session Log — 2026-06-22 (authorization gap closed + auth-path consolidation finished)
+
+> Started as a read-only status audit of the account flow, became three fixes: (1) the two long-deferred `templates/` loose ends, (2) a **real authorization gap** — `viewer` role could write `financial`/`gantt`/`uploads` — found by auditing every module's edit routes, and (3) finishing the `/login` → modal consolidation. Files: `app/routes/{financial,gantt,uploads}.py`, `app/auth.py`, `app/pages.py`, `index.html`, `templates/` (two deletions), plus a new regression test. All offline test suites green; `binna-db` account count + project-2 upload check are **pending Mohammed running the supplied read-only shell commands** (no AI access to production DB).
+
+### ✅ Template loose ends closed (commit `5f39bc2`)
+- `templates/register.html` "Sign in" link `/login` → **`/?signin`** (opens the landing modal).
+- **Deleted `templates/index.html`** — the stale 1367-line unserved duplicate (`/` serves repo-root `index.html` via `send_from_directory`).
+
+### ✅ Authorization gap — `viewer` could edit financial/gantt/uploads (commit `7b1c9af`)
+- **Audited every write route across all 10 modules.** Seven (`dc`, `dr`, `lbt`, `submittals`, `global_parties`, `subcontracts`, `projects`) already gated correctly via `_requires_role`. **Three did not** — `financial` (`PUT …/financial`, `PUT …/financial/income`), `gantt` (`PUT …/gantt`), `uploads` (`POST …/uploads`) used `_check_access` (membership only, **no role check**), so any project member incl. a `viewer` could write. This contradicted the declared policy in `app/models.py:_MODULE_EDIT_MIN_ROLE` (all three = `member`) — the model and the live routes disagreed, and the routes won.
+- **Fix:** each now uses `_requires_role(…, 'member')` — the exact pattern of the seven gated modules (`viewer` → 403, `member`/`admin`/`owner` → success). GET/serve routes keep membership-only access so viewers still read.
+- **Caveat recorded:** `FinancialData`/`GanttData` store only `updated_by` (last editor) — **no edit history**, so we can detect "last edit was a non-owner" but cannot prove a row was *never* touched by a non-owner before the fix.
+
+### ✅ Regression test for checklist item (d) (commit `60aa766`, extended this session)
+- `test_viewer_edit.py`: a project `viewer` is blocked from content edits while an `owner` succeeds, across project-field + `financial` + `financial/income` + `gantt` + `uploads`. **12 passed, 0 failed.** `test_isolation.py` (46) and `test_account_flows.py` (16) still green — no regression.
+
+### ✅ `/login` → modal consolidation finished (this commit)
+- **`/login` retired:** the route now `302`-redirects to `/?signin=1`, **preserving query params** (`/login?verified=1` → `/?signin=1&verified=1`, etc.). `templates/login.html` **deleted**.
+- **`verify_email()`** (`app/auth.py`) redirects → `/?signin=1&verified=1` and `…&verified=already`; the **reset-password** page success → `/?signin=1&reset=1`.
+- **Resend affordance preserved + improved:** it always lived in the modal (`authLogin` shows it on the unverified-login error), so retiring the standalone page loses nothing — verify-link visitors now *gain* it. The modal's load handler now also surfaces a confirmation message for `verified` / `reset` params (the old standalone page never did).
+- Verified offline: `GET /login`, `/login?verified=1`, `/login?verified=already`, `/login?reset=1` all `302` to the correct `/?signin=1&…` target; `GET /` still `200`.
+
+### Status
+- Authorization gap: **✅ CLOSED** (commit `7b1c9af`, deployed to production via auto-deploy on push to `main`). Auth-path consolidation: **✅ COMPLETE** (this commit — local only, awaiting Mohammed's go-ahead to push). Template loose ends: **✅ CLOSED** (`5f39bc2`). Two production data questions **OPEN pending Mohammed's shell run**: (a) real-account count in `binna-db`, (b) any files uploaded to project 2 ("Hhh") before the patch — both need the read-only commands supplied this session because the AI has no production-DB access by design.
+
+### Next Step
+- **Mohammed → run the two read-only commands in the Render shell** (provided this session): the account-count one-liner and the project-2 upload check, and paste results back. **Blocks:** confirming whether real users/files exist, which in turn gates the **Phase 3 R2 migration plan** (it assumed an empty slate; if files exist under project 2 they must be migrated).
+- **Mohammed → give go-ahead to push** the `/login` consolidation commit (Render auto-deploys on push to `main`).
+- **Then:** Phase 3 (file storage → Cloudflare R2) can start, adjusted for any existing uploads found in the check above.
