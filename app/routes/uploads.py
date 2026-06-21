@@ -22,9 +22,10 @@ from app.tenancy import membership_or_none
 uploads_bp = Blueprint('uploads', __name__)
 
 ALLOWED_EXTENSIONS = {
-    'pdf', 'doc', 'docx', 'xls', 'xlsx',
-    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp',
-    'zip', 'rar', 'txt', 'csv',
+    'pdf', 'doc', 'docx', 'xls', 'xlsx',   # documents
+    'dwg',                                  # CAD
+    'jpg', 'jpeg', 'png', 'webp',          # images
+    'zip', 'rar',                          # archives
 }
 
 
