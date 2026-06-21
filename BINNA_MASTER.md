@@ -513,4 +513,4 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - The four user-facing strings were normalized to **plain straight apostrophes + regular hyphens**. The two previously dead/overridden server-side `register()` messages were rewritten to **match the client wording exactly**, so no mismatched copy is left in the code.
 
 ### Status
-- **D1: RESOLVED. D2: RESOLVED.** (Supersedes the "still-open"/"Known-open" notes in the 2026-06-19 and 2026-06-19→06-20 logs.) Committed + pushed this session. The two `templates/` loose ends from the 2026-06-20 consolidation remain **open, low-priority** (unchanged).
+- **D1: RESOLVED. D2: RESOLVED.** (Supersedes the "still-open"/"Known-open" notes in the 2026-06-19 and 2026-06-19→06-20 logs.) Code + this doc update shipped in commit **`784927f`** (`app/auth.py`, `index.html`, `BINNA_MASTER.md`), preceded by the E2E-wording doc correction in commit **`a8f618f`**. The two `templates/` loose ends from the 2026-06-20 consolidation remain **open, low-priority** (unchanged).
