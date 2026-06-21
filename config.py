@@ -39,6 +39,22 @@ class Config:
     # localhost for dev; set APP_BASE_URL on Render to the live origin.
     APP_BASE_URL   = os.environ.get('APP_BASE_URL', 'http://localhost:5000')
 
+    # ── Cloudflare R2 (Phase 3 file storage) ──────────────────────────────────────
+    # S3-compatible object storage. Endpoint is the account-level host
+    # (https://<account_id>.r2.cloudflarestorage.com); the bucket is addressed via
+    # the Bucket parameter. When these are unset (local dev / tests), uploads fall
+    # back to local disk (UPLOAD_FOLDER) — mirroring the email module's dev fallback.
+    R2_ACCOUNT_ID        = os.environ.get('R2_ACCOUNT_ID', '')
+    R2_ACCESS_KEY_ID     = os.environ.get('R2_ACCESS_KEY_ID', '')
+    R2_SECRET_ACCESS_KEY = os.environ.get('R2_SECRET_ACCESS_KEY', '')
+    R2_BUCKET            = os.environ.get('R2_BUCKET', '')
+    R2_ENDPOINT          = os.environ.get('R2_ENDPOINT', '')
+
+    @property
+    def R2_ENABLED(self):
+        return bool(self.R2_ACCESS_KEY_ID and self.R2_SECRET_ACCESS_KEY
+                    and self.R2_BUCKET and self.R2_ENDPOINT)
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
