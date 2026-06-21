@@ -461,12 +461,12 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### (4) ⚠️ Manual verification flip — testing-only, NOT a real signup
 - To unblock end-to-end testing while the above is sorted, **`mohamadalabasi2001@gmail.com` was manually set `email_verified = true`** via direct SQL against `binna-db` (`UPDATE users SET email_verified=true WHERE email='mohamadalabasi2001@gmail.com';`, scoped to the single row, run by Mohammed on the Render shell). **This account did NOT complete the real email-verification flow — do not treat it as evidence the verification pipeline works, and don't mistake it for a genuine verified signup in later audits.**
 
-### 🐞 Known-open defects (NOT fixed this session — logged for a future fix)
-- **D1 — `register()` lies about email delivery.** `app/auth.py:122` calls `send_verification_email(...)` but **ignores its return value** and unconditionally returns `201 "Account created. Check your email."` Combined with `send_email` returning `False` on a Resend error (and `True` on the missing-key dev no-op, `app/email.py:29-38`), **the user is always told "check your email" even when nothing was sent.** Fix later: check the return and surface a real failure (and/or fail the registration / queue a retry).
-- **D2 — no "resend verification email" path.** A user stuck unverified (email lost, expired, or never sent) has **no way to request a new verification email** — no endpoint, no UI. They are permanently stuck unless an admin flips the flag manually (as in (4)). Fix later: add a resend-verification endpoint + UI.
+### 🐞 Known-open defects (logged 2026-06-19) — both ✅ RESOLVED 2026-06-21 (see that session log)
+- **D1 — `register()` lies about email delivery.** `app/auth.py:122` calls `send_verification_email(...)` but **ignores its return value** and unconditionally returns `201 "Account created. Check your email."` Combined with `send_email` returning `False` on a Resend error (and `True` on the missing-key dev no-op, `app/email.py:29-38`), **the user is always told "check your email" even when nothing was sent.** Fix later: check the return and surface a real failure (and/or fail the registration / queue a retry). **✅ RESOLVED (2026-06-21):** `register()` now checks the return value and returns an honest message + an `email_sent` flag — see the 2026-06-21 session log.
+- **D2 — no "resend verification email" path.** A user stuck unverified (email lost, expired, or never sent) has **no way to request a new verification email** — no endpoint, no UI. They are permanently stuck unless an admin flips the flag manually (as in (4)). Fix later: add a resend-verification endpoint + UI. **✅ RESOLVED (2026-06-21):** added `POST /api/v1/auth/resend-verification` + a "Resend verification email" link on the modal's signup-success and Sign In "unverified" states — see the 2026-06-21 session log.
 
 ### Status
-- "Token missing" module access: **RESOLVED** (JWT_SECRET_KEY set). Resend API connectivity: **RESOLVED** (User-Agent fix, commit `1703814`). Real-customer registration: **RESOLVED (2026-06-20)** — `binnapm.com` verified on Resend, `MAIL_FROM` → `BINNA <noreply@binnapm.com>` (commit `ed01ce9`); see the **2026-06-19 (later) → 2026-06-20** session log. D1/D2 remain open. No code changed beyond the committed User-Agent fix.
+- "Token missing" module access: **RESOLVED** (JWT_SECRET_KEY set). Resend API connectivity: **RESOLVED** (User-Agent fix, commit `1703814`). Real-customer registration: **RESOLVED (2026-06-20)** — `binnapm.com` verified on Resend, `MAIL_FROM` → `BINNA <noreply@binnapm.com>` (commit `ed01ce9`); see the **2026-06-19 (later) → 2026-06-20** session log. D1/D2 since **✅ RESOLVED (2026-06-21)** — see that session log. No code changed beyond the committed User-Agent fix.
 
 ## Session Log — 2026-06-19 (later) → 2026-06-20 (Resend domain verified — registration unblocked — + login consolidation)
 
@@ -488,9 +488,29 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **`templates/register.html:122`** still links "Already have an account? Sign in" to **`/login`** instead of the modal. Not actioned.
 - **`templates/index.html`** is a **stale, unserved duplicate** of the real landing page (`/` serves repo-root `index.html`). Could be deleted or synced to avoid future confusion. Not actioned.
 
-### Reconfirmed still-open defects (unchanged from the 2026-06-19 log)
-- **D1 — `register()` doesn't surface email-send failures** (`app/auth.py:122` ignores `send_verification_email()`'s return and always returns "Account created. Check your email."). **Still open.**
-- **D2 — no "resend verification email" path** for stuck-unverified users (no endpoint, no UI). **Still open.**
+### Defects D1/D2 (open as of this log — both ✅ RESOLVED 2026-06-21, see that session log)
+- **D1 — `register()` doesn't surface email-send failures** (`app/auth.py:122` ignores `send_verification_email()`'s return and always returns "Account created. Check your email."). **✅ RESOLVED (2026-06-21).**
+- **D2 — no "resend verification email" path** for stuck-unverified users (no endpoint, no UI). **✅ RESOLVED (2026-06-21).**
 
 ### Status
-- Resend domain verification + real-customer registration: **RESOLVED** (`binnapm.com` verified; `MAIL_FROM` = `noreply@binnapm.com`; commit `ed01ce9`; **proven E2E by one real outside test — Mohammed's brother — full register→verify→login**; `mohamadalabasi4@gmail.com` is delivery-confirmed only, link not yet clicked). Login consolidation: **DONE** (commit `4e4e536`, live). Two template loose ends: **open, low-priority.** D1/D2: **still open.** No backend/schema/route logic changed.
+- Resend domain verification + real-customer registration: **RESOLVED** (`binnapm.com` verified; `MAIL_FROM` = `noreply@binnapm.com`; commit `ed01ce9`; **proven E2E by one real outside test — Mohammed's brother — full register→verify→login**; `mohamadalabasi4@gmail.com` is delivery-confirmed only, link not yet clicked). Login consolidation: **DONE** (commit `4e4e536`, live). Two template loose ends: **open, low-priority.** D1/D2: **✅ RESOLVED (2026-06-21)** — see that session log. No backend/schema/route logic changed.
+
+## Session Log — 2026-06-21 (D1 + D2 fixed — honest email-send reporting, resend-verification flow, no-bounce signup UX)
+
+> Closes the two defects logged in the 2026-06-19 account-flow incident. Files: `app/auth.py`, `index.html` (landing auth modal). No schema or route-structure changes beyond one new endpoint. Verified: `py_compile` clean on `auth.py`; `node --check` passes on the modal `<script>`.
+
+### ✅ D1 RESOLVED — `register()` no longer claims an email was sent when it wasn't
+- `register()` now captures `send_verification_email()`'s return into `email_sent` and returns an **honest message** plus an **`email_sent` boolean** in the JSON. The account is still created either way (still `201`) — only the wording changes. On a send failure the user is told *"Account created - but we couldn't send the verification email to <email>. Use the link below to try again."* instead of the old unconditional "check your email."
+
+### ✅ D2 RESOLVED — resend-verification endpoint + modal UI
+- **New `POST /api/v1/auth/resend-verification`** (`app/auth.py`): a **genuinely unverified** account regenerates its token if missing and re-sends (send failures reported honestly, `502`); a **missing or already-verified** address gets a **generic `200`** (*"If that email has an unverified BINNA account, a new verification link is on its way."*). **Enumeration-safe by deliberate design — kept as-is per Mohammed's call** (consistent with `register()`, which already leaks existence via its `409`).
+- **Frontend (`index.html` modal):** a **"Resend verification email"** link now appears (a) on the Create-Account success state and (b) on the Sign In tab's "please verify your email" error state. Both call the endpoint via `authResend()`; the address is held in a closure var (`_pendingEmail`) and HTML-escaped before display. Inline-styled gold link — **no stylesheet change, per Mohammed's call.**
+
+### ✅ Signup UX — no more bounce-to-Sign-In after registration
+- The modal **no longer redirects to `/dashboard` after signup.** Because accounts are created unverified, the old redirect bounced straight back to the Sign In tab and read as broken. `authRegister` now keeps the user on the modal showing *"Account created! Check your inbox at <email> for a verification link, then sign in."* (or the honest "couldn't send" variant), each with the resend link.
+
+### Message-text hygiene
+- The four user-facing strings were normalized to **plain straight apostrophes + regular hyphens**. The two previously dead/overridden server-side `register()` messages were rewritten to **match the client wording exactly**, so no mismatched copy is left in the code.
+
+### Status
+- **D1: RESOLVED. D2: RESOLVED.** (Supersedes the "still-open"/"Known-open" notes in the 2026-06-19 and 2026-06-19→06-20 logs.) Committed + pushed this session. The two `templates/` loose ends from the 2026-06-20 consolidation remain **open, low-priority** (unchanged).

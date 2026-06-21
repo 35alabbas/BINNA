@@ -1685,6 +1685,55 @@ adminLoadSaved();applyLang('en');
     document.getElementById('auth-error').hidden = true;
   }
 
+  /* ── Resend-verification affordance (D2) ─────────── */
+  let _pendingEmail = '';
+  function escHtml(str){
+    return String(str == null ? '' : str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function _resendBtnHtml(){
+    return ' <button type="button" class="auth-link-btn" '
+      + 'style="background:none;border:none;padding:0;color:#C5A85A;font:inherit;'
+      + 'text-decoration:underline;cursor:pointer" onclick="authResend(this)">'
+      + 'Resend verification email</button>';
+  }
+  /* Success message + a "Resend verification email" action (unverified signup). */
+  function showSuccessVerify(msg, email){
+    _pendingEmail = email || '';
+    const s = document.getElementById('auth-success');
+    s.innerHTML = escHtml(msg) + _resendBtnHtml();
+    s.hidden = false;
+    document.getElementById('auth-error').hidden = true;
+  }
+  /* Error message + the same resend action (unverified sign-in attempt). */
+  function showErrorVerify(msg, email){
+    _pendingEmail = email || '';
+    const e = document.getElementById('auth-error');
+    e.innerHTML = escHtml(msg) + _resendBtnHtml();
+    e.hidden = false;
+    document.getElementById('auth-success').hidden = true;
+  }
+  /* Re-send the verification email for _pendingEmail. */
+  window.authResend = function(btnEl){
+    const email = _pendingEmail;
+    if(!email){ return; }
+    if(btnEl){ btnEl.disabled = true; btnEl.textContent = 'Sending…'; }
+    fetch('/api/v1/auth/resend-verification', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ email: email }),
+    })
+    .then(function(r){ return r.json().then(function(d){ return {ok: r.ok, d: d}; }); })
+    .then(function(res){
+      if(!res.ok){ throw new Error(res.d.error || 'Could not resend right now.'); }
+      showSuccess(res.d.message || 'Verification email sent - check your inbox.');
+    })
+    .catch(function(err){
+      showErrorVerify(err.message || 'Could not resend right now. Try again shortly.', email);
+    });
+  };
+
   /* ── Open / close ───────────────────────────────── */
   window.openAuth = function(tab){
     clearMessages();
@@ -1770,7 +1819,15 @@ adminLoadSaved();applyLang('en');
     })
     .then(function(r){ return r.json().then(function(d){ return {ok: r.ok, d: d}; }); })
     .then(function(res){
-      if(!res.ok){ throw new Error(res.d.error || 'Unable to sign in.'); }
+      if(!res.ok){
+        // Unverified accounts get a resend affordance instead of a dead-end error.
+        if(res.d && res.d.unverified){
+          btn.disabled = false; btn.textContent = 'Sign In →';
+          showErrorVerify(res.d.error || 'Please verify your email before signing in.', email);
+          return;
+        }
+        throw new Error(res.d.error || 'Unable to sign in.');
+      }
       storeAndGo(res.d);
     })
     .catch(function(err){
@@ -1800,8 +1857,18 @@ adminLoadSaved();applyLang('en');
     .then(function(r){ return r.json().then(function(d){ return {ok: r.ok, d: d}; }); })
     .then(function(res){
       if(!res.ok){ throw new Error(res.d.error || 'Unable to create account.'); }
-      showSuccess('Account created — taking you to your dashboard…');
-      setTimeout(function(){ storeAndGo(res.d); }, 800);
+      // Account is created UNVERIFIED — do NOT redirect (the dashboard would
+      // bounce straight back to Sign In and read as broken). Keep the user on
+      // the modal with a "check your inbox" message + resend affordance.
+      const addr = res.d.email || email;
+      btn.disabled = false; btn.textContent = 'Create Account →';
+      if(res.d.email_sent === false){
+        showSuccessVerify('Account created - but we couldn\'t send the verification '
+          + 'email to ' + addr + '. Use the link below to try again.', addr);
+      } else {
+        showSuccessVerify('Account created! Check your inbox at ' + addr
+          + ' for a verification link, then sign in.', addr);
+      }
     })
     .catch(function(err){
       showError(err.message || 'Something went wrong. Try again.');

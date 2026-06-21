@@ -119,12 +119,22 @@ def register():
     db.session.commit()
 
     link = f"{current_app.config['APP_BASE_URL']}/api/v1/auth/verify/{user.email_verification_token}"
-    send_verification_email(user.email, link)
+    email_sent = send_verification_email(user.email, link)
+
+    # D1 fix: don't claim the email was sent when it wasn't. The account IS
+    # created either way (still 201); the message + email_sent flag tell the
+    # truth so the client can offer "Resend verification email".
+    if email_sent:
+        message = (f'Account created! Check your inbox at {user.email} for a '
+                   'verification link, then sign in.')
+    else:
+        message = (f"Account created - but we couldn't send the verification email "
+                   f"to {user.email}. Use the link below to try again.")
 
     return jsonify({
-        'message': 'Account created. Check your email to verify your account and '
-                   'activate your workspace.',
-        'email':   user.email,
+        'message':    message,
+        'email':      user.email,
+        'email_sent': email_sent,
     }), 201
 
 
@@ -149,6 +159,43 @@ def verify_email(token):
         db.session.commit()
 
     return redirect(f"{current_app.config['APP_BASE_URL']}/login?verified=1")
+
+
+# ── Resend verification email (D2 fix) ──────────────────────────────────────────
+
+@auth_bp.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    """Re-send the verification email for an unverified account.
+
+    For a missing or already-verified address we return a generic 200 (no work,
+    no account-state disclosure). Only an existing UNVERIFIED account triggers a
+    real send — and a send failure is reported honestly (same spirit as D1).
+    """
+    data  = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user or user.email_verified:
+        return jsonify({
+            'message': 'If that email has an unverified BINNA account, a new '
+                       'verification link is on its way.',
+        }), 200
+
+    # Unverified account: make sure a token exists, then re-send.
+    if not user.email_verification_token:
+        user.email_verification_token = _token()
+        db.session.commit()
+
+    link = f"{current_app.config['APP_BASE_URL']}/api/v1/auth/verify/{user.email_verification_token}"
+    if send_verification_email(user.email, link):
+        return jsonify({'message': 'Verification email sent - check your inbox.'}), 200
+    return jsonify({
+        'error': "We couldn't send the verification email right now. "
+                 "Please try again in a moment.",
+    }), 502
 
 
 # ── Login ───────────────────────────────────────────────────────────────────────
