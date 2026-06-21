@@ -531,16 +531,19 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### ✅ Regression test for checklist item (d) (commit `60aa766`, extended this session)
 - `test_viewer_edit.py`: a project `viewer` is blocked from content edits while an `owner` succeeds, across project-field + `financial` + `financial/income` + `gantt` + `uploads`. **12 passed, 0 failed.** `test_isolation.py` (46) and `test_account_flows.py` (16) still green — no regression.
 
-### ✅ `/login` → modal consolidation finished (this commit)
+### ✅ `/login` → modal consolidation finished (commit `37ce2ec`)
 - **`/login` retired:** the route now `302`-redirects to `/?signin=1`, **preserving query params** (`/login?verified=1` → `/?signin=1&verified=1`, etc.). `templates/login.html` **deleted**.
 - **`verify_email()`** (`app/auth.py`) redirects → `/?signin=1&verified=1` and `…&verified=already`; the **reset-password** page success → `/?signin=1&reset=1`.
 - **Resend affordance preserved + improved:** it always lived in the modal (`authLogin` shows it on the unverified-login error), so retiring the standalone page loses nothing — verify-link visitors now *gain* it. The modal's load handler now also surfaces a confirmation message for `verified` / `reset` params (the old standalone page never did).
 - Verified offline: `GET /login`, `/login?verified=1`, `/login?verified=already`, `/login?reset=1` all `302` to the correct `/?signin=1&…` target; `GET /` still `200`.
 
-### Status
-- Authorization gap: **✅ CLOSED** (commit `7b1c9af`, deployed to production via auto-deploy on push to `main`). Auth-path consolidation: **✅ COMPLETE** (this commit — local only, awaiting Mohammed's go-ahead to push). Template loose ends: **✅ CLOSED** (`5f39bc2`). Two production data questions **OPEN pending Mohammed's shell run**: (a) real-account count in `binna-db`, (b) any files uploaded to project 2 ("Hhh") before the patch — both need the read-only commands supplied this session because the AI has no production-DB access by design.
+### Status — ✅ PHASE 2 FULLY CLOSED
+- Authorization gap: **✅ CLOSED** (commit `7b1c9af`, deployed). Auth-path consolidation: **✅ COMPLETE & PUSHED** (commit `37ce2ec`, Render auto-deploy triggered). Template loose ends: **✅ CLOSED** (`5f39bc2`).
+- **Production data checks (run by Mohammed in the Render shell, 2026-06-22):** project 2 ("Hhh", owner `zaidsalam444`) upload check → **0 `Upload` rows — clean, no files to migrate.** This is the only data check that gates Phase 3; the R2 migration plan's "empty slate" assumption **holds**. (The `binna-db` real-account count one-liner remains available but is **not** a Phase 3 gate — file existence, not user count, is what the R2 migration cares about.)
+- **Phase 2 (Accounts & Access) is now fully closed with evidence on every checklist item** — two test companies + cross-tenant isolation (`test_isolation.py`, 46), invite-link skip + role gating (`test_account_flows.py`, 16), literal viewer-cannot-edit/owner-can (`test_viewer_edit.py`, 12), all green.
 
 ### Next Step
-- **Mohammed → run the two read-only commands in the Render shell** (provided this session): the account-count one-liner and the project-2 upload check, and paste results back. **Blocks:** confirming whether real users/files exist, which in turn gates the **Phase 3 R2 migration plan** (it assumed an empty slate; if files exist under project 2 they must be migrated).
-- **Mohammed → give go-ahead to push** the `/login` consolidation commit (Render auto-deploys on push to `main`).
-- **Then:** Phase 3 (file storage → Cloudflare R2) can start, adjusted for any existing uploads found in the check above.
+- **Phase 3 (Cloudflare R2 file storage) is unblocked** but **NOT started** — code is on hold pending the readiness brief + Mohammed's Cloudflare account setup.
+- **Mohammed → Cloudflare/R2 account setup (only he can do this):** create/enable R2 (needs a card on file even for the free tier), create the bucket, decide the **bucket name** (recommend `binna-files-prod`), create a scoped **R2 API token** (Object Read & Write), and set the R2 env vars in **Render** himself (so secrets never enter the AI session): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`. Configure CORS for `binnapm.com`.
+- **Claude (code, once creds exist):** add `boto3` (S3-compatible client), wire `R2_*` into `config.py`, swap `uploads.py` (+ the shared DC-archive `record_upload` path) from local-disk save to R2 `put_object` with key `company_id/project_id/stored_name`, serve via presigned GET URLs, keep the tenancy + `member` role gates unchanged, and keep a local-disk fallback when `R2_*` is unset (mirrors the email module's dev fallback). No data migration needed (0 files).
+- **First concrete step:** Mohammed creates the R2 bucket + API token and sets the five Render env vars; that single action unblocks all Phase 3 code. **Blocked on:** Mohammed (Cloudflare account access — the AI cannot create accounts, buckets, or tokens).
