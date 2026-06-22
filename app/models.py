@@ -13,6 +13,31 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def as_aware(dt):
+    """Treat a stored datetime as UTC for safe comparison against _now().
+
+    Our DB columns are plain `DateTime`, so values round-trip NAIVE (Postgres
+    `timestamp without time zone`, SQLite text). Comparing a naive value against the
+    tz-aware _now() raises TypeError — the bug class that already hit password-reset
+    expiry. This attaches UTC to naive values, passes aware ones through, and returns
+    None for None. Use it EVERYWHERE a stored datetime is compared against _now().
+    """
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def is_past(dt):
+    """True iff `dt` is a real deadline that has already passed (tz-safe).
+
+    None ⇒ no deadline ⇒ never past. This is the comparison primitive Phase 4's
+    trial/grace/lock logic builds on: a NULL trial_ends_at/grace_ends_at must NEVER
+    be treated as expired, so it can never silently lock an account.
+    """
+    aware = as_aware(dt)
+    return aware is not None and aware < _now()
+
+
 # ── Company (tenant) ──────────────────────────────────────────────────────────
 # Phase 1 multi-tenant root. One row per customer company. Every user and every
 # data row belongs to exactly one company (via company_id). New table → built by

@@ -23,7 +23,7 @@ from flask_jwt_extended import (
 )
 
 from app import db
-from app.models import User, Company, _now
+from app.models import User, Company, _now, is_past
 from app.email import send_verification_email, send_password_reset_email
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/v1/auth')
@@ -333,13 +333,9 @@ def reset_password():
     if not user or not user.password_reset_expires:
         return jsonify({'error': 'Invalid or expired reset link'}), 400
 
-    # tz-safe compare: values round-tripped through SQLite come back naive, while
-    # _now() is tz-aware. Normalise to the same flavour before comparing.
-    expires = user.password_reset_expires
-    now     = _now()
-    if expires.tzinfo is None:
-        now = now.replace(tzinfo=None)
-    if expires < now:
+    # tz-safe expiry check via the canonical is_past() helper (stored value is
+    # naive, _now() is aware — see models.as_aware/is_past).
+    if is_past(user.password_reset_expires):
         return jsonify({'error': 'Invalid or expired reset link'}), 400
 
     user.set_password(new_pw)
