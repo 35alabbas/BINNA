@@ -628,3 +628,30 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### Next Step
 - **Next -> Phase 4 admin panel + revenue tracker:** super-admin company list, mark-invoice-paid (-> `active`), activate/suspend; Payment/Invoice model + revenue view; then CEO workspace (company settings, storage-usage indicator, user management). A `paid_until`/billing-period model is the piece that lets `active` auto-expire instead of being permanent.
 - **Blocked on:** Mohammed's go-ahead to start the admin-panel / revenue-tracker phase (explicitly scoped after the enforcement layer).
+
+---
+
+## 2026-06-22 — SESSION CLOSE — Phase 4 lock-safety layer landed + admin-panel/revenue decisions
+
+### Shipped this session (commit 1727ce9, deployed)
+- **Timezone root fix** (committed earlier f65a4d5): `as_aware()` + `is_past()` in `models.py`. DB datetimes round-trip naive, `_now()` is aware — direct comparison raised TypeError (the password-reset bug class). All Phase 4 deadline checks go through `is_past()`, which is NULL-safe (NULL deadline => never past => never locks). `test_datetime_tz.py` 9 passed.
+- **`app/billing.py`** — manual-billing lifecycle (trial -> grace -> locked):
+  - `compute_status()` pure; `active` exempt; future/NULL trial -> trial, trial-past + future/NULL grace -> grace, grace-past -> locked.
+  - `refresh_status()` persists transitions, stamps grace_ends_at = trial_ends_at + 7d on first lapse.
+  - `init_app()` before_request guard: mutating API call from authenticated, non-super-admin, locked tenant -> 403; reads always pass (locked == READ-ONLY); /api/v1/auth/* and platform super-admins exempt.
+- **Distinct error code:** lock 403 carries `code='account_locked'`, separable from the role-gate 403s (`{'error':'Insufficient permissions...'}`) by field, not by guessing which check fired.
+- **Companies 1 & 2 safety proven** (not asserted): `test_billing_status.py` 15 passed — a trial+14d / grace-NULL shape computes 'trial', stays writable (201). Deploy cannot silently lock zaidsalam444 / zaidallamy88.
+- Full suite green: account_flows, billing 15, datetime_tz 9, isolation 46, r2_upload 13, viewer_edit 12. (r2_connectivity / resend_send are env-gated to the Render shell — not regressions.)
+
+### Decisions made for the NEXT phase (admin panel + revenue tracker)
+- **Invoice/Payment model: built generically — NO hardcoded pricing yet.** Schema records amounts/periods; plan prices stay configurable, not baked in.
+- **`paid_until` with automatic downgrade:** paying buys a fixed period; `compute_status()` will downgrade `active` -> grace/locked once `paid_until` lapses. No manual cron, no "remember to suspend."
+- **Currency / cadence: IQD, monthly.** (BINNA is **Iraqi**, not Saudi.)
+- **Payment-proof upload is EXEMPT from the read-only lock** — a locked CEO must be able to submit a bank-transfer receipt; that endpoint cannot be blocked by the lock guard.
+- **Invoices are record-only — NO ZATCA / e-invoicing.** (The earlier ZATCA/Fatoora flag was a wrong-country mix-up; Saudi e-invoicing does not apply to an Iraqi product.)
+- **Locked-CEO UX = payment instructions + receipt upload**, not a bare 403 — the lock screen tells them how to pay and lets them upload proof.
+- **OPEN — pending Mohammed:** platform admin access — single super-admin vs. multiple platform admins. Not yet decided; blocks the admin-blueprint access model.
+
+### Next Step
+- **Next -> Phase 4 admin panel + revenue tracker.** Build (pure code): super-admin blueprint, company list (with computed effective status), mark-invoice-paid (-> active, sets paid_until), activate/suspend, generic Invoice/Payment model + migration, IQD/monthly revenue view, payment-proof upload (lock-exempt), locked-CEO payment-instructions screen, and the `paid_until` auto-downgrade in compute_status.
+- **Blocked on:** Mohammed's answer to the single-vs-multi platform-admin question (shapes the access model), then go-ahead to start the phase.
