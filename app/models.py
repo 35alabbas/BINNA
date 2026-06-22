@@ -3,6 +3,7 @@ BINNA — SQLAlchemy models
 Phase 1: Users, Projects, ProjectMembers
 Phase 2: DCLetter
 """
+import calendar
 from datetime import datetime, timezone
 
 import bcrypt
@@ -11,6 +12,17 @@ from app import db
 
 def _now():
     return datetime.now(timezone.utc)
+
+
+def add_months(dt, n):
+    """Add `n` calendar months to `dt`, clamping the day to the target month's
+    length (e.g. Jan 31 + 1 month → Feb 28/29). Dependency-free so paid-period
+    extension never relies on a transitive package. Preserves tzinfo."""
+    m = dt.month - 1 + n
+    year = dt.year + m // 12
+    month = m % 12 + 1
+    day = min(dt.day, calendar.monthrange(year, month)[1])
+    return dt.replace(year=year, month=month, day=day)
 
 
 def as_aware(dt):
@@ -56,6 +68,7 @@ class Company(db.Model):
     max_users     = db.Column(db.Integer,     nullable=False, default=999)        # 999 = effectively unlimited for now
     trial_ends_at = db.Column(db.DateTime)                                        # set to +14 days at signup (Phase 2)
     grace_ends_at = db.Column(db.DateTime)                                        # set to +7 days after trial (Phase 4)
+    paid_until    = db.Column(db.DateTime)                                        # end of the paid period; set when an invoice is marked paid (Phase 4)
     status        = db.Column(db.String(20),  nullable=False, default='trial')   # trial | active | grace | locked
     created_at    = db.Column(db.DateTime,    default=_now)
 
@@ -68,6 +81,7 @@ class Company(db.Model):
             'max_users':     self.max_users,
             'trial_ends_at': self.trial_ends_at.isoformat() if self.trial_ends_at else None,
             'grace_ends_at': self.grace_ends_at.isoformat() if self.grace_ends_at else None,
+            'paid_until':    self.paid_until.isoformat() if self.paid_until else None,
             'status':        self.status,
             'created_at':    self.created_at.isoformat() if self.created_at else None,
         }
@@ -303,6 +317,7 @@ class Upload(db.Model):
     company_id    = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True,  index=True)
     project_id    = db.Column(db.Integer,     db.ForeignKey('projects.id'),  nullable=False, index=True)
     uploaded_by   = db.Column(db.Integer,     db.ForeignKey('users.id'))
+    size_bytes    = db.Column(db.Integer)                                          # byte size at upload — drives the per-company R2 usage indicator (Phase 4); NULL on rows that predate the column
     created_at    = db.Column(db.DateTime,    default=_now)
 
     def to_dict(self) -> dict:
@@ -311,6 +326,7 @@ class Upload(db.Model):
             'stored_name':   self.stored_name,
             'original_name': self.original_name or '',
             'project_id':    self.project_id,
+            'size_bytes':    self.size_bytes or 0,
             'url':           f'/api/v1/uploads/{self.stored_name}',
             'created_at':    self.created_at.isoformat() if self.created_at else None,
         }
@@ -892,3 +908,60 @@ class SupplyAgreement(db.Model):
 
     def __repr__(self):
         return f'<SupplyAgreement {self.ref}>'
+
+
+# ── Payment (platform billing — Phase 4) ────────────────────────────────────────
+# A single direct payment-log row. Manual billing only (no payment API): the
+# BINNA super-admin records each subscription payment a customer makes via Zain
+# Cash / Asia Hawala / Qi Card / NBI. Recording a payment marks the company
+# `active` and extends its paid_until window (see app.billing.record_payment).
+# Currency is IQD throughout (Iraqi product). The revenue tracker is just the
+# aggregate of these rows. New table → built by db.create_all() (no
+# _ensure_schema entry; that list is for new *columns* on pre-existing tables).
+
+# Canonical payment-method keys ↔ human labels. Stored as the key; the admin UI
+# renders the label. The set is the validation allowlist for recorded payments.
+PAYMENT_METHODS = {
+    'zain_cash':   'Zain Cash',
+    'asia_hawala': 'Asia Hawala',
+    'qi_card':     'Qi Card',
+    'nbi':         'NBI',
+}
+
+
+class Payment(db.Model):
+    __tablename__ = 'payments'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    company_id  = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=False, index=True)
+    amount_iqd  = db.Column(db.Integer, nullable=False)                         # whole IQD (no minor units)
+    method      = db.Column(db.String(30), nullable=False)                      # one of PAYMENT_METHODS keys
+    months      = db.Column(db.Integer, nullable=False, default=1)              # paid-period length this payment covers
+    period_start= db.Column(db.DateTime)                                        # paid window this payment extends from
+    period_end  = db.Column(db.DateTime)                                        # = company.paid_until after this payment
+    note        = db.Column(db.String(500))
+    recorded_by = db.Column(db.Integer, db.ForeignKey('users.id'))              # the super-admin who logged it
+    paid_at     = db.Column(db.DateTime, default=_now)                          # when the customer paid
+    created_at  = db.Column(db.DateTime, default=_now)
+
+    company = db.relationship('Company', foreign_keys=[company_id])
+
+    def to_dict(self) -> dict:
+        return {
+            'id':           self.id,
+            'company_id':   self.company_id,
+            'company_name': self.company.name if self.company else None,
+            'amount_iqd':   self.amount_iqd,
+            'method':       self.method,
+            'method_label': PAYMENT_METHODS.get(self.method, self.method),
+            'months':       self.months,
+            'period_start': self.period_start.isoformat() if self.period_start else None,
+            'period_end':   self.period_end.isoformat() if self.period_end else None,
+            'note':         self.note or '',
+            'recorded_by':  self.recorded_by,
+            'paid_at':      self.paid_at.isoformat() if self.paid_at else None,
+            'created_at':   self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Payment company={self.company_id} {self.amount_iqd} IQD>'

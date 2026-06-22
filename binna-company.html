@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/theme.css">
+<title>BINNA — Company Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<script src="/static/js/binna-api.js"></script>
+<!-- Auth gate — any signed-in member may view their own company settings. -->
+<script>
+(function () {
+  if (!localStorage.getItem('binna_token')) { location.replace('/?signin=1'); }
+})();
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:var(--bg-deep);--panel:var(--bg-elevated);--panel-2:#0b0b10;
+  --gold-c:var(--gold);--purple-c:var(--purple);--purple-l:var(--purple-light);
+  --line:var(--border);--line-gold:var(--gold-border);--line-purple:var(--purple-border);
+  --txt:var(--text-bright);--txt-mid:var(--text-mid);--txt-faint:var(--text-faint);
+  --radius:10px;--radius-lg:14px;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.syne{font-family:'Syne',sans-serif;letter-spacing:-.01em}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 26px;height:60px;background:rgba(11,11,16,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+.brand-mark{font-family:'Syne',sans-serif;font-size:21px;font-weight:900;letter-spacing:.12em;color:#fff;line-height:1}
+.brand-tag{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-c);font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.nav-link{color:var(--txt-mid);font-size:13px;text-decoration:none;padding:6px 12px;border-radius:8px;border:1px solid transparent;transition:all .15s}
+.nav-link:hover{color:var(--txt);border-color:var(--line);background:var(--panel)}
+.user-chip{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt-mid)}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--purple-c),#6d3fc4);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif}
+.btn-logout{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--txt-mid);cursor:pointer;font-family:'DM Sans';transition:all .15s}
+.btn-logout:hover{border-color:rgba(239,68,68,.4);color:#f87171}
+
+.wrap{flex:1;max-width:980px;width:100%;margin:0 auto;padding:34px 26px 60px}
+.page-title{font-size:30px;font-weight:800;color:#fff;line-height:1}
+.page-title .accent{color:var(--gold-c)}
+.page-sub{font-size:13.5px;color:var(--txt-mid);margin-top:7px;margin-bottom:28px}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:22px}
+.panel-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-title{font-size:15px;font-weight:700;color:#fff;font-family:'Syne',sans-serif}
+.panel-body{padding:20px}
+
+/* COMPANY INFO GRID */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:18px}
+.info-item .k{font-size:10.5px;font-weight:600;color:var(--txt-mid);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.info-item .v{font-size:16px;font-weight:600;color:#fff;font-family:'Syne',sans-serif}
+.info-item .v.num{font-variant-numeric:tabular-nums}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;text-transform:capitalize}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge-trial{background:var(--purple-dim);color:var(--purple-l);border:1px solid var(--line-purple)}
+.badge-active{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+.badge-grace{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+.badge-locked{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+
+/* STORAGE BAR */
+.storage-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.storage-used{font-size:22px;font-weight:800;color:#fff;font-family:'Syne',sans-serif}
+.storage-used .of{font-size:13px;font-weight:400;color:var(--txt-mid);font-family:'DM Sans'}
+.storage-pct{font-size:13px;color:var(--gold-c);font-weight:600}
+.bar{height:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--gold-c),#d4b86a);border-radius:20px;transition:width .5s;min-width:2px}
+.bar-fill.warn{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+.bar-fill.full{background:linear-gradient(90deg,#f87171,#ef4444)}
+.storage-meta{font-size:12px;color:var(--txt-mid);margin-top:11px}
+
+/* TABLE */
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:12px 16px;text-align:left;font-size:10.5px;font-weight:600;color:var(--txt-mid);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--panel-2)}
+td{padding:13px 16px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--txt)}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+.m-name{font-weight:600;color:#fff}
+.m-email{font-size:11.5px;color:var(--txt-faint)}
+.muted{color:var(--txt-mid)}.dash{color:var(--txt-faint)}
+.pill{display:inline-block;padding:2px 9px;border-radius:6px;font-size:10.5px;font-weight:600}
+.pill-owner{background:var(--gold-dim);color:var(--gold-c);border:1px solid var(--line-gold)}
+.pill-pending{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+.pill-off{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.25)}
+
+select.role-sel{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-size:12px;color:var(--txt);font-family:'DM Sans';cursor:pointer}
+select.role-sel:focus{outline:none;border-color:var(--purple-c)}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--panel-2);color:var(--txt);font-family:'DM Sans';transition:all .14s;white-space:nowrap}
+.btn:hover{border-color:var(--txt-faint)}
+.btn-gold{background:var(--gold-c);border-color:var(--gold-c);color:#1a1a1a}
+.btn-gold:hover{background:#d4b86a}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-ghost-red:hover{border-color:rgba(239,68,68,.5);color:#f87171}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line-gold);border-radius:var(--radius-lg);width:100%;max-width:420px;box-shadow:0 24px 70px rgba(0,0,0,.6);overflow:hidden}
+.modal-head{padding:20px 22px 14px}
+.modal-title{font-size:18px;font-weight:800;color:#fff;font-family:'Syne',sans-serif}
+.modal-title .accent{color:var(--gold-c)}
+.modal-body{padding:6px 22px 8px}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--txt-mid);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+.field input,.field select{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:14px;color:var(--txt);font-family:'DM Sans';transition:border-color .15s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--gold-c)}
+.modal-err{color:#f87171;font-size:12.5px;padding:0 22px;min-height:18px}
+.modal-foot{padding:14px 22px 20px;display:flex;gap:10px;justify-content:flex-end}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel);border:1px solid var(--line-gold);border-radius:10px;padding:13px 20px;font-size:13.5px;color:var(--txt);box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:all .3s;z-index:300;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.ok{border-color:rgba(16,185,129,.4)}#toast.ok::before{content:"✓ ";color:#34d399}
+#toast.bad{border-color:rgba(239,68,68,.4)}#toast.bad::before{content:"⚠ ";color:#f87171}
+
+.empty,.loading{padding:40px 20px;text-align:center;color:var(--txt-mid);font-size:13.5px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="/dashboard">
+    <span><span class="brand-mark">BINNA</span><span class="brand-tag">Construction PM</span></span>
+  </a>
+  <div class="topbar-right">
+    <a class="nav-link" href="/dashboard">← Dashboard</a>
+    <button class="binna-theme-toggle" id="binna-theme-toggle" title="Toggle theme">
+      <span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span>
+    </button>
+    <div class="user-chip"><span class="avatar" id="avatar">U</span><span id="username">user</span></div>
+    <button class="btn-logout" onclick="BINNA.logout()">Sign out</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="page-title">Company <span class="accent">Settings</span></div>
+  <div class="page-sub">Your workspace, team, and storage.</div>
+
+  <!-- COMPANY INFO -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Workspace</div><span class="badge" id="co-status">—</span></div>
+    <div class="panel-body"><div class="info-grid" id="co-info"><div class="loading">Loading…</div></div></div>
+  </div>
+
+  <!-- STORAGE -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">File storage</div></div>
+    <div class="panel-body" id="storage-body"><div class="loading">Loading storage usage…</div></div>
+  </div>
+
+  <!-- MEMBERS -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">Team members</div>
+      <button class="btn btn-gold btn-sm hidden" id="invite-btn" onclick="openInvite()">+ Invite member</button>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Member</th><th>Role</th><th>Status</th><th id="th-actions"></th></tr></thead>
+        <tbody id="member-rows"><tr><td colspan="4" class="loading">Loading members…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- INVITE MODAL -->
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">Invite a <span class="accent">member</span></div></div>
+    <div class="modal-body">
+      <div class="field"><label>Email address</label><input type="email" id="inv-email" placeholder="name@company.com"></div>
+      <div class="field"><label>Role</label>
+        <select id="inv-role">
+          <option value="member">Member — can edit project data</option>
+          <option value="admin">Admin — can manage team &amp; settings</option>
+          <option value="viewer">Viewer — read-only</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-err" id="inv-err"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeInvite()">Cancel</button>
+      <button class="btn btn-gold" id="inv-submit" onclick="submitInvite()">Send invite</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const ME = BINNA.getUser();
+if (!ME || !BINNA.getToken()) { location.replace('/?signin=1'); }
+if (ME) {
+  document.getElementById('username').textContent = ME.username || 'user';
+  document.getElementById('avatar').textContent = (ME.username || 'U').charAt(0).toUpperCase();
+}
+
+const ROLE_ORDER = { viewer: 0, member: 1, admin: 2, owner: 3 };
+let MY_ROLE = 'viewer';
+let CAN_MANAGE = false;   // company_role >= admin
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDate = iso => { if (!iso) return null; const d = new Date(iso); return isNaN(d) ? null : d.toISOString().slice(0, 10); };
+function humanBytes(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  const u = ['KB', 'MB', 'GB', 'TB']; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i];
+}
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + (kind || '');
+  clearTimeout(t._t); t._t = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+// ── COMPANY ──────────────────────────────────────────────────────
+async function loadCompany() {
+  try {
+    const { company, my_role } = await BINNA.get('/company');
+    MY_ROLE = my_role || 'viewer';
+    CAN_MANAGE = (ROLE_ORDER[MY_ROLE] || 0) >= ROLE_ORDER.admin;
+    const badge = document.getElementById('co-status');
+    badge.className = 'badge badge-' + company.status; badge.textContent = company.status;
+    const trial = fmtDate(company.trial_ends_at), paid = fmtDate(company.paid_until);
+    document.getElementById('co-info').innerHTML = `
+      <div class="info-item"><div class="k">Company</div><div class="v">${esc(company.name)}</div></div>
+      <div class="info-item"><div class="k">Plan</div><div class="v" style="text-transform:capitalize">${esc(company.plan)}</div></div>
+      <div class="info-item"><div class="k">Your role</div><div class="v" style="text-transform:capitalize">${esc(MY_ROLE)}</div></div>
+      ${paid ? `<div class="info-item"><div class="k">Paid until</div><div class="v num">${paid}</div></div>`
+             : trial ? `<div class="info-item"><div class="k">Trial ends</div><div class="v num">${trial}</div></div>` : ''}`;
+    if (CAN_MANAGE) {
+      document.getElementById('invite-btn').classList.remove('hidden');
+      document.getElementById('th-actions').textContent = 'Actions';
+    }
+  } catch (e) { document.getElementById('co-info').innerHTML = `<div class="empty">${esc(e.error || 'Failed to load company')}</div>`; }
+}
+
+// ── STORAGE ──────────────────────────────────────────────────────
+async function loadStorage() {
+  try {
+    const s = await BINNA.get('/company/storage');
+    const pct = s.percent_used != null ? s.percent_used : 0;
+    const cls = pct >= 90 ? 'full' : pct >= 70 ? 'warn' : '';
+    document.getElementById('storage-body').innerHTML = `
+      <div class="storage-top">
+        <div class="storage-used">${humanBytes(s.used_bytes)}<span class="of"> of ${humanBytes(s.quota_bytes)}</span></div>
+        <div class="storage-pct">${pct}% used</div>
+      </div>
+      <div class="bar"><div class="bar-fill ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
+      <div class="storage-meta">${s.file_count} file${s.file_count === 1 ? '' : 's'} stored${
+        s.untracked_files ? ` · ${s.untracked_files} uploaded before size tracking (counted as 0)` : ''}</div>`;
+  } catch (e) { document.getElementById('storage-body').innerHTML = `<div class="empty">${esc(e.error || 'Failed to load storage')}</div>`; }
+}
+
+// ── MEMBERS ──────────────────────────────────────────────────────
+async function loadMembers() {
+  try {
+    const { members } = await BINNA.get('/company/members');
+    renderMembers(members);
+  } catch (e) { document.getElementById('member-rows').innerHTML = `<tr><td colspan="4" class="empty">${esc(e.error || 'Failed to load members')}</td></tr>`; }
+}
+function renderMembers(members) {
+  if (!members.length) { document.getElementById('member-rows').innerHTML = '<tr><td colspan="4" class="empty">No members yet.</td></tr>'; return; }
+  const roleOpts = (cur) => ['admin', 'member', 'viewer'].map(r =>
+    `<option value="${r}" ${r === cur ? 'selected' : ''}>${r[0].toUpperCase() + r.slice(1)}</option>`).join('');
+  document.getElementById('member-rows').innerHTML = members.map(m => {
+    const isOwner = m.company_role === 'owner';
+    const isSelf = ME && m.id === ME.id;
+    const status = !m.is_active ? '<span class="pill pill-off">Deactivated</span>'
+                 : m.pending ? '<span class="pill pill-pending">Invite pending</span>'
+                 : m.email_verified ? '<span class="muted">Active</span>' : '<span class="pill pill-pending">Unverified</span>';
+    // Manage controls only when caller can manage AND the target isn't the owner or self.
+    const canEdit = CAN_MANAGE && !isOwner && !isSelf;
+    const roleCell = isOwner ? '<span class="pill pill-owner">Owner</span>'
+      : canEdit ? `<select class="role-sel" onchange="changeRole(${m.id}, this.value)">${roleOpts(m.company_role)}</select>`
+                : `<span style="text-transform:capitalize">${esc(m.company_role)}</span>`;
+    const actionCell = !CAN_MANAGE ? ''
+      : canEdit && m.is_active ? `<button class="btn btn-sm btn-ghost-red" onclick="removeMember(${m.id}, '${esc(m.username).replace(/'/g, "\\'")}')">Remove</button>`
+      : '<span class="dash">—</span>';
+    return `<tr>
+      <td><div class="m-name">${esc(m.username)}${isSelf ? ' <span class="muted" style="font-weight:400">(you)</span>' : ''}</div><div class="m-email">${esc(m.email)}</div></td>
+      <td>${roleCell}</td>
+      <td>${status}</td>
+      ${CAN_MANAGE ? `<td>${actionCell}</td>` : '<td></td>'}
+    </tr>`;
+  }).join('');
+}
+async function changeRole(id, role) {
+  try { await BINNA.put(`/company/members/${id}`, { company_role: role }); toast('Role updated', 'ok'); }
+  catch (e) { toast(e.error || 'Failed', 'bad'); loadMembers(); }
+}
+async function removeMember(id, name) {
+  if (!confirm(`Remove ${name} from the company? They will be deactivated.`)) return;
+  try { await BINNA.del(`/company/members/${id}`); toast('Member removed', 'ok'); loadMembers(); }
+  catch (e) { toast(e.error || 'Failed', 'bad'); }
+}
+
+// ── INVITE ───────────────────────────────────────────────────────
+function openInvite() {
+  document.getElementById('inv-email').value = '';
+  document.getElementById('inv-role').value = 'member';
+  document.getElementById('inv-err').textContent = '';
+  document.getElementById('invite-modal').classList.add('open');
+  document.getElementById('inv-email').focus();
+}
+function closeInvite() { document.getElementById('invite-modal').classList.remove('open'); }
+async function submitInvite() {
+  const email = document.getElementById('inv-email').value.trim();
+  const role = document.getElementById('inv-role').value;
+  const err = document.getElementById('inv-err'); err.textContent = '';
+  if (!email || email.indexOf('@') < 0) { err.textContent = 'Enter a valid email address.'; return; }
+  const btn = document.getElementById('inv-submit'); btn.disabled = true;
+  try {
+    const r = await BINNA.post('/company/invite', { email, company_role: role });
+    closeInvite(); toast(r.message || 'Invitation sent', 'ok'); loadMembers();
+  } catch (e) { err.textContent = e.error || 'Failed to send invite.'; }
+  finally { btn.disabled = false; }
+}
+
+// ── boot ─────────────────────────────────────────────────────────
+(async function () {
+  await loadCompany();   // sets CAN_MANAGE before members render
+  loadStorage();
+  loadMembers();
+})();
+document.getElementById('invite-modal').addEventListener('click', e => { if (e.target.id === 'invite-modal') closeInvite(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInvite(); });
+</script>
+</body>
+</html>

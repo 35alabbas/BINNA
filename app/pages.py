@@ -41,6 +41,20 @@ def dashboard():
     return render_template('dashboard.html')
 
 
+@pages_bp.route('/admin')
+def admin_panel():
+    # Platform admin panel (Phase 4). Served like the legacy module pages — the
+    # page's own JS hard-redirects non-admins (role!='admin') before paint, and
+    # every /api/v1/admin/* route is independently gated by require_platform_admin.
+    return send_from_directory(_ROOT, 'binna-admin.html')
+
+
+@pages_bp.route('/company')
+def company_settings():
+    # CEO workspace — company settings, members, storage usage (Phase 4).
+    return send_from_directory(_ROOT, 'binna-company.html')
+
+
 @pages_bp.route('/project/<int:project_id>')
 def project_home(project_id):
     return render_template('project.html')

@@ -49,11 +49,13 @@ def _requires_role(project_id, user_id, min_role='member'):
     return proj, mem
 
 
-def record_upload(stored_name, original_name, project, user_id):
+def record_upload(stored_name, original_name, project, user_id, size_bytes=None):
     """Create the ownership record that scopes a stored file to its tenant.
 
     Shared by every endpoint that stores a file (this blueprint + the DC archive
     upload), so the serve gate can always resolve company/project for a filename.
+    `size_bytes` (returned by storage.save_file) feeds the per-company storage
+    usage indicator; legacy callers that omit it record NULL.
     """
     db.session.add(Upload(
         stored_name   = stored_name,
@@ -61,6 +63,7 @@ def record_upload(stored_name, original_name, project, user_id):
         company_id    = project.company_id,
         project_id    = project.id,
         uploaded_by   = user_id,
+        size_bytes    = size_bytes,
     ))
 
 
@@ -91,10 +94,10 @@ def upload_file(project_id):
     stored_name  = f"{uuid.uuid4().hex}_{orig}"
 
     # Persist to R2 (or local disk when R2 is unset). Key = company/project/name.
-    storage.save_file(f, proj.company_id, proj.id, stored_name)
+    size = storage.save_file(f, proj.company_id, proj.id, stored_name)
 
     # Ownership record — scopes this file to the project's company/tenant.
-    record_upload(stored_name, orig, proj, uid)
+    record_upload(stored_name, orig, proj, uid, size_bytes=size)
     db.session.commit()
 
     return jsonify({

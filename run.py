@@ -75,6 +75,14 @@ def _ensure_schema():
         # so existing DBs can read the new model field on boot; the one-time
         # role-based backfill lives in migrate_member_permissions.py (run once).
         ('project_members', 'permissions',     "TEXT DEFAULT '{}'"),
+        # ── Phase 4: manual billing ────────────────────────────────────────────
+        # companies.paid_until — end of the current paid period; set when an
+        # invoice is marked paid, drives the active→grace→locked auto-downgrade.
+        # uploads.size_bytes — byte size captured at upload, feeds the per-company
+        # storage usage indicator. Both nullable; existing rows read as NULL/0.
+        # The `payments` table itself is NOT here — new tables build via create_all().
+        ('companies', 'paid_until', 'TIMESTAMP'),
+        ('uploads',   'size_bytes', 'INTEGER'),
     ]
     for table, column, ddl in additions:
         if table not in tables:

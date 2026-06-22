@@ -392,11 +392,11 @@ def upload_archive_file(project_id: int, archive_id: int):
     stored_name = f"{uuid.uuid4().hex}_{orig}"
 
     # Persist to R2 (or local disk when R2 is unset). Key = company/project/name.
-    storage.save_file(f, proj.company_id, proj.id, stored_name)
+    size = storage.save_file(f, proj.company_id, proj.id, stored_name)
 
     archive.file_attachment = stored_name
     # Ownership record so the file serves through the tenancy gate like any other.
-    record_upload(stored_name, orig, proj, uid)
+    record_upload(stored_name, orig, proj, uid, size_bytes=size)
     db.session.commit()
 
     return jsonify({

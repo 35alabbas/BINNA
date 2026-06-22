@@ -26,6 +26,14 @@ class Config:
     # ── File uploads ──────────────────────────────────────────────────────────────
     UPLOAD_FOLDER      = os.path.join(basedir, 'uploads')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB
+    # Soft per-company R2 storage quota — drives the CEO-workspace usage indicator
+    # (% of quota used). Display/awareness only; uploads are not blocked at the
+    # cap. One storage "tier" is 5 GB; future paid add-on tiers stack whole
+    # multiples of this constant (quota = tiers × STORAGE_QUOTA_BYTES_PER_TIER)
+    # without a code rewrite. Override STORAGE_QUOTA_BYTES via env to set the
+    # effective cap directly.
+    STORAGE_QUOTA_BYTES_PER_TIER = 5 * 1024 ** 3   # 5 GB per tier
+    STORAGE_QUOTA_BYTES = int(os.environ.get('STORAGE_QUOTA_BYTES', STORAGE_QUOTA_BYTES_PER_TIER))
 
     # ── Email (Resend) ──────────────────────────────────────────────────────────────
     # Phase 2 account flows (verification / invite / password-reset) send mail via

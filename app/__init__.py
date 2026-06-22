@@ -77,10 +77,12 @@ def create_app(config_name: str = 'default') -> Flask:
     from app.routes.subcontracts import subcontracts_bp
     from app.routes.global_parties import global_parties_bp
     from app.routes.uploads import uploads_bp
+    from app.admin import admin_bp
     from app.pages import pages_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(company_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(projects_bp)
     app.register_blueprint(dc_bp,
         url_prefix='/api/v1/projects/<int:project_id>/dc')

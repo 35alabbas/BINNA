@@ -49,18 +49,25 @@ def key_for(company_id, project_id, stored_name):
 
 
 def save_file(f, company_id, project_id, stored_name):
-    """Persist an uploaded Werkzeug FileStorage. R2 when enabled, else local disk."""
+    """Persist an uploaded Werkzeug FileStorage. R2 when enabled, else local disk.
+    Returns the byte size of the stored file (fed to Upload.size_bytes for the
+    per-company storage indicator). Reads the file once into memory — bounded by
+    MAX_CONTENT_LENGTH (50 MB)."""
+    data = f.read()
+    size = len(data)
     if r2_enabled():
         _client_or_build().put_object(
             Bucket=current_app.config['R2_BUCKET'],
             Key=key_for(company_id, project_id, stored_name),
-            Body=f.read(),
+            Body=data,
             ContentType=(f.mimetype or 'application/octet-stream'),
         )
-        return
+        return size
     folder = current_app.config['UPLOAD_FOLDER']
     os.makedirs(folder, exist_ok=True)
-    f.save(os.path.join(folder, stored_name))
+    with open(os.path.join(folder, stored_name), 'wb') as out:
+        out.write(data)
+    return size
 
 
 def _display_name(stored_name, original_name):

@@ -19,9 +19,10 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
     create_access_token, create_refresh_token, jwt_required, get_jwt_identity,
 )
+from sqlalchemy import func
 
 from app import db
-from app.models import User
+from app.models import User, Upload
 from app.tenancy import current_user, require_company_role
 from app.email import send_invite_email
 
@@ -56,6 +57,39 @@ def get_company():
     if not user or not user.company:
         return jsonify({'error': 'No company attached to this account'}), 404
     return jsonify({'company': user.company.to_dict(), 'my_role': user.company_role})
+
+
+# ── Storage usage (company-scoped R2 indicator) ──────────────────────────────────
+
+@company_bp.route('/storage', methods=['GET'])
+@jwt_required()
+def storage_usage():
+    """Per-company storage usage for the CEO-workspace indicator.
+
+    Sums Upload.size_bytes across the caller's own company. Files uploaded before
+    the size_bytes column existed count as 0 (COALESCE), so this is a lower bound
+    until those are re-uploaded — surfaced honestly via `untracked_files`.
+    """
+    user = current_user()
+    if not user or user.company_id is None:
+        return jsonify({'error': 'No company attached to this account'}), 404
+
+    used = db.session.query(func.coalesce(func.sum(Upload.size_bytes), 0)) \
+        .filter(Upload.company_id == user.company_id).scalar() or 0
+    file_count = db.session.query(func.count(Upload.id)) \
+        .filter(Upload.company_id == user.company_id).scalar() or 0
+    untracked = db.session.query(func.count(Upload.id)) \
+        .filter(Upload.company_id == user.company_id, Upload.size_bytes.is_(None)).scalar() or 0
+
+    quota = current_app.config.get('STORAGE_QUOTA_BYTES', 0)
+    percent = round(used / quota * 100, 1) if quota else None
+    return jsonify({
+        'used_bytes':      int(used),
+        'quota_bytes':     int(quota),
+        'percent_used':    percent,
+        'file_count':      int(file_count),
+        'untracked_files': int(untracked),
+    })
 
 
 # ── List members (company-scoped) ───────────────────────────────────────────────

@@ -87,6 +87,27 @@ def company_role_at_least(user, min_role: str) -> bool:
     return _COMPANY_ROLE_ORDER.get(user.company_role, 0) >= _COMPANY_ROLE_ORDER.get(min_role, 0)
 
 
+def require_platform_admin(fn):
+    """Decorator for platform-admin routes (the admin panel).
+
+    Gates on the PLATFORM role (users.role == 'admin') — the single BINNA
+    super-admin (first-ever signup) — NOT the tenant company_role. This is a
+    different axis from require_company_role: a company owner is the top of their
+    tenant but has no platform-admin access. Injects the loaded User as `user`.
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        user = current_user()
+        if user is None:
+            return jsonify({'error': 'User not found'}), 404
+        if user.role != 'admin':
+            return jsonify({'error': 'Platform administrator access required'}), 403
+        kwargs['user'] = user
+        return fn(*args, **kwargs)
+    return wrapper
+
+
 def require_company_role(min_role: str):
     """Decorator for company-management routes (invites, member admin).
 
