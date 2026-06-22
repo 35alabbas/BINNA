@@ -597,3 +597,34 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Phase 3 is COMPLETE and verified end-to-end** — upload + download proven through R2 by the offline suite, a live shell round-trip, and a real-browser production download (DC-letter PDF opened, 2026-06-22). **No open Phase 3 items.**
 - **R2 bucket CORS:** not needed for current flows (navigation / `<img src>` aren't CORS-gated). Revisit only if a future feature does a direct browser `fetch()`/XHR against R2.
 - **Next → Phase 4 (billing / subscription + company lock)** per `BINNA_SAAS_PLAN.md`: invoice-paid flips company to `active`, locked company cannot edit, revenue tracker. **Blocked on:** Mohammed's go-ahead to start Phase 4.
+
+---
+
+## 2026-06-22 — Phase 4 (manual billing): status computation + read-only lock — LANDED
+
+### Decisions (Mohammed)
+- **locked == READ-ONLY** — view your data, cannot edit; not a full block.
+- **grace == 7 days** after the trial lapses.
+- **lazy / request-time** evaluation — no cron job (no extra Render cost, no drift between stored and enforced state).
+
+### What shipped
+- **`app/billing.py` (new):**
+  - `compute_status(company)` — pure, no writes. `active` (manually paid) is exempt; else future/NULL `trial_ends_at` -> `trial`, trial past + future/NULL `grace_ends_at` -> `grace`, grace past -> `locked`. All comparisons via `models.is_past()`, so a **NULL deadline NEVER locks**.
+  - `refresh_status(company)` — computes + persists transitions; stamps `grace_ends_at = trial_ends_at + 7d` the first time a trial lapses; commits only on change.
+  - `init_app(app)` — `before_request` guard: on a mutating API call (POST/PUT/PATCH/DELETE) from an authenticated, **non-super-admin**, `locked` tenant -> **403**. Reads always pass (read-only lock). `/api/v1/auth/*` exempt so login/verify/reset work when locked.
+- **`app/__init__.py`** — wired `billing.init_app(app)` after blueprints.
+- **Distinguishable 403:** the lock response carries **`code: 'account_locked'`** alongside its message, so it is unambiguously separable from the role-gate 403s (`{'error': 'Insufficient permissions...'}`). A future "why can't I edit" is a field check, not a guess about which check fired.
+
+### Companies 1 & 2 safety — proven, not asserted
+- `test_billing_status.py` explicitly asserts a companies-1-&-2-shape account (status=trial, trial_ends_at = created_at + 14d, grace_ends_at NULL) computes as `trial`, stays `trial` through `refresh_status` (no grace stamp), and **can still create projects (201)**. Deploying this layer cannot silently lock zaidsalam444 / zaidallamy88.
+
+### Tests
+- `test_billing_status.py` (new) — **15 passed**: compute_status (5 cases incl. like-1-2 and NULL-never-locks), refresh_status (grace stamping + persistence + trial-active no-op), enforcement (trial writable 201, locked write 403 **with code=account_locked**, locked read 200, status lazily persisted to locked, super-admin bypass 201).
+- Full suite, no regression — all locally-runnable suites EXIT 0: `account_flows`, `billing_status` 15, `datetime_tz` 9, `isolation` 46, `r2_upload` 13, `viewer_edit` 12. (`test_r2_connectivity` and `test_resend_send` abort by design when R2_* / RESEND_API_KEY are unset locally — they run only in the Render shell; not regressions.)
+
+### Status — Phase 4 enforcement layer COMPLETE
+- Status lifecycle + read-only lock are live in code and tested. The admin panel (mark-invoice-paid -> `active`, activate/suspend) and revenue tracker are NOT yet built — `active` is set manually until then, and once `active` nothing downgrades it (no `paid_until` period model yet). Both are conscious deferrals, not gaps.
+
+### Next Step
+- **Next -> Phase 4 admin panel + revenue tracker:** super-admin company list, mark-invoice-paid (-> `active`), activate/suspend; Payment/Invoice model + revenue view; then CEO workspace (company settings, storage-usage indicator, user management). A `paid_until`/billing-period model is the piece that lets `active` auto-expire instead of being permanent.
+- **Blocked on:** Mohammed's go-ahead to start the admin-panel / revenue-tracker phase (explicitly scoped after the enforcement layer).

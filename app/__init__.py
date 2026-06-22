@@ -101,4 +101,8 @@ def create_app(config_name: str = 'default') -> Flask:
     app.register_blueprint(uploads_bp)   # has its own full URL paths
     app.register_blueprint(pages_bp)
 
+    # ── Phase 4 billing lifecycle: read-only lock enforced lazily per request ──
+    from app import billing
+    billing.init_app(app)
+
     return app
