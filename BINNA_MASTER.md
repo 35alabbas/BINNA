@@ -698,8 +698,13 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 
 - **`binna-db` is on a PAID plan, not free tier.** Confirmed on the **Basic-256mb plan**, healthy, **8.36% of 1 GB used**. The earlier "free Postgres expires ~July 16, 2026 → hard data-loss deadline" warning is **void** — there is no expiry and no upgrade-before-launch action outstanding.
 - **`DATABASE_URL` confirmed wired** to the web service (production persists to `binna-db`, not ephemeral container SQLite).
-- **Phases 2, 3, and 4 all confirmed complete** (email-verified auth, R2 storage, admin panel + CEO workspace + billing lifecycle + revenue tracker — all live in production).
 - Pre-launch item #3 and the Phase 4 "Open items" Postgres-expiry warning both marked **✅ RESOLVED** above.
+
+### Phase status — all phases through 4 COMPLETE ✅
+> Phases 2 and 3 were built, verified, and closed in **earlier sessions** (not this one); this session only re-confirmed they remain live in production. Phase 4 was completed in the 2026-06-22 session.
+- **Phase 2 — COMPLETE ✅** — email verification, company registration flow, invite system, role-based access, and DB queries scoped to `company_id` — **all verified on production**. (Built/closed in the 2026-06-19 → 2026-06-22 sessions; commit `695a3c8` and the Phase 2 closure log.)
+- **Phase 3 — COMPLETE ✅** — Cloudflare R2 file storage, tenant-isolated paths, and presigned URLs — **verified on production**. (Built/closed in the 2026-06-22 session; commits `08b51a3` + `dd923bc`, real end-to-end R2 round-trip confirmed, closure commit `ac6685a`.)
+- **Phase 4 — COMPLETE ✅** — admin panel, CEO workspace, billing lifecycle, and revenue tracker — verified on production. (Built/closed in the 2026-06-22 session; commit `40e0f0e`.)
 
 ### Next Step
 - **Phase 5:** (1) **per-module permissions UI** — surface the existing `ProjectMember.permissions` map in company settings so a CEO can toggle view/edit per module per member; (2) **storage add-on tiers** — UI + quota stacking as whole multiples of `STORAGE_QUOTA_BYTES_PER_TIER`; (3) **Hostinger DNS migration (~August 1, 2026)**.
