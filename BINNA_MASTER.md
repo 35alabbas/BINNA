@@ -388,7 +388,7 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### ⚠️ Pre-launch items carried to the Launch Track (not Phase 0 tasks)
 1. **Wire `DATABASE_URL`** on the BINNA web service to `binna-db`'s **Internal Database URL** when the service is resumed (otherwise it falls back to ephemeral SQLite). `config.py` auto-rewrites the scheme to `postgresql+psycopg://`.
 2. ✅ **DONE (2026-06-18) — exposed `binna_db_user` password rotated.** Credential rotated via Render's rotation feature to new default `users_database`; old roles `binna_users` + `binna_db_user` deleted/revoked. See the ✅ RESOLVED note above.
-3. **Upgrade the free Postgres** (`binna-db` free tier expires ~30 days from 2026-06-16) to a paid instance before launch, or the DB + data are deleted.
+3. ✅ **RESOLVED (2026-06-24) — `binna-db` confirmed on the paid Basic-256mb plan (NOT free tier).** Healthy, **8.36% of 1 GB used**, and **`DATABASE_URL` wired to the web service**. No expiry, no data-loss deadline — the earlier "free tier expires ~30 days from 2026-06-16" warning is void.
 4. ✅ **RESOLVED (2026-06-20) — Resend sending domain verified; real-customer registration unblocked.** `binnapm.com` is now **fully verified on Resend (DKIM, MX, SPF all confirmed)** and **`MAIL_FROM` updated to `BINNA <noreply@binnapm.com>`** (commit `ed01ce9`, deployed). **End-to-end proof:** an independent third-party test by **Mohammed's brother** completed the **full registration → verify → login flow.** Separately, registering `mohamadalabasi4@gmail.com` (a real, previously-unused address) showed **'Delivered' in Resend — confirming the email reached Gmail's servers, but the verification link was not clicked, so that account remains unverified** (delivery proof only, not E2E). *(Original blocker, added 2026-06-19: the sandbox sender `onboarding@resend.dev` only delivered to the one address registered on the Resend account, so no outside customer could register — this gated earlier than, and was resolved independently of, the Hostinger DNS cutover.)* Full detail in the **2026-06-19 (later) → 2026-06-20** session log.
 
 ### Status — Phase 0 COMPLETE ✅
@@ -655,3 +655,51 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### Next Step
 - **Next -> Phase 4 admin panel + revenue tracker.** Build (pure code): super-admin blueprint, company list (with computed effective status), mark-invoice-paid (-> active, sets paid_until), activate/suspend, generic Invoice/Payment model + migration, IQD/monthly revenue view, payment-proof upload (lock-exempt), locked-CEO payment-instructions screen, and the `paid_until` auto-downgrade in compute_status.
 - **Blocked on:** Mohammed's answer to the single-vs-multi platform-admin question (shapes the access model), then go-ahead to start the phase.
+
+---
+
+## 2026-06-22 — Phase 4 COMPLETE — admin panel, CEO workspace, billing lifecycle, revenue tracker (commit `40e0f0e`, deployed)
+
+### Decision resolved (Mohammed)
+- **Single platform super-admin only** — `users.role == 'admin'`, the first-ever signup. No multi-admin system. This unblocked the admin-blueprint access model.
+- **Direct payment log** (no separate unpaid-invoice entity), **auto-downgrade** via `paid_until`, **standalone `/admin` page**.
+
+### What shipped — backend
+- **`Payment` model** (`payments` table, built by `create_all()`): `company_id, amount_iqd, method, months, period_start/end, note, recorded_by, paid_at`. `PAYMENT_METHODS` allowlist = Zain Cash / Asia Hawala / Qi Card / NBI. IQD throughout.
+- **`companies.paid_until`** + **`uploads.size_bytes`** — new columns added in place via `_ensure_schema()` (`TIMESTAMP` / `INTEGER`); **verified non-destructive on a pre-Phase-4 DB** (columns added, idempotent, legacy rows intact). Never dropped/recreated.
+- **Billing lifecycle (`app/billing.py`)** — `compute_status()` now: `active` exempt **only while inside the paid window** (`paid_until` future, or NULL = manually-activated → sticky); once `paid_until` lapses → **active→grace(7d)→locked** automatically, like a trial. **`locked` is sticky** (manual suspend holds until explicit reactivation; otherwise a suspended company with no grace deadline recomputed back to grace/trial). `refresh_status()` stamps grace from the lapse anchor (paid_until OR trial_ends_at).
+- **`record_payment()`** — logs the payment, sets `active`, **stacks** months onto an existing future `paid_until` (early renewal keeps remaining days), resets `grace_ends_at`. Dependency-free `add_months()` helper (day-clamping).
+- **Admin blueprint (`app/admin.py`, `/api/v1/admin/*`)** gated by new **`require_platform_admin`** (PLATFORM role, distinct from tenant `company_role`): `GET /companies` (effective status, deadlines, member count, owner email, total paid), `POST /companies/<id>/activate` (sticky), `/suspend` (read-only lock), `/mark-paid` (validated), `GET /revenue` (payment log + total + per-method breakdown = the revenue tracker).
+- **CEO storage endpoint** `GET /api/v1/company/storage` — sums `Upload.size_bytes` per company; returns used/quota/percent/file_count/untracked. Size captured in `storage.save_file()` (returns bytes) → `record_upload(size_bytes=…)` on both upload paths (uploads + DC archive).
+- **`STORAGE_QUOTA_BYTES_PER_TIER = 5 * 1024 ** 3` (5 GB)** in `config.py`; `STORAGE_QUOTA_BYTES` defaults to one tier so future paid add-on tiers stack whole multiples without a code rewrite.
+
+### Frontends — Obsidian Crown (Syne headings, gold `#C5A85A` / purple `#8B5CF6`/`#A78BFA`, `theme.css` + `theme.js`)
+- **`binna-admin.html` → `/admin`** — **dual-gated**: client JS hard-redirects non-admins (`role !== 'admin'`) to `/dashboard` before paint (`location.replace`), AND every `/api/v1/admin/*` route is independently `require_platform_admin`-gated. Companies tab (stat strip + status-badged table + Mark paid / Activate / Suspend, mark-paid modal) and Revenue tab (totals + per-method + payment log).
+- **`binna-company.html` → `/company`** — workspace info card + status badge, gold storage-usage bar (used/quota/%), team-members table (role dropdowns + invite/remove, gated by `company_role >= admin`). Reuses the existing `company.py` invite/role/remove APIs.
+
+### Tests
+- **137 offline assertions green** (98 prior unchanged + 39 new in `test_admin_panel.py`): `add_months`, `record_payment` + auto-downgrade (active→grace→locked), sticky states, admin auth gate (403 non-admin / 401 anon), companies list, mark-paid validation + effect, revenue totals/by-method, end-to-end lock lift (suspend → 403 `account_locked` → mark-paid → writable), storage indicator.
+- Network tests (`test_r2_*`, `test_resend_send`) are credential-gated to the Render shell — not run offline, not regressions.
+
+### Production
+- **Deployed as commit `40e0f0e`** (`daa3eb9..40e0f0e`, pushed to `main`). **Verified green on Render.** Local pre-push verification used a seeded throwaway demo DB (all four states + 2 payments + 3-member roster); `/admin` + `/company` served 200, admin/revenue APIs correct, non-admin 403 confirmed.
+
+### Open items
+- **Storage add-on tier logic** (UI + multiplier stacking on `STORAGE_QUOTA_BYTES_PER_TIER`) — **deferred**. Constant is in place; nothing consumes multiples yet.
+- **Per-module permissions UI** (the `ProjectMember.permissions` JSON map already exists + is backfilled) — **deferred to Phase 5**.
+- ✅ **RESOLVED (2026-06-24) — `binna-db` is on a paid plan; no expiry/data-loss risk.** Confirmed on the **Basic-256mb paid plan** (NOT free tier), healthy, **8.36% of 1 GB used**, and **`DATABASE_URL` is wired to the web service**. The earlier "free Postgres expires ~July 16, 2026" data-loss deadline no longer applies.
+
+### Next Step
+- See the **2026-06-24** session log below — infra deadline is now resolved and the Next Step block has moved there.
+
+## Session Log — 2026-06-24 (Infrastructure verified — no code changes)
+
+> Documentation-only session. No source, schema, or config changes — verification + BINNA_MASTER.md update.
+
+- **`binna-db` is on a PAID plan, not free tier.** Confirmed on the **Basic-256mb plan**, healthy, **8.36% of 1 GB used**. The earlier "free Postgres expires ~July 16, 2026 → hard data-loss deadline" warning is **void** — there is no expiry and no upgrade-before-launch action outstanding.
+- **`DATABASE_URL` confirmed wired** to the web service (production persists to `binna-db`, not ephemeral container SQLite).
+- **Phases 2, 3, and 4 all confirmed complete** (email-verified auth, R2 storage, admin panel + CEO workspace + billing lifecycle + revenue tracker — all live in production).
+- Pre-launch item #3 and the Phase 4 "Open items" Postgres-expiry warning both marked **✅ RESOLVED** above.
+
+### Next Step
+- **Phase 5:** (1) **per-module permissions UI** — surface the existing `ProjectMember.permissions` map in company settings so a CEO can toggle view/edit per module per member; (2) **storage add-on tiers** — UI + quota stacking as whole multiples of `STORAGE_QUOTA_BYTES_PER_TIER`; (3) **Hostinger DNS migration (~August 1, 2026)**.
