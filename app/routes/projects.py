@@ -23,6 +23,7 @@ from app.models import (
     GanttData,
     GlobalParty,
     LabTest,
+    PERMISSION_MODULES,
     Project,
     ProjectMember,
     SEED_GLOBAL_PARTY_ROLES,
@@ -469,3 +470,90 @@ def remove_member(project_id, member_id):
     db.session.delete(target)
     db.session.commit()
     return jsonify({'message': 'Member removed successfully'})
+
+
+# ── Per-module permissions (CEO / project-admin management) ─────────────────────
+# The permission map lives on ProjectMember.permissions ({module:{view,edit}}).
+# A project admin/owner manages the map for that ONE project; company-level access
+# still flows through list_projects, so a project manager only ever reaches the
+# projects they belong to. Enforcement of the map itself lives in each module's
+# route helpers (it reads ProjectMember.can()).
+
+def _normalize_permission_map(raw, base):
+    """Merge a client-supplied permission map onto `base`, over known modules.
+
+    Only PERMISSION_MODULES keys are honoured; unknown keys are dropped. Each
+    entry is coerced to real booleans and `edit` forces `view` on (you cannot
+    grant edit without view). Modules absent from `raw` keep their `base` value,
+    so a single-toggle save that sends the whole grid — or a partial one — both
+    behave correctly.
+    """
+    out = {}
+    for mod in PERMISSION_MODULES:
+        b = base.get(mod) or {'view': True, 'edit': False}
+        entry = raw.get(mod) if isinstance(raw, dict) else None
+        if isinstance(entry, dict):
+            edit = bool(entry.get('edit'))
+            view = bool(entry.get('view')) or edit
+        else:
+            edit = bool(b.get('edit'))
+            view = bool(b.get('view')) or edit
+        out[mod] = {'view': view, 'edit': edit}
+    return out
+
+
+@projects_bp.route('/<int:project_id>/permissions', methods=['GET'])
+@jwt_required()
+def get_permissions(project_id):
+    """Every member of the project with their effective per-module permission map.
+
+    Project admin/owner only — this is the data behind the CEO permissions grid.
+    """
+    user_id         = int(get_jwt_identity())
+    project, member = _requires_role(project_id, user_id, 'admin')
+    if not project:
+        return jsonify({'error': 'Project not found or insufficient permissions'}), 404
+
+    members = []
+    for m in project.members:
+        row = m.to_dict()
+        row['member_id']   = m.id
+        row['permissions'] = m.effective_permissions()
+        members.append(row)
+
+    return jsonify({
+        'modules': list(PERMISSION_MODULES),
+        'members': members,
+        'total':   len(members),
+    })
+
+
+@projects_bp.route('/<int:project_id>/members/<int:member_id>/permissions', methods=['PUT'])
+@jwt_required()
+def update_member_permissions(project_id, member_id):
+    """Set one member's per-module view/edit grants for this project.
+
+    Project admin/owner only. The owner's grants are fixed (always full access)
+    and cannot be edited — mirrors the role-change / removal protections above.
+    """
+    user_id         = int(get_jwt_identity())
+    project, member = _requires_role(project_id, user_id, 'admin')
+    if not project:
+        return jsonify({'error': 'Project not found or insufficient permissions'}), 404
+
+    target = ProjectMember.query.get(member_id)
+    if not target or target.project_id != project_id:
+        return jsonify({'error': 'Member not found'}), 404
+    if target.role == 'owner':
+        return jsonify({'error': 'The project owner always has full access'}), 403
+
+    data = request.get_json(silent=True) or {}
+    raw  = data.get('permissions')
+    if not isinstance(raw, dict):
+        return jsonify({'error': 'A "permissions" object is required'}), 400
+
+    final = _normalize_permission_map(raw, target.get_permissions())
+    target.permissions = json.dumps(final)
+    db.session.commit()
+
+    return jsonify({'member_id': target.id, 'permissions': final})

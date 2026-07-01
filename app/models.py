@@ -243,6 +243,42 @@ class ProjectMember(db.Model):
         except (ValueError, TypeError):
             return {}
 
+    def effective_permissions(self) -> dict:
+        """Full {module: {view, edit}} map over every PERMISSION_MODULE.
+
+        The stored map wins where it has an entry; any module it omits (and a
+        wholly un-provisioned member whose map is '{}') falls back to the role
+        default. So a member added after the backfill, or a module introduced
+        later, always resolves to what the role has always granted — never a
+        surprise hidden state. `edit` implies `view`. The project owner is
+        always full-access, regardless of what is stored.
+        """
+        if self.role == 'owner':
+            return {m: {'view': True, 'edit': True} for m in PERMISSION_MODULES}
+        stored   = self.get_permissions()
+        defaults = default_permissions_for_role(self.role)
+        out = {}
+        for mod in PERMISSION_MODULES:
+            entry = stored.get(mod) or defaults.get(mod, {'view': True, 'edit': False})
+            edit  = bool(entry.get('edit'))
+            out[mod] = {'view': bool(entry.get('view')) or edit, 'edit': edit}
+        return out
+
+    def can(self, module: str, action: str = 'view') -> bool:
+        """Whether this member may `view` or `edit` a module.
+
+        Reads effective_permissions() (stored map with role-default fallback),
+        so un-provisioned members and unknown modules behave exactly as the
+        member's role always did — enforcement can be switched on without
+        locking anyone out. `edit` implies `view`. Owner is always allowed.
+        """
+        if self.role == 'owner':
+            return True
+        entry = self.effective_permissions().get(module)
+        if entry is None:                       # module outside the known set
+            return True
+        return bool(entry.get('edit')) if action == 'edit' else bool(entry.get('view'))
+
     def to_dict(self) -> dict:
         return {
             'id':         self.id,

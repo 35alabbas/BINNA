@@ -91,6 +91,23 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 select.role-sel{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-size:12px;color:var(--txt);font-family:'DM Sans';cursor:pointer}
 select.role-sel:focus{outline:none;border-color:var(--purple-c)}
 
+/* MODULE PERMISSIONS */
+.perm-hint{font-size:12.5px;color:var(--txt-mid);margin-bottom:16px;line-height:1.5}
+.perm-member{border:1px solid var(--line);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.perm-member:last-child{margin-bottom:0}
+.perm-member-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--panel-2);border-bottom:1px solid var(--line)}
+.perm-grid{display:grid;grid-template-columns:1fr 72px 72px}
+.perm-grid .ph{padding:9px 14px;font-size:10px;font-weight:600;color:var(--txt-mid);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--line)}
+.perm-grid .ph.c{text-align:center}
+.perm-grid .pm{padding:9px 14px;font-size:12.5px;color:var(--txt);border-bottom:1px solid var(--line);display:flex;align-items:center}
+.perm-grid .pc{display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line)}
+.perm-grid > div:nth-last-child(-n+3){border-bottom:none}
+input.perm-cb{width:16px;height:16px;accent-color:var(--gold-c);cursor:pointer;margin:0}
+input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
+.pill-role{background:var(--purple-dim);color:var(--purple-l);border:1px solid var(--line-purple);text-transform:capitalize}
+.perm-warn{display:flex;gap:9px;align-items:flex-start;background:rgba(230,170,40,.10);border:1px solid rgba(230,170,40,.38);border-radius:9px;padding:11px 13px;margin-bottom:16px;font-size:12.5px;line-height:1.5;color:var(--gold-l,#e6c86e)}
+.perm-warn b{font-weight:600}
+
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--panel-2);color:var(--txt);font-family:'DM Sans';transition:all .14s;white-space:nowrap}
 .btn:hover{border-color:var(--txt-faint)}
 .btn-gold{background:var(--gold-c);border-color:var(--gold-c);color:#1a1a1a}
@@ -167,6 +184,15 @@ select.role-sel:focus{outline:none;border-color:var(--purple-c)}
         <tbody id="member-rows"><tr><td colspan="4" class="loading">Loading members…</td></tr></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- MODULE PERMISSIONS (only shown to project admins/owners) -->
+  <div class="panel hidden" id="perm-panel">
+    <div class="panel-head">
+      <div class="panel-title">Module permissions</div>
+      <select class="role-sel" id="perm-project"></select>
+    </div>
+    <div class="panel-body" id="perm-body"><div class="loading">Loading permissions…</div></div>
   </div>
 </div>
 
@@ -304,6 +330,96 @@ async function removeMember(id, name) {
   catch (e) { toast(e.error || 'Failed', 'bad'); }
 }
 
+// ── MODULE PERMISSIONS ───────────────────────────────────────────
+// Per-project, per-member view/edit grid. Backed by:
+//   GET /projects/<id>/permissions                      (project admin/owner)
+//   PUT /projects/<id>/members/<mid>/permissions        (project admin/owner)
+// Only projects where the caller is admin/owner are offered, so a project
+// manager sees their own project(s) only and nothing else.
+const MODULE_LABELS = {
+  financial: 'Financial', gantt: 'Schedule / Gantt', uploads: 'File Uploads',
+  dc: 'Document Control', dr: 'Daily Reports', lbt: 'Lab Tests',
+  submittals: 'Submittals', global_parties: 'Global Parties',
+  subcontracts: 'Subcontracts', projects: 'Project Settings',
+};
+
+async function loadPermPanel() {
+  let projects = [];
+  try { ({ projects = [] } = await BINNA.get('/projects')); }
+  catch (e) { return; }   // no access → leave the panel hidden
+  const manage = projects.filter(p => p.my_role === 'admin' || p.my_role === 'owner');
+  if (!manage.length) return;   // not a project admin anywhere → panel stays hidden
+  const panel = document.getElementById('perm-panel');
+  const sel = document.getElementById('perm-project');
+  sel.innerHTML = manage.map(p =>
+    `<option value="${p.id}">${esc(p.code ? p.code + ' — ' : '')}${esc(p.name)}</option>`).join('');
+  sel.onchange = () => loadProjectPerms(sel.value);
+  panel.classList.remove('hidden');
+  loadProjectPerms(sel.value);
+}
+
+async function loadProjectPerms(pid) {
+  const body = document.getElementById('perm-body');
+  body.innerHTML = '<div class="loading">Loading permissions…</div>';
+  try {
+    const { modules, members } = await BINNA.get(`/projects/${pid}/permissions`);
+    renderPermGrid(pid, modules, members);
+  } catch (e) {
+    body.innerHTML = `<div class="empty">${esc(e.error || 'Failed to load permissions')}</div>`;
+  }
+}
+
+function renderPermGrid(pid, modules, members) {
+  const body = document.getElementById('perm-body');
+  if (!members.length) { body.innerHTML = '<div class="empty">No members on this project.</div>'; return; }
+  body.innerHTML =
+    '<div class="perm-warn"><span>⚠️</span><span><b>Heads up:</b> permission changes are saved but ' +
+    'not yet enforced on module routes — enforcement is being activated shortly.</span></div>' +
+    '<div class="perm-hint">Toggle who can view or edit each module for this project. ' +
+    'Edit implies view. The project owner always has full access.</div>' +
+    members.map(m => {
+      const isOwner = m.role === 'owner';
+      const dis = isOwner ? 'disabled' : '';
+      const rows = modules.map(mod => {
+        const p = m.permissions[mod] || { view: false, edit: false };
+        return `<div class="pm">${esc(MODULE_LABELS[mod] || mod)}</div>` +
+          `<div class="pc"><input type="checkbox" class="perm-cb" data-member="${m.member_id}" data-module="${mod}" data-field="view" ${p.view ? 'checked' : ''} ${dis}></div>` +
+          `<div class="pc"><input type="checkbox" class="perm-cb" data-member="${m.member_id}" data-module="${mod}" data-field="edit" ${p.edit ? 'checked' : ''} ${dis}></div>`;
+      }).join('');
+      const roleTag = isOwner
+        ? '<span class="pill pill-owner">Owner · full access</span>'
+        : `<span class="pill pill-role">${esc(m.role)}</span>`;
+      return `<div class="perm-member">
+        <div class="perm-member-head"><span class="m-name">${esc(m.username)}</span>${roleTag}
+          <span class="m-email">${esc(m.email || '')}</span></div>
+        <div class="perm-grid">
+          <div class="ph">Module</div><div class="ph c">View</div><div class="ph c">Edit</div>
+          ${rows}
+        </div></div>`;
+    }).join('');
+  body.querySelectorAll('input.perm-cb:not([disabled])').forEach(cb =>
+    cb.addEventListener('change', () => onPermToggle(pid, cb)));
+}
+
+function onPermToggle(pid, cb) {
+  const mid = cb.dataset.member, mod = cb.dataset.module, field = cb.dataset.field;
+  const view = document.querySelector(`input.perm-cb[data-member="${mid}"][data-module="${mod}"][data-field="view"]`);
+  const edit = document.querySelector(`input.perm-cb[data-member="${mid}"][data-module="${mod}"][data-field="edit"]`);
+  // Keep the UI consistent with the server rule: edit ⇒ view.
+  if (field === 'edit' && edit.checked) view.checked = true;
+  if (field === 'view' && !view.checked) edit.checked = false;
+  savePerm(pid, mid);
+}
+
+async function savePerm(pid, mid) {
+  const perms = {};
+  document.querySelectorAll(`input.perm-cb[data-member="${mid}"]`).forEach(cb => {
+    (perms[cb.dataset.module] = perms[cb.dataset.module] || { view: false, edit: false })[cb.dataset.field] = cb.checked;
+  });
+  try { await BINNA.put(`/projects/${pid}/members/${mid}/permissions`, { permissions: perms }); toast('Permissions saved', 'ok'); }
+  catch (e) { toast(e.error || 'Failed to save', 'bad'); loadProjectPerms(pid); }
+}
+
 // ── INVITE ───────────────────────────────────────────────────────
 function openInvite() {
   document.getElementById('inv-email').value = '';
@@ -331,6 +447,7 @@ async function submitInvite() {
   await loadCompany();   // sets CAN_MANAGE before members render
   loadStorage();
   loadMembers();
+  loadPermPanel();       // shows only if the caller administers ≥1 project
 })();
 document.getElementById('invite-modal').addEventListener('click', e => { if (e.target.id === 'invite-modal') closeInvite(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInvite(); });
