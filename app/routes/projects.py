@@ -72,6 +72,9 @@ def _requires_role(project_id: int, user_id: int, min_role: str):
         return None, None
     if _ROLE_ORDER.get(member.role, 0) < _ROLE_ORDER.get(min_role, 0):
         return None, None
+    action = 'view' if min_role == 'viewer' else 'edit'
+    if not member.can('projects', action):
+        return None, None
     return project, member
 
 
@@ -99,6 +102,8 @@ def list_projects():
 
     result = []
     for m in memberships:
+        if not m.can('projects', 'view'):
+            continue
         p = m.project.to_dict()
         p['my_role']      = m.role
         p['member_count'] = len(m.project.members)
@@ -185,7 +190,7 @@ def create_project():
 @jwt_required()
 def get_project(project_id):
     user_id         = int(get_jwt_identity())
-    project, member = _get_membership(project_id, user_id)
+    project, member = _requires_role(project_id, user_id, 'viewer')
 
     if not project:
         return jsonify({'error': 'Project not found or access denied'}), 404
@@ -207,7 +212,7 @@ def project_stats(project_id):
     array, computed in Python.
     """
     uid = int(get_jwt_identity())
-    project, _ = _requires_role(project_id, uid, 'viewer')
+    project, member = _requires_role(project_id, uid, 'viewer')
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
 
@@ -314,6 +319,24 @@ def project_stats(project_id):
             continue
     stats['subcontracts'] = {'count': sub_count, 'payable': round(sub_payable)}
 
+    # Keep the dashboard response shape stable while withholding counts and
+    # money from modules this member cannot view. Existing clients still receive
+    # every established key, with a neutral zero value for hidden modules.
+    hidden_stat_keys = {
+        'dc':           ('dc',),
+        'dr':           ('dr',),
+        'lbt':          ('lbt',),
+        'submittals':   ('dwg', 'fir', 'mir', 'ms', 'rfi'),
+        'financial':    ('financial', 'cashflow', 'certified', 'received'),
+        'gantt':        ('gantt',),
+    }
+    for module, keys in hidden_stat_keys.items():
+        if not member.can(module, 'view'):
+            for key in keys:
+                stats[key] = 0
+    if not member.can('subcontracts', 'view'):
+        stats['subcontracts'] = {'count': 0, 'payable': 0}
+
     return jsonify({'stats': stats})
 
 
@@ -374,7 +397,7 @@ def delete_project(project_id):
 @jwt_required()
 def list_members(project_id):
     user_id         = int(get_jwt_identity())
-    project, member = _get_membership(project_id, user_id)
+    project, member = _requires_role(project_id, user_id, 'viewer')
 
     if not project:
         return jsonify({'error': 'Project not found or access denied'}), 404
