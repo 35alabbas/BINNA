@@ -327,6 +327,10 @@ def update_project(project_id):
 
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
+    # 'projects' module = Project Settings. Editing settings needs the admin role
+    # (enforced above) AND edit on the module in the per-member permission map.
+    if not member or not member.can('projects', 'edit'):
+        return jsonify({'error': 'Insufficient permissions'}), 403
 
     data = request.get_json(silent=True) or {}
 

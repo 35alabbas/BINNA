@@ -28,10 +28,14 @@ gantt_bp = Blueprint('gantt', __name__)
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+# This blueprint's per-module permission key (see ProjectMember.can / effective_permissions).
+_MODULE = 'gantt'
+
+
 def _check_access(project_id, user_id):
     # Company-scoped gate (READ): company match + membership — returns project or None.
     proj, mem = membership_or_none(project_id, user_id)
-    return proj if mem else None
+    return proj if (mem and mem.can(_MODULE, 'view')) else None
 
 
 def _requires_role(project_id, user_id, min_role='member'):
@@ -42,6 +46,8 @@ def _requires_role(project_id, user_id, min_role='member'):
         return None, None
     if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
         return proj, None
+    if not mem.can(_MODULE, 'edit'):
+        return proj, None   # module edit revoked via the per-member permission map → 403
     return proj, mem
 
 

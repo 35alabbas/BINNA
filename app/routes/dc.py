@@ -22,13 +22,22 @@ dc_bp = Blueprint('dc', __name__)
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
+# This blueprint's per-module permission key (see ProjectMember.can / effective_permissions).
+_MODULE = 'dc'
+
+
 def _get_membership(project_id: int, user_id: int):
     """Return (Project, ProjectMember) or (None, None) if no access.
 
     Delegates to the central tenant-isolation gate — access requires the project
-    to belong to the caller's company AND the user to be a member.
+    to belong to the caller's company AND the user to be a member. A member whose
+    permission map hides this module is treated exactly like a non-member (→
+    (None, None)), so read handlers that only check `if not proj` deny cleanly.
     """
-    return membership_or_none(project_id, user_id)
+    proj, mem = membership_or_none(project_id, user_id)
+    if mem and not mem.can(_MODULE, 'view'):
+        return None, None
+    return proj, mem
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):
@@ -38,6 +47,9 @@ def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):
         return None, None   # 404
     if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
         return proj, None   # 403
+    action = 'view' if min_role == 'viewer' else 'edit'
+    if not mem.can(_MODULE, action):
+        return proj, None   # module hidden/read-only via the per-member permission map
     return proj, mem
 
 

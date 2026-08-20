@@ -160,6 +160,53 @@ putb = client.put(f'/api/v1/projects/{pid}/members/{mem_id}/permissions',
                   json={'nope': 1}, headers=owner_hdr)
 check(f'[{putb.status_code}] missing "permissions" object → 400', putb.status_code == 400)
 
+# ── ENFORCEMENT — the map now gates real module routes ─────────────────────────
+# Proves can() is wired in, not just stored. A member with financial fully granted
+# can read+write; revoking view hides the module (404); revoking edit makes it
+# read-only (403). A group-2 module (dc) confirms the read gate there too. An
+# un-provisioned viewer still reads (role default view=True) — no lock-out.
+print('\n[D] route enforcement')
+FIN = f'/api/v1/projects/{pid}/financial'
+DC  = f'/api/v1/projects/{pid}/dc'
+
+def set_perms(mid, perms):
+    r = client.put(f'/api/v1/projects/{pid}/members/{mid}/permissions',
+                   json={'permissions': perms}, headers=owner_hdr)
+    assert r.status_code == 200, r.get_json()
+
+# full grant → member can read and write financial
+set_perms(mem_id, {'financial': {'view': True, 'edit': True}})
+check(f'[{client.get(FIN, headers=mem_hdr).status_code}] member reads financial when granted (200)',
+      client.get(FIN, headers=mem_hdr).status_code == 200)
+check(f'[{client.put(FIN, json={"data": {}}, headers=mem_hdr).status_code}] member writes financial when granted (200)',
+      client.put(FIN, json={'data': {}}, headers=mem_hdr).status_code == 200)
+
+# revoke view+edit → module hidden (read 404, write 403)
+set_perms(mem_id, {'financial': {'view': False, 'edit': False}})
+check(f'[{client.get(FIN, headers=mem_hdr).status_code}] view revoked → member read financial 404',
+      client.get(FIN, headers=mem_hdr).status_code == 404)
+check(f'[{client.put(FIN, json={"data": {}}, headers=mem_hdr).status_code}] view revoked → member write financial 403/404',
+      client.put(FIN, json={'data': {}}, headers=mem_hdr).status_code in (403, 404))
+
+# view-only → can read, cannot write
+set_perms(mem_id, {'financial': {'view': True, 'edit': False}})
+check(f'[{client.get(FIN, headers=mem_hdr).status_code}] view-only → member reads financial (200)',
+      client.get(FIN, headers=mem_hdr).status_code == 200)
+check(f'[{client.put(FIN, json={"data": {}}, headers=mem_hdr).status_code}] view-only → member write financial 403',
+      client.put(FIN, json={'data': {}}, headers=mem_hdr).status_code == 403)
+
+# group-2 module read gate (dc): hide it → member list 404
+set_perms(mem_id, {'dc': {'view': False, 'edit': False}})
+check(f'[{client.get(DC, headers=mem_hdr).status_code}] dc view revoked → member list 404',
+      client.get(DC, headers=mem_hdr).status_code == 404)
+set_perms(mem_id, {'dc': {'view': True, 'edit': True}})
+check(f'[{client.get(DC, headers=mem_hdr).status_code}] dc view restored → member list 200',
+      client.get(DC, headers=mem_hdr).status_code == 200)
+
+# un-provisioned viewer is NOT locked out of reads (role default view=True)
+check(f'[{client.get(FIN, headers=viewer_hdr).status_code}] un-provisioned viewer still reads financial (200)',
+      client.get(FIN, headers=viewer_hdr).status_code == 200)
+
 # ── Verdict ────────────────────────────────────────────────────────────────────
 print('\n' + '═' * 70)
 print(f'  RESULT: {_PASS} passed, {_FAIL} failed')
