@@ -19,11 +19,13 @@ is True, so a legacy user (company_id NULL) still reaches legacy projects
 through the Phase 2 signup/invite flow has a real company_id, so two real
 tenants are always strictly isolated.
 """
-from functools import wraps
+from functools import lru_cache, wraps
 
 from flask import jsonify
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from sqlalchemy import inspect
 
+from app import db
 from app.models import Project, ProjectMember, User
 
 # Tenant role hierarchy (distinct from project-membership roles, though they
@@ -78,6 +80,100 @@ def membership_or_none(project_id, user_id):
         return None, None
 
     return project, member
+
+
+_PHASE_1B_COLUMNS = {
+    'users': {'is_company_manager'},
+    'companies': {'projects_manager_user_id'},
+    'projects': {'project_manager_user_id'},
+}
+
+
+@lru_cache(maxsize=1)
+def phase_1b_schema_status() -> dict:
+    """Read-only Phase 1B schema check, cached for this app process.
+
+    Applying the explicit migration requires an application restart, which also
+    refreshes this cache. The function itself never creates or alters anything.
+    """
+    inspector = inspect(db.engine)
+    tables = set(inspector.get_table_names())
+    missing = {}
+    for table, required in _PHASE_1B_COLUMNS.items():
+        present = ({c['name'] for c in inspector.get_columns(table)}
+                   if table in tables else set())
+        absent = sorted(required - present)
+        if absent:
+            missing[table] = absent
+    return {'ready': not missing, 'missing': missing}
+
+
+def is_company_manager(user) -> bool:
+    """Business company manager, with legacy owner compatibility."""
+    if user is None or user.company_id is None:
+        return False
+    if user.company_role == 'owner':
+        return True
+    if not phase_1b_schema_status()['ready']:
+        return False
+    return bool(user.is_company_manager)
+
+
+def is_projects_manager(user) -> bool:
+    """The one designated portfolio manager for the user's company."""
+    if user is None or user.company_id is None:
+        return False
+    if not phase_1b_schema_status()['ready'] or user.company is None:
+        return False
+    return user.company.projects_manager_user_id == user.id
+
+
+def can_manage_project_portfolio(user) -> bool:
+    return is_company_manager(user) or is_projects_manager(user)
+
+
+def is_project_manager(user, project) -> bool:
+    if user is None or project is None or not same_company(project, user):
+        return False
+    if not phase_1b_schema_status()['ready']:
+        return False
+    return project.project_manager_user_id == user.id
+
+
+def authorize_project_access(project_id, user_id, module, action='view', min_role='viewer'):
+    """Central Phase 1B project authorization.
+
+    Returns ``(project, member, allowed)``. Tenant isolation is always first.
+    Portfolio managers receive company-wide read access only. The designated
+    project manager receives full operational access. Everyone else keeps the
+    exact legacy ProjectMember role + per-module permission behavior.
+    """
+    user = User.query.get(int(user_id)) if user_id is not None else None
+    project = Project.query.get(project_id)
+    if user is None or project is None or not same_company(project, user):
+        return None, None, False
+
+    member = ProjectMember.query.filter_by(
+        project_id=project_id, user_id=user_id,
+    ).first()
+
+    if is_project_manager(user, project):
+        return project, member, True
+    if action == 'view' and can_manage_project_portfolio(user):
+        return project, member, True
+    if member is None:
+        return project, None, False
+
+    from app.models import _ROLE_ORDER
+    if _ROLE_ORDER.get(member.role, 0) < _ROLE_ORDER.get(min_role, 0):
+        return project, member, False
+    return project, member, member.can(module, action)
+
+
+def can_manage_project_assignments(user, project) -> bool:
+    """Portfolio managers and the designated PM manage project staffing."""
+    return (user is not None and project is not None and same_company(project, user)
+            and (can_manage_project_portfolio(user) or is_project_manager(user, project)))
 
 
 def company_role_at_least(user, min_role: str) -> bool:

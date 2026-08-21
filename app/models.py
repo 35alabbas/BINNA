@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 import bcrypt
 from app import db
+from sqlalchemy.orm import deferred
 
 
 def _now():
@@ -71,6 +72,16 @@ class Company(db.Model):
     paid_until    = db.Column(db.DateTime)                                        # end of the paid period; set when an invoice is marked paid (Phase 4)
     status        = db.Column(db.String(20),  nullable=False, default='trial')   # trial | active | grace | locked
     created_at    = db.Column(db.DateTime,    default=_now)
+    # Phase 1B business assignment. Deferred so a pre-migration database can
+    # continue serving legacy reads; Phase 1B write endpoints fail closed until
+    # the explicit migration adds the column.
+    projects_manager_user_id = deferred(db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=True, index=True,
+    ))
+
+    projects_manager = db.relationship(
+        'User', foreign_keys=[projects_manager_user_id], post_update=True,
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -110,6 +121,9 @@ class User(db.Model):
     # verification *logic* is wired in Phase 2.
     company_id               = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=True, index=True)
     company_role             = db.Column(db.String(20), default='viewer')   # owner | admin | member | viewer
+    # Business role, deliberately separate from company_role. Existing tenant
+    # owners are recognized as company managers by policy without rewriting.
+    is_company_manager       = deferred(db.Column(db.Boolean, nullable=False, default=False))
     email_verified           = db.Column(db.Boolean, nullable=False, default=False)
     email_verification_token = db.Column(db.String(255))
 
@@ -175,11 +189,17 @@ class Project(db.Model):
     created_by  = db.Column(db.Integer,     db.ForeignKey('users.id'), nullable=False)
     created_at  = db.Column(db.DateTime,    default=_now)
     updated_at  = db.Column(db.DateTime,    default=_now, onupdate=_now)
+    # One explicit/effective manager for new Phase 1B projects. NULL is retained
+    # for legacy projects until a manager is confirmed manually.
+    project_manager_user_id = deferred(db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=True, index=True,
+    ))
 
     # Relationships
     members     = db.relationship('ProjectMember', back_populates='project',
                                   cascade='all, delete-orphan', lazy='select')
     creator     = db.relationship('User', foreign_keys=[created_by])
+    project_manager = db.relationship('User', foreign_keys=[project_manager_user_id])
 
     # ── Serialise ─────────────────────────────────────────────────────────────
     def to_dict(self, include_members: bool = False) -> dict:

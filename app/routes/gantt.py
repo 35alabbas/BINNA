@@ -21,7 +21,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
 from app.models import GanttData, Project, ProjectMember, _ROLE_ORDER
-from app.tenancy import membership_or_none
+from app.tenancy import authorize_project_access
 
 gantt_bp = Blueprint('gantt', __name__)
 
@@ -34,19 +34,21 @@ _MODULE = 'gantt'
 
 def _check_access(project_id, user_id):
     # Company-scoped gate (READ): company match + membership — returns project or None.
-    proj, mem = membership_or_none(project_id, user_id)
-    return proj if (mem and mem.can(_MODULE, 'view')) else None
+    proj, _mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, 'view', 'viewer')
+    return proj if allowed else None
 
 
 def _requires_role(project_id, user_id, min_role='member'):
     """Company-scoped gate (WRITE) — mirrors the seven already-gated modules.
     (None, None) → 404 (no access / wrong tenant); (project, None) → 403 (role too low)."""
-    proj, mem = membership_or_none(project_id, user_id)
+    proj, mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, 'edit', min_role)
     if not proj:
         return None, None
-    if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
+    if not allowed:
         return proj, None
-    if not mem.can(_MODULE, 'edit'):
+    if not allowed:
         return proj, None   # module edit revoked via the per-member permission map → 403
     return proj, mem
 

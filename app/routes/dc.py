@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 
 from app import db, storage
 from app.models import Archive, DCLetter, Project, ProjectMember, _ROLE_ORDER
-from app.tenancy import membership_or_none
+from app.tenancy import authorize_project_access
 from app.routes.uploads import record_upload
 
 dc_bp = Blueprint('dc', __name__)
@@ -34,21 +34,24 @@ def _get_membership(project_id: int, user_id: int):
     permission map hides this module is treated exactly like a non-member (→
     (None, None)), so read handlers that only check `if not proj` deny cleanly.
     """
-    proj, mem = membership_or_none(project_id, user_id)
-    if mem and not mem.can(_MODULE, 'view'):
+    proj, mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, 'view', 'viewer')
+    if not allowed:
         return None, None
     return proj, mem
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):
     """Return (Project, ProjectMember) or abort with 403/404."""
-    proj, mem = _get_membership(project_id, user_id)
+    action = 'view' if min_role == 'viewer' else 'edit'
+    proj, mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, action, min_role)
     if not proj:
         return None, None   # 404
-    if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
+    if not allowed:
         return proj, None   # 403
     action = 'view' if min_role == 'viewer' else 'edit'
-    if not mem.can(_MODULE, action):
+    if not allowed:
         return proj, None   # module hidden/read-only via the per-member permission map
     return proj, mem
 

@@ -18,7 +18,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import (Submittal, Project, ProjectMember, _ROLE_ORDER,
                         VALID_SUBMITTAL_TYPES, VALID_SUBMITTAL_STATUSES)
-from app.tenancy import membership_or_none
+from app.tenancy import authorize_project_access
 
 submittals_bp = Blueprint('submittals', __name__)
 
@@ -42,20 +42,23 @@ def _get_membership(project_id: int, user_id: int):
     # Delegates to the central tenant-isolation gate (company match + membership).
     # A member whose permission map hides this module is treated like a non-member
     # (→ (None, None)) so read handlers that only check `if not proj` deny cleanly.
-    proj, mem = membership_or_none(project_id, user_id)
-    if mem and not mem.can(_MODULE, 'view'):
+    proj, mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, 'view', 'viewer')
+    if not allowed:
         return None, None
     return proj, mem
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str = 'viewer'):
-    proj, mem = _get_membership(project_id, user_id)
+    action = 'view' if min_role == 'viewer' else 'edit'
+    proj, mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, action, min_role)
     if not proj:
         return None, None   # 404
-    if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
+    if not allowed:
         return proj, None   # 403
     action = 'view' if min_role == 'viewer' else 'edit'
-    if not mem.can(_MODULE, action):
+    if not allowed:
         return proj, None   # module hidden/read-only via the per-member permission map
     return proj, mem
 

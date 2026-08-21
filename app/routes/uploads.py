@@ -16,7 +16,7 @@ from werkzeug.utils import secure_filename
 
 from app import db, storage
 from app.models import Project, ProjectMember, Upload, User, _ROLE_ORDER
-from app.tenancy import membership_or_none
+from app.tenancy import authorize_project_access
 
 uploads_bp = Blueprint('uploads', __name__)
 
@@ -38,19 +38,21 @@ _MODULE = 'uploads'
 
 def _check_access(project_id, user_id):
     # Company-scoped gate (READ): company match + membership — returns project or None.
-    proj, mem = membership_or_none(project_id, user_id)
-    return proj if (mem and mem.can(_MODULE, 'view')) else None
+    proj, _mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, 'view', 'viewer')
+    return proj if allowed else None
 
 
 def _requires_role(project_id, user_id, min_role='member'):
     """Company-scoped gate (WRITE) — mirrors the seven already-gated modules.
     (None, None) → 404 (no access / wrong tenant); (project, None) → 403 (role too low)."""
-    proj, mem = membership_or_none(project_id, user_id)
+    proj, mem, allowed = authorize_project_access(
+        project_id, user_id, _MODULE, 'edit', min_role)
     if not proj:
         return None, None
-    if _ROLE_ORDER.get(mem.role, 0) < _ROLE_ORDER.get(min_role, 0):
+    if not allowed:
         return proj, None
-    if not mem.can(_MODULE, 'edit'):
+    if not allowed:
         return proj, None   # module edit revoked via the per-member permission map → 403
     return proj, mem
 
@@ -130,8 +132,9 @@ def serve_file(filename):
     if not upload:
         abort(404)
 
-    proj, mem = membership_or_none(upload.project_id, uid)
-    if not mem or not mem.can(_MODULE, 'view'):
+    proj, mem, allowed = authorize_project_access(
+        upload.project_id, uid, _MODULE, 'view', 'viewer')
+    if not allowed:
         abort(404)   # non-member, or uploads view revoked via the permission map
 
     # Gate passed → hand off to the storage backend. R2: JSON {url: presigned} for

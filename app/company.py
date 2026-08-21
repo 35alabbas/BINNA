@@ -23,12 +23,28 @@ from sqlalchemy import func
 
 from app import db
 from app.models import User, Upload
-from app.tenancy import current_user, require_company_role
+from app.tenancy import (
+    current_user,
+    is_company_manager,
+    phase_1b_schema_status,
+    require_company_role,
+)
 from app.email import send_invite_email
 
 company_bp = Blueprint('company', __name__, url_prefix='/api/v1/company')
 
 _VALID_COMPANY_ROLES = {'admin', 'member', 'viewer'}   # 'owner' is not assignable via invite
+
+
+def _phase_1b_required():
+    status = phase_1b_schema_status()
+    if status['ready']:
+        return None
+    return jsonify({
+        'error': 'Phase 1B database migration is required',
+        'code': 'phase_1b_migration_required',
+        'missing': status['missing'],
+    }), 503
 
 
 def _token() -> str:
@@ -115,6 +131,38 @@ def list_members():
         } for m in members],
         'total': len(members),
     })
+
+
+# ── Designated projects manager ───────────────────────────────────────────────
+
+@company_bp.route('/projects-manager', methods=['PUT'])
+@jwt_required()
+def set_projects_manager():
+    """Set the company's one effective projects manager.
+
+    Business company managers only. Legacy tenant owners qualify without any
+    data rewrite. This endpoint fails closed until the explicit Phase 1B
+    migration has been applied.
+    """
+    missing = _phase_1b_required()
+    if missing:
+        return missing
+    user = current_user()
+    if not is_company_manager(user):
+        return jsonify({'error': 'Company manager access required'}), 403
+
+    data = request.get_json(silent=True) or {}
+    try:
+        target_id = int(data.get('user_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'A valid user_id is required'}), 400
+    target = User.query.get(target_id)
+    if not target or target.company_id != user.company_id or not target.is_active:
+        return jsonify({'error': 'Company member not found'}), 404
+
+    user.company.projects_manager_user_id = target.id
+    db.session.commit()
+    return jsonify({'projects_manager_user_id': target.id})
 
 
 # ── Invite a member ─────────────────────────────────────────────────────────────

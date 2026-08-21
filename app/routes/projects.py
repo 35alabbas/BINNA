@@ -31,7 +31,14 @@ from app.models import (
     Submittal,
     User,
 )
-from app.tenancy import membership_or_none
+from app.tenancy import (
+    authorize_project_access,
+    can_manage_project_assignments,
+    can_manage_project_portfolio,
+    is_project_manager,
+    membership_or_none,
+    phase_1b_schema_status,
+)
 
 # Blank financial structure seeded for every new project — matches the schema
 # the contract / financial frontends read (contractDetails, boq, vo, payments,
@@ -62,20 +69,68 @@ def _get_membership(project_id: int, user_id: int) -> tuple:
     Delegates to the central tenant-isolation gate — access requires the project
     to belong to the caller's company AND the user to be a member.
     """
-    return membership_or_none(project_id, user_id)
+    project, member, allowed = authorize_project_access(
+        project_id, user_id, 'projects', 'view', 'viewer',
+    )
+    return (project, member) if allowed else (None, None)
 
 
 def _requires_role(project_id: int, user_id: int, min_role: str):
     """Return (project, member) or abort with 404/403."""
-    project, member = _get_membership(project_id, user_id)
-    if not project:
-        return None, None
-    if _ROLE_ORDER.get(member.role, 0) < _ROLE_ORDER.get(min_role, 0):
-        return None, None
     action = 'view' if min_role == 'viewer' else 'edit'
-    if not member.can('projects', action):
-        return None, None
-    return project, member
+    project, member, allowed = authorize_project_access(
+        project_id, user_id, 'projects', action, min_role,
+    )
+    return (project, member) if allowed else (None, None)
+
+
+def _phase_1b_required():
+    status = phase_1b_schema_status()
+    if status['ready']:
+        return None
+    return jsonify({
+        'error': 'Phase 1B database migration is required',
+        'code': 'phase_1b_migration_required',
+        'missing': status['missing'],
+    }), 503
+
+
+def _assignment_manager(project_id, user_id):
+    user = User.query.get(user_id)
+    project = Project.query.get(project_id)
+    if can_manage_project_assignments(user, project):
+        return project, user
+    # Backward compatibility: an existing technical admin/owner with projects
+    # edit permission keeps the project-management access they already had.
+    legacy_project, _member, allowed = authorize_project_access(
+        project_id, user_id, 'projects', 'edit', 'admin',
+    )
+    return (legacy_project, user) if allowed else (None, None)
+
+
+def _valid_project_manager(project, target_id):
+    try:
+        target_id = int(target_id)
+    except (TypeError, ValueError):
+        return None
+    target = User.query.get(target_id)
+    if (not target or not target.is_active
+            or target.company_id != project.company_id):
+        return None
+    return target
+
+
+def _ensure_manager_membership(project, target):
+    membership = ProjectMember.query.filter_by(
+        project_id=project.id, user_id=target.id,
+    ).first()
+    if membership is None:
+        membership = ProjectMember(
+            project_id=project.id, user_id=target.id,
+            company_id=project.company_id, role='viewer',
+        )
+        db.session.add(membership)
+    return membership
 
 
 # ── List projects ─────────────────────────────────────────────────────────────
@@ -100,13 +155,22 @@ def list_projects():
         .all()
     )
 
+    membership_by_project = {m.project_id: m for m in memberships}
+    if can_manage_project_portfolio(user):
+        projects = (Project.query.filter_by(company_id=user.company_id)
+                    .order_by(Project.created_at.desc()).all())
+    else:
+        projects = [m.project for m in memberships]
+
     result = []
-    for m in memberships:
-        if not m.can('projects', 'view'):
+    for project in projects:
+        m = membership_by_project.get(project.id)
+        if not can_manage_project_portfolio(user) and (
+                m is None or not m.can('projects', 'view')):
             continue
-        p = m.project.to_dict()
-        p['my_role']      = m.role
-        p['member_count'] = len(m.project.members)
+        p = project.to_dict()
+        p['my_role']      = m.role if m else 'viewer'
+        p['member_count'] = len(project.members)
         result.append(p)
 
     return jsonify({'projects': result, 'total': len(result)})
@@ -121,6 +185,11 @@ def create_project():
     user    = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
+    missing = _phase_1b_required()
+    if missing:
+        return missing
+    if not can_manage_project_portfolio(user):
+        return jsonify({'error': 'Company or projects manager access required'}), 403
     data    = request.get_json(silent=True) or {}
 
     code = (data.get('code') or '').strip().upper()
@@ -134,6 +203,16 @@ def create_project():
     # Stamp the creator's company onto the project (the tenant that owns it).
     company_id = user.company_id
 
+    requested_manager = data.get('project_manager_user_id')
+    if requested_manager in (None, ''):
+        requested_manager = user.company.projects_manager_user_id
+    if requested_manager in (None, ''):
+        return jsonify({'error': 'A projects manager or project manager must be designated'}), 409
+    manager_shell = type('ProjectShell', (), {'company_id': company_id})()
+    manager = _valid_project_manager(manager_shell, requested_manager)
+    if manager is None:
+        return jsonify({'error': 'Project manager not found'}), 404
+
     project = Project(
         company_id  = company_id,
         code        = code,
@@ -144,14 +223,13 @@ def create_project():
         description = (data.get('description') or '').strip(),
         status      = data.get('status', 'active'),
         created_by  = user_id,
+        project_manager_user_id = manager.id,
     )
     db.session.add(project)
     db.session.flush()          # populate project.id before member insert
 
     # Creator is the owner — membership row also carries the company stamp.
-    member = ProjectMember(project_id=project.id, user_id=user_id,
-                           role='owner', company_id=company_id)
-    db.session.add(member)
+    _ensure_manager_membership(project, manager)
 
     # Seed a blank financial record so the contract / financial pages open empty
     db.session.add(FinancialData(
@@ -179,7 +257,11 @@ def create_project():
     db.session.commit()
 
     result              = project.to_dict()
-    result['my_role']   = 'owner'
+    creator_membership = ProjectMember.query.filter_by(
+        project_id=project.id, user_id=user_id,
+    ).first()
+    result['my_role']   = creator_membership.role if creator_membership else 'viewer'
+    result['project_manager_user_id'] = manager.id
     result['member_count'] = 1
     return jsonify({'project': result}), 201
 
@@ -196,7 +278,9 @@ def get_project(project_id):
         return jsonify({'error': 'Project not found or access denied'}), 404
 
     result             = project.to_dict(include_members=True)
-    result['my_role']  = member.role
+    result['my_role']  = member.role if member else 'viewer'
+    if phase_1b_schema_status()['ready']:
+        result['project_manager_user_id'] = project.project_manager_user_id
     return jsonify({'project': result})
 
 
@@ -330,11 +414,15 @@ def project_stats(project_id):
         'financial':    ('financial', 'cashflow', 'certified', 'received'),
         'gantt':        ('gantt',),
     }
+    user = User.query.get(uid)
+    unrestricted_view = (can_manage_project_portfolio(user)
+                         or is_project_manager(user, project))
     for module, keys in hidden_stat_keys.items():
-        if not member.can(module, 'view'):
+        if not unrestricted_view and member and not member.can(module, 'view'):
             for key in keys:
                 stats[key] = 0
-    if not member.can('subcontracts', 'view'):
+    if (not unrestricted_view and member
+            and not member.can('subcontracts', 'view')):
         stats['subcontracts'] = {'count': 0, 'payable': 0}
 
     return jsonify({'stats': stats})
@@ -352,7 +440,9 @@ def update_project(project_id):
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
     # 'projects' module = Project Settings. Editing settings needs the admin role
     # (enforced above) AND edit on the module in the per-member permission map.
-    if not member or not member.can('projects', 'edit'):
+    user = User.query.get(user_id)
+    if (not is_project_manager(user, project)
+            and (not member or not member.can('projects', 'edit'))):
         return jsonify({'error': 'Insufficient permissions'}), 403
 
     data = request.get_json(silent=True) or {}
@@ -381,14 +471,42 @@ def update_project(project_id):
 @jwt_required()
 def delete_project(project_id):
     user_id         = int(get_jwt_identity())
-    project, member = _requires_role(project_id, user_id, 'owner')
+    project, member = membership_or_none(project_id, user_id)
 
-    if not project:
+    if (not project or not member or member.role != 'owner'
+            or not member.can('projects', 'edit')):
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
 
     db.session.delete(project)
     db.session.commit()
     return jsonify({'message': f'Project "{project.name}" deleted'})
+
+
+# ── Designated project manager ────────────────────────────────────────────────
+
+@projects_bp.route('/<int:project_id>/project-manager', methods=['PUT'])
+@jwt_required()
+def set_project_manager(project_id):
+    missing = _phase_1b_required()
+    if missing:
+        return missing
+    user_id = int(get_jwt_identity())
+    project, manager = _assignment_manager(project_id, user_id)
+    if not project:
+        return jsonify({'error': 'Project not found or insufficient permissions'}), 404
+
+    data = request.get_json(silent=True) or {}
+    target = _valid_project_manager(project, data.get('user_id'))
+    if target is None:
+        return jsonify({'error': 'Project manager not found'}), 404
+
+    _ensure_manager_membership(project, target)
+    project.project_manager_user_id = target.id
+    db.session.commit()
+    return jsonify({
+        'project_id': project.id,
+        'project_manager_user_id': target.id,
+    })
 
 
 # ── List members ──────────────────────────────────────────────────────────────
@@ -412,7 +530,7 @@ def list_members(project_id):
 @jwt_required()
 def add_member(project_id):
     user_id         = int(get_jwt_identity())
-    project, member = _requires_role(project_id, user_id, 'admin')
+    project, member = _assignment_manager(project_id, user_id)
 
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
@@ -456,7 +574,7 @@ def add_member(project_id):
 @jwt_required()
 def update_member_role(project_id, member_id):
     user_id         = int(get_jwt_identity())
-    project, member = _requires_role(project_id, user_id, 'admin')
+    project, member = _assignment_manager(project_id, user_id)
 
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
@@ -483,7 +601,7 @@ def update_member_role(project_id, member_id):
 @jwt_required()
 def remove_member(project_id, member_id):
     user_id         = int(get_jwt_identity())
-    project, member = _requires_role(project_id, user_id, 'admin')
+    project, member = _assignment_manager(project_id, user_id)
 
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
@@ -493,6 +611,9 @@ def remove_member(project_id, member_id):
         return jsonify({'error': 'Member not found'}), 404
     if target.role == 'owner':
         return jsonify({'error': 'Cannot remove the project owner'}), 403
+    if (phase_1b_schema_status()['ready']
+            and target.user_id == project.project_manager_user_id):
+        return jsonify({'error': 'Replace the project manager before removing them'}), 403
 
     db.session.delete(target)
     db.session.commit()
@@ -537,7 +658,7 @@ def get_permissions(project_id):
     Project admin/owner only — this is the data behind the CEO permissions grid.
     """
     user_id         = int(get_jwt_identity())
-    project, member = _requires_role(project_id, user_id, 'admin')
+    project, member = _assignment_manager(project_id, user_id)
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
 
@@ -564,7 +685,7 @@ def update_member_permissions(project_id, member_id):
     and cannot be edited — mirrors the role-change / removal protections above.
     """
     user_id         = int(get_jwt_identity())
-    project, member = _requires_role(project_id, user_id, 'admin')
+    project, member = _assignment_manager(project_id, user_id)
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
 
