@@ -453,33 +453,33 @@ let PROJECT_MEMBERS = [];
 const ROLE_LEVEL = { viewer: 0, member: 1, admin: 2, owner: 3 };
 
 // ── Module definitions ────────────────────────────────────────────────────
-// `statKey` ties a card to a key in GET /projects/<id>/stats. Cards without a
-// statKey (Financial income/expense, Subcontractor) have no stat counter yet.
-// Note: per Gemini's blueprint the "financial" stat (payments/BOQ count) is
-// surfaced on the Contract & Payment card, not the income/expense Financial card.
-const MAIN_MODULES = [
-  { key:'dc',        statKey:'dc',        icon:'📁', name:'Document Control',           desc:'Manage incoming & outgoing correspondence, letters, and official communications.' },
-  { key:'dr',        statKey:'dr',        icon:'📋', name:'Daily Reports',              desc:'Track daily site activities, weather, manpower, work done, and visitors.' },
-  { key:'contract',  statKey:'financial', icon:'📋', name:'Contract & Payment',         desc:'Contract details, BOQ, variation orders, and client payment certificates (ذرعات).' },
-  { key:'financial', statKey:'cashflow', icon:'💰', name:'Financial',                  desc:'Track project income and expenses, USD/IQD cash flow, and net financial position.' },
-  { key:'gantt',     statKey:'gantt',     icon:'📊', name:'Gantt Chart',                desc:'Visualise project schedule, milestones, progress, and task dependencies.' },
-  { key:'sub',       statKey:'subcontracts', icon:'🏗️', name:'Subcontractors & Suppliers', desc:'Manage subcontractors, suppliers, scopes of work, agreements, and payable certificates.' },
-];
+const MODULE_DETAILS = {
+  dc:{statKey:'dc',desc:'Manage incoming and outgoing correspondence, letters, and official communications.'},
+  dr:{statKey:'dr',desc:'Track daily site activities, weather, manpower, work done, and visitors.'},
+  contract:{statKey:'financial',desc:'Contract details, BOQ, variations, and owner payment certificates.'},
+  accounts:{statKey:'cashflow',desc:'Track project funding, expenses, cash flow, and financial position.'},
+  gantt:{statKey:'gantt',desc:'Visualise the schedule, milestones, progress, and task dependencies.'},
+  subcontracts:{statKey:'subcontracts',desc:'Manage subcontractors, suppliers, agreements, and payable certificates.'},
+  dwg:{statKey:'dwg',desc:'Submit drawings for consultant review and track approval status.'},
+  fir:{statKey:'fir',desc:'Raise and track field inspection requests for completed work.'},
+  mir:{statKey:'mir',desc:'Submit material inspection requests before installation.'},
+  ms:{statKey:'ms',desc:'Prepare method statements for consultant review and approval.'},
+  rfi:{statKey:'rfi',desc:'Request clarification of drawings and specifications.'},
+  lbt:{statKey:'lbt',desc:'Record and track laboratory test results.'},
+};
 
-const CONSULTANT_MODULES = [
-  { key:'mir',  statKey:'mir', icon:'🧱', name:'Material Inspection',      desc:'Submit material inspection requests (MIR) for approval before installation.' },
-  { key:'fir',  statKey:'fir', icon:'🔍', name:'Field Inspection',         desc:'Raise and track field inspection requests (FIR) for completed work items.' },
-  { key:'ms',   statKey:'ms',  icon:'📄', name:'Method Statements',        desc:'Prepare and submit method statements for consultant review and approval.' },
-  { key:'rfi',  statKey:'rfi', icon:'❓', name:'Requests for Information', desc:'Raise RFIs for clarifications on design drawings and specifications.' },
-  { key:'dwg',  statKey:'dwg', icon:'📐', name:'Drawings',                 desc:'Submit construction drawings for consultant review and track approval status.' },
-  { key:'lbt',  statKey:'lbt', icon:'🧪', name:'Lab Tests',                desc:'Record and track laboratory test results for materials and soil samples.' },
-];
+function dashboardModules(sectionId) {
+  const sections = BINNA_APP_SHELL.visibleNavigation(PROJECT && PROJECT.my_permissions, true, PROJECT);
+  const section = sections.find(row => row.id === sectionId);
+  return (section ? section.items : []).map(item => Object.assign({}, item, MODULE_DETAILS[item.id] || {}, {
+    key: item.id === 'accounts' ? 'financial' : item.id === 'subcontracts' ? 'sub' : item.id,
+    name: BINNA_I18N.t(item.labelKey),
+  }));
+}
 
 // ── Render a group of module cards ────────────────────────────────────────
 function moduleCardHtml(m, isConsultant) {
-  const codeLabel = m.key === 'financial' ? 'FINANCIAL'
-                  : m.key === 'gantt'     ? 'GANTT'
-                  : m.key.toUpperCase();
+  const codeLabel = m.abbr || (m.key === 'financial' ? 'ACCOUNTS' : m.key.toUpperCase());
   const extraClass = isConsultant ? ' consultant' : '';
   return `
   <a class="module-card${extraClass}" href="/legacy/${m.key}" onclick="setLegacyProject(event, '${m.key}')">
@@ -501,18 +501,20 @@ function moduleCardHtml(m, isConsultant) {
 // ── Render modules grid ───────────────────────────────────────────────────
 function renderModules() {
   const container = document.getElementById('modules-container');
+  const mainModules = dashboardModules('project');
+  const consultantModules = dashboardModules('consultant');
   container.innerHTML =
-    `<div class="section-title">Project Modules</div>
+    `<div class="section-title" data-i18n="projectSection">${BINNA_I18N.t('projectSection')}</div>
      <div class="modules-grid" id="modules-grid-main">
-       ${MAIN_MODULES.map(m => moduleCardHtml(m, false)).join('')}
+       ${mainModules.map(m => moduleCardHtml(m, false)).join('')}
      </div>
      <div class="section-title consultant-title" style="margin-top:28px">
        <span style="display:inline-flex;align-items:center;gap:7px">
-         <span style="font-size:14px">🏛️</span> Consultant Submissions
+         <span style="font-size:14px">🏛️</span> ${BINNA_I18N.t('consultant')}
        </span>
      </div>
      <div class="modules-grid" id="modules-grid-consultant">
-       ${CONSULTANT_MODULES.map(m => moduleCardHtml(m, true)).join('')}
+       ${consultantModules.map(m => moduleCardHtml(m, true)).join('')}
      </div>`;
 }
 
@@ -543,6 +545,9 @@ async function loadProject() {
 
     // Persist as current project
     BINNA.setProject(PROJECT);
+    BINNA_APP_SHELL.renderNav(PROJECT.my_permissions);
+    renderModules();
+    await loadStats();
 
     renderHeader();
     await loadProjectOverview();
@@ -950,10 +955,8 @@ function renderUser() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 renderUser();
-renderModules();   // builds the cards (so stat-* spans exist)
-loadStats();       // fills the card counters from the stats API
 window.addEventListener('binna:languagechange', () => {
-  if (PROJECT) { renderHeader(); renderProjectOverview(); renderManagement(); }
+  if (PROJECT) { renderHeader(); renderModules(); renderProjectOverview(); renderManagement(); }
 });
 // Wait for the project (and MY_ROLE) to load before honouring #parties, so the
 // Parties modal renders with the correct edit/delete permissions. Other modules

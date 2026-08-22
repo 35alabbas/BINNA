@@ -154,8 +154,8 @@ tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--a
 
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
-    <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
-    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
+    <button id="sidebar-toggle-btn" class="binna-sidebar-toggle" type="button" data-binna-sidebar-toggle aria-controls="sidebar" aria-expanded="true"><span data-sidebar-toggle-icon>⇤</span><span class="sr-only" data-sidebar-toggle-label>Collapse sidebar</span></button>
+    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA PM</a>
     <div class="proj-badge"><b id="proj-code">—</b><span id="proj-name"></span></div>
   </div>
   <div class="topbar-right">
@@ -170,7 +170,7 @@ tr.row-sel td{background:var(--accent-light)!important;outline:2px solid var(--a
 </div>
 
 <div class="layout">
-<div class="sidebar">
+<div class="sidebar" id="sidebar">
   <div class="sidebar-section">Project</div>
   <a class="sidebar-item" href="/legacy/dc"><span class="dot"></span> Document Control</a>
   <a class="sidebar-item" href="/legacy/dr"><span class="dot"></span> Daily Reports</a>
@@ -862,17 +862,6 @@ function fromCal(natEl, fieldId) {
   if(!natEl.value) return;
   const p=natEl.value.split('-');
   document.getElementById(fieldId).value=p[2]+'/'+p[1]+'/'+p[0];
-}
-var _sidebarOpen = true;
-function toggleSidebar() {
-  _sidebarOpen = !_sidebarOpen;
-  var sb  = document.getElementById('sidebar');
-  var btn = document.getElementById('sidebar-toggle-btn');
-  if (_sidebarOpen) {
-    sb.classList.remove('collapsed'); btn.textContent = '☰'; btn.title = 'Hide Sidebar';
-  } else {
-    sb.classList.add('collapsed'); btn.textContent = '▶'; btn.title = 'Show Sidebar';
-  }
 }
 BINNA.renderSidebarTeam();
 </script>

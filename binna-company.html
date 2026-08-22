@@ -149,12 +149,12 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
     <a class="app-nav-link active" href="/company"><span class="app-nav-icon">⌂</span><span class="app-nav-label" data-i18n="company">Company</span></a>
     <a class="app-nav-link" href="/dashboard"><span class="app-nav-icon">◇</span><span class="app-nav-label" data-i18n="project">Project</span></a>
   </nav>
-  <div class="app-sidebar-footer"><button class="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true"><span>⇤</span><span class="app-collapse-label" data-i18n="collapse">Collapse sidebar</span></button></div>
+  <div class="app-sidebar-footer"><button class="app-sidebar-toggle" type="button" data-binna-sidebar-toggle aria-controls="app-sidebar" aria-expanded="true"><span data-sidebar-toggle-icon>⇤</span><span class="app-collapse-label" data-sidebar-toggle-label data-i18n="collapse">Collapse sidebar</span></button></div>
 </aside>
 <div class="app-main">
 
 <div class="topbar">
-  <div style="display:flex;align-items:center;gap:12px"><button class="app-mobile-menu" type="button" aria-label="Open navigation">☰</button><div><div class="app-topbar-title">Company workspace</div><div class="app-topbar-context">Team, roles, and project access</div></div></div>
+  <div style="display:flex;align-items:center;gap:12px"><button class="app-mobile-menu" type="button" data-binna-sidebar-toggle aria-controls="app-sidebar" aria-expanded="false" aria-label="Open navigation"><span data-sidebar-toggle-icon>☰</span><span class="sr-only" data-sidebar-toggle-label>Open navigation</span></button><div><div class="app-topbar-title">Company workspace</div><div class="app-topbar-context">Team, roles, and project access</div></div></div>
   <div class="topbar-right">
     <a class="nav-link" href="/dashboard">← Dashboard</a>
     <button class="mgmt-language-toggle" type="button" onclick="BINNA_I18N.toggle()">العربية</button>
@@ -234,6 +234,7 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
 <div id="toast"></div>
 <script src="/static/js/management-i18n.js"></script>
 <script src="/static/js/ui-motion.js"></script>
+<script src="/static/js/operational-shell.js"></script>
 
 <script>
 'use strict';

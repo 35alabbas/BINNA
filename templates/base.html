@@ -60,7 +60,7 @@
     <a class="app-nav-link" data-nav="company" href="/company"><span class="app-nav-icon">⌂</span><span class="app-nav-label" data-i18n="company">Company</span></a>
     <a class="app-nav-link" data-nav="project" href="/dashboard"><span class="app-nav-icon">◇</span><span class="app-nav-label" data-i18n="project">Project</span></a>
   </nav>
-  <div class="app-sidebar-footer"><button class="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true"><span>⇤</span><span class="app-collapse-label" data-i18n="collapse">Collapse sidebar</span></button></div>
+  <div class="app-sidebar-footer"><button class="app-sidebar-toggle" type="button" data-binna-sidebar-toggle aria-controls="app-sidebar" aria-expanded="true"><span data-sidebar-toggle-icon>⇤</span><span class="app-collapse-label" data-sidebar-toggle-label data-i18n="collapse">Collapse sidebar</span></button></div>
 </aside>
 {% endif %}
 <div class="app-main">
@@ -69,7 +69,7 @@
 {% block topbar %}
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:12px">
-    <button class="app-mobile-menu" type="button" aria-label="Open navigation">☰</button>
+    <button class="app-mobile-menu" type="button" data-binna-sidebar-toggle aria-controls="app-sidebar" aria-expanded="false" aria-label="Open navigation"><span data-sidebar-toggle-icon>☰</span><span class="sr-only" data-sidebar-toggle-label>Open navigation</span></button>
     <div><div class="app-topbar-title" data-i18n="projectWorkspace">Project workspace</div><div class="app-topbar-context" data-i18n="overviewManagement">Overview and management</div></div>
   </div>
   <div class="topbar-right">
@@ -92,7 +92,7 @@
 <script src="/static/js/binna-api.js"></script>
 <script src="/static/js/management-i18n.js"></script>
 <script src="/static/js/ui-motion.js"></script>
-<script>document.querySelectorAll('[data-nav]').forEach(function(link){var p=location.pathname;var key=p==='/company'?'company':p.indexOf('/project/')===0?'project':'dashboard';link.classList.toggle('active',link.dataset.nav===key);if(key==='project'&&link.dataset.nav==='project')link.href=p;});</script>
+<script src="/static/js/operational-shell.js"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
