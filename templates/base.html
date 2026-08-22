@@ -52,15 +52,15 @@
 <aside class="app-sidebar" id="app-sidebar" aria-label="Management navigation">
   <a class="app-brand" href="/dashboard">
     <span class="app-brand-mark">B</span>
-    <span class="app-brand-copy"><span class="app-brand-name">BINNA</span><span class="app-brand-sub">Construction PM</span></span>
+    <span class="app-brand-copy"><span class="app-brand-name">BINNA PM</span><span class="app-brand-sub">binnapm.com</span></span>
   </a>
   <nav class="app-nav">
-    <div class="app-nav-section">Workspace</div>
+    <div class="app-nav-section" data-i18n="workspace">Workspace</div>
     <a class="app-nav-link" data-nav="dashboard" href="/dashboard"><span class="app-nav-icon">▦</span><span class="app-nav-label" data-i18n="dashboard">Dashboard</span></a>
     <a class="app-nav-link" data-nav="company" href="/company"><span class="app-nav-icon">⌂</span><span class="app-nav-label" data-i18n="company">Company</span></a>
     <a class="app-nav-link" data-nav="project" href="/dashboard"><span class="app-nav-icon">◇</span><span class="app-nav-label" data-i18n="project">Project</span></a>
   </nav>
-  <div class="app-sidebar-footer"><button class="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true"><span>⇤</span><span class="app-collapse-label">Collapse sidebar</span></button></div>
+  <div class="app-sidebar-footer"><button class="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true"><span>⇤</span><span class="app-collapse-label" data-i18n="collapse">Collapse sidebar</span></button></div>
 </aside>
 {% endif %}
 <div class="app-main">
@@ -70,7 +70,7 @@
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:12px">
     <button class="app-mobile-menu" type="button" aria-label="Open navigation">☰</button>
-    <div><div class="app-topbar-title">Project workspace</div><div class="app-topbar-context">Overview and management</div></div>
+    <div><div class="app-topbar-title" data-i18n="projectWorkspace">Project workspace</div><div class="app-topbar-context" data-i18n="overviewManagement">Overview and management</div></div>
   </div>
   <div class="topbar-right">
     <button class="mgmt-language-toggle" type="button" onclick="BINNA_I18N.toggle()">العربية</button>
@@ -78,7 +78,7 @@
       <div class="avatar" id="user-avatar">?</div>
       <span class="user-name" id="user-name">Loading…</span>
     </div>
-    <button class="nav-logout" onclick="BINNA.logout()">Log Out</button>
+    <button class="nav-logout" data-i18n="logout" onclick="BINNA.logout()">Log Out</button>
   </div>
 </div>
 {% endblock %}

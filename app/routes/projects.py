@@ -39,6 +39,7 @@ from app.tenancy import (
     can_read_project_management_records,
     can_manage_project_assignments,
     can_manage_project_portfolio,
+    is_effective_project_manager,
     is_project_manager,
     is_project_closed,
     membership_or_none,
@@ -130,7 +131,7 @@ def _with_ui_metadata(project, data, user, member=None):
         data['project_manager_user_id'] = project.project_manager_user_id
     data = _with_lifecycle(project, data)
     portfolio = can_manage_project_portfolio(user)
-    designated_pm = is_project_manager(user, project)
+    effective_pm = is_effective_project_manager(user, project)
     legacy_assignment = bool(
         member and member.role in ('admin', 'owner') and member.can('projects', 'edit')
     )
@@ -143,9 +144,9 @@ def _with_ui_metadata(project, data, user, member=None):
         'add_monitoring_comment': portfolio,
         'read_management_records': can_read_project_management_records(user, project),
         'edit_project': (not closed and
-                         (designated_pm or legacy_assignment)),
+                         (effective_pm or legacy_assignment)),
         'edit_operational': (not closed and
-                             (designated_pm or bool(member and member.role != 'viewer'))),
+                             (effective_pm or bool(member and member.role != 'viewer'))),
     }
     data['phase_1b_ready'] = phase_1b_schema_status()['ready']
     data['phase_1b_2_ready'] = phase_1b_2_schema_status()['ready']
@@ -360,6 +361,17 @@ def get_project(project_id):
         project, project.to_dict(include_members=True), user, member,
     )
     result['my_role']  = member.role if member else 'viewer'
+    if is_effective_project_manager(user, project):
+        result['my_permissions'] = {
+            module: {'view': True, 'edit': not is_project_closed(project)}
+            for module in PERMISSION_MODULES
+        }
+    elif member:
+        result['my_permissions'] = member.effective_permissions()
+    else:
+        result['my_permissions'] = {
+            module: {'view': True, 'edit': False} for module in PERMISSION_MODULES
+        }
     if phase_1b_schema_status()['ready']:
         result['project_manager_user_id'] = project.project_manager_user_id
     return jsonify({'project': result})

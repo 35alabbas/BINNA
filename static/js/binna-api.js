@@ -200,6 +200,7 @@ const BINNA = {
   // ── Financial API ─────────────────────────────────────────────────────────
   async fetchFinancial(pid)   { return this.get(`/projects/${pid}/financial`); },
   async saveFinancial(pid, d) { return this.put(`/projects/${pid}/financial`, { data: d }); },
+  async previewBoqImport(pid, formData) { return this.upload(`/projects/${pid}/financial/boq-import/preview`, formData); },
   async saveIncomeExpenses(pid, income, expenses, incomeCategories, expenseCategories, usdRate) {
     return this.put(`/projects/${pid}/financial/income`, {
       income, expenses, incomeCategories, expenseCategories, usdRate
@@ -209,6 +210,8 @@ const BINNA = {
   // ── Gantt API ─────────────────────────────────────────────────────────────
   async fetchGantt(pid)       { return this.get(`/projects/${pid}/gantt`); },
   async saveGantt(pid, tasks, stoppages) { return this.put(`/projects/${pid}/gantt`, stoppages === undefined ? { tasks } : { tasks, stoppages }); },
+  async fetchStoppages(pid)   { return this.get(`/projects/${pid}/gantt/stoppages`); },
+  async saveStoppages(pid, stoppages) { return this.put(`/projects/${pid}/gantt/stoppages`, { stoppages }); },
 
   // ── Subcontractor Module API (Phase 1) ────────────────────────────────────
   async fetchParties(pid)            { return this.get(`/projects/${pid}/parties`); },

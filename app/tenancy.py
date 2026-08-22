@@ -26,7 +26,7 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from sqlalchemy import inspect
 
 from app import db
-from app.models import Project, ProjectMember, User
+from app.models import PERMISSION_MODULES, Project, ProjectMember, User
 
 # Tenant role hierarchy (distinct from project-membership roles, though they
 # share the same ladder of names).
@@ -164,6 +164,7 @@ def can_manage_project_portfolio(user) -> bool:
 
 
 def is_project_manager(user, project) -> bool:
+    """True only for the explicitly assigned project manager."""
     if user is None or project is None or not same_company(project, user):
         return False
     if not phase_1b_schema_status()['ready']:
@@ -171,13 +172,50 @@ def is_project_manager(user, project) -> bool:
     return project.project_manager_user_id == user.id
 
 
+def is_effective_project_manager(user, project) -> bool:
+    """Resolve explicit PM, projects-manager fallback, then company manager."""
+    if user is None or project is None or not same_company(project, user):
+        return False
+    if not phase_1b_schema_status()['ready']:
+        return False
+    if project.project_manager_user_id is not None:
+        return project.project_manager_user_id == user.id
+    company = user.company
+    if company is not None and company.projects_manager_user_id is not None:
+        return company.projects_manager_user_id == user.id
+    return is_company_manager(user)
+
+
+class _EffectiveManagerAccess:
+    """Non-persistent adapter for legacy routes that expect a member object."""
+
+    role = 'owner'
+    id = None
+
+    def __init__(self, project_id, user_id):
+        self.project_id = project_id
+        self.user_id = user_id
+
+    @staticmethod
+    def can(_module, _action='view'):
+        return True
+
+    @staticmethod
+    def effective_permissions():
+        return {
+            module: {'view': True, 'edit': True}
+            for module in PERMISSION_MODULES
+        }
+
+
 def authorize_project_access(project_id, user_id, module, action='view', min_role='viewer'):
     """Central Phase 1B project authorization.
 
     Returns ``(project, member, allowed)``. Tenant isolation is always first.
-    Portfolio managers receive company-wide read access only. The designated
-    project manager receives full operational access. Everyone else keeps the
-    exact legacy ProjectMember role + per-module permission behavior.
+    Portfolio managers receive company-wide read access. The effective project
+    manager receives full operational access without requiring a legacy
+    ProjectMember row. Everyone else keeps the exact legacy ProjectMember role
+    + per-module permission behavior.
     """
     user = User.query.get(int(user_id)) if user_id is not None else None
     project = Project.query.get(project_id)
@@ -188,10 +226,10 @@ def authorize_project_access(project_id, user_id, module, action='view', min_rol
         project_id=project_id, user_id=user_id,
     ).first()
 
-    if is_project_manager(user, project):
+    if is_effective_project_manager(user, project):
         if action == 'edit' and is_project_closed(project):
             raise ProjectClosedError()
-        return project, member, True
+        return project, (member or _EffectiveManagerAccess(project.id, user.id)), True
     if action == 'view' and can_manage_project_portfolio(user):
         return project, member, True
     if member is None:
@@ -207,15 +245,17 @@ def authorize_project_access(project_id, user_id, module, action='view', min_rol
 
 
 def can_manage_project_assignments(user, project) -> bool:
-    """Portfolio managers and the designated PM manage project staffing."""
+    """Portfolio managers and the effective PM manage project staffing."""
     return (user is not None and project is not None and same_company(project, user)
-            and (can_manage_project_portfolio(user) or is_project_manager(user, project)))
+            and (can_manage_project_portfolio(user)
+                 or is_effective_project_manager(user, project)))
 
 
 def can_read_project_management_records(user, project) -> bool:
-    """Portfolio managers or the designated PM may read comments/audit."""
+    """Portfolio managers or the effective PM may read comments/audit."""
     return (user is not None and project is not None and same_company(project, user)
-            and (can_manage_project_portfolio(user) or is_project_manager(user, project)))
+            and (can_manage_project_portfolio(user)
+                 or is_effective_project_manager(user, project)))
 
 
 def company_role_at_least(user, min_role: str) -> bool:

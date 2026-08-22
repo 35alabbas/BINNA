@@ -3,7 +3,13 @@ BINNA — Financial Data API  (Phase 6)
 Routes: /api/v1/projects/<project_id>/financial
 Stores the entire financial data as a JSON blob per project.
 """
+import csv
+import io
 import json
+import re
+import zipfile
+from itertools import islice
+from pathlib import Path
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
@@ -14,6 +20,10 @@ from app.models import FinancialData, Project, ProjectMember, _ROLE_ORDER
 from app.tenancy import authorize_project_access
 
 financial_bp = Blueprint('financial', __name__)
+
+_BOQ_IMPORT_MAX_BYTES = 5 * 1024 * 1024
+_BOQ_IMPORT_MAX_ROWS = 5000
+_ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789')
 
 
 # This blueprint's per-module permission key (see ProjectMember.can / effective_permissions).
@@ -125,3 +135,165 @@ def save_income_expenses(project_id):
     fd.updated_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({'ok': True}), 200
+
+
+def _parse_localized_number(value):
+    if value is None or value == '':
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text_value = str(value).strip().translate(_ARABIC_DIGITS)
+    if not text_value or text_value.startswith('='):
+        return None
+    text_value = text_value.replace('\u066c', '').replace(',', '').replace(' ', '')
+    text_value = text_value.replace('\u066b', '.')
+    if not re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)', text_value):
+        return None
+    try:
+        return float(text_value)
+    except ValueError:
+        return None
+
+
+def _read_csv_rows(content):
+    decoded = None
+    for encoding in ('utf-8-sig', 'utf-8', 'cp1256'):
+        try:
+            decoded = content.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    if decoded is None:
+        raise ValueError('CSV encoding is not supported; use UTF-8')
+    return list(csv.reader(io.StringIO(decoded)))
+
+
+def _read_xlsx_rows(content):
+    from openpyxl import load_workbook
+    workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=False)
+    sheet = workbook.active
+    rows = [list(row) for row in islice(
+        sheet.iter_rows(values_only=True), _BOQ_IMPORT_MAX_ROWS + 2,
+    )]
+    workbook.close()
+    return rows
+
+
+def _clean_sheet(rows):
+    cleaned = []
+    for row in rows:
+        values = list(row)
+        while values and (values[-1] is None or str(values[-1]).strip() == ''):
+            values.pop()
+        if values:
+            cleaned.append(values)
+    if not cleaned:
+        raise ValueError('The selected file contains no rows')
+    if len(cleaned) - 1 > _BOQ_IMPORT_MAX_ROWS:
+        raise ValueError(f'BOQ import is limited to {_BOQ_IMPORT_MAX_ROWS} data rows')
+    headers = [str(value or '').strip() for value in cleaned[0]]
+    if not any(headers):
+        raise ValueError('The selected sheet has no header row')
+    records = []
+    for source_row, values in enumerate(cleaned[1:], 2):
+        records.append((source_row, {
+            header: values[index] if index < len(values) else None
+            for index, header in enumerate(headers) if header
+        }))
+    return headers, records
+
+
+def _suggest_boq_mapping(headers):
+    aliases = {
+        'num': ('item number', 'item no', 'item', 'no', '#', 'رقم الفقرة', 'رقم البند'),
+        'desc': ('description', 'work item description', 'item description', 'الوصف', 'وصف الفقرة'),
+        'unit': ('unit', 'الوحدة'),
+        'qty': ('quantity', 'qty', 'الكمية'),
+        'price': ('unit price', 'rate', 'price', 'سعر الوحدة', 'السعر'),
+        'total': ('total', 'amount', 'المجموع', 'الاجمالي', 'الإجمالي'),
+    }
+    normalized = {str(header).strip().casefold(): header for header in headers}
+    result = {}
+    for field, candidates in aliases.items():
+        for candidate in candidates:
+            if candidate.casefold() in normalized:
+                result[field] = normalized[candidate.casefold()]
+                break
+    return result
+
+
+def _validate_boq_rows(records, mapping):
+    valid, rejected = [], []
+    for source_row, raw in records:
+        description = str(raw.get(mapping.get('desc')) or '').strip()
+        unit = str(raw.get(mapping.get('unit')) or '').strip()
+        item_number = str(raw.get(mapping.get('num')) or '').strip()
+        quantity = _parse_localized_number(raw.get(mapping.get('qty')))
+        price = _parse_localized_number(raw.get(mapping.get('price')))
+        source_total = _parse_localized_number(raw.get(mapping.get('total'))) if mapping.get('total') else None
+        errors = []
+        if not description:
+            errors.append('description')
+        if quantity is None or quantity < 0:
+            errors.append('quantity')
+        if price is None or price < 0:
+            errors.append('unit_price')
+        if errors:
+            rejected.append({'source_row': source_row, 'errors': errors})
+            continue
+        valid.append({
+            'source_row': source_row,
+            'num': item_number,
+            'desc': description,
+            'unit': unit,
+            'qty': quantity,
+            'price': price,
+            'source_total': source_total,
+            'calculated_total': quantity * price,
+        })
+    return valid, rejected
+
+
+@financial_bp.route('/boq-import/preview', methods=['POST'])
+@jwt_required()
+def preview_boq_import(project_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if proj is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Financial edit permission is required'}), 403
+    uploaded = request.files.get('file')
+    if uploaded is None or not uploaded.filename:
+        return jsonify({'error': 'Select a .xlsx or .csv file'}), 400
+    extension = Path(uploaded.filename).suffix.lower()
+    if extension not in {'.csv', '.xlsx'}:
+        return jsonify({'error': 'Only .xlsx and .csv files are supported'}), 400
+    content = uploaded.stream.read(_BOQ_IMPORT_MAX_BYTES + 1)
+    if len(content) > _BOQ_IMPORT_MAX_BYTES:
+        return jsonify({'error': 'BOQ import files are limited to 5 MB'}), 413
+    try:
+        rows = _read_csv_rows(content) if extension == '.csv' else _read_xlsx_rows(content)
+        headers, records = _clean_sheet(rows)
+        suggested = _suggest_boq_mapping(headers)
+        supplied = request.form.get('mapping')
+        mapping = json.loads(supplied) if supplied else suggested
+        if not isinstance(mapping, dict):
+            raise ValueError('Column mapping must be an object')
+        required = {'desc', 'qty', 'price'}
+        if not required.issubset(mapping) or any(mapping[key] not in headers for key in required):
+            raise ValueError('Map description, quantity, and unit price columns')
+        valid, rejected = _validate_boq_rows(records, mapping)
+    except (ValueError, TypeError, json.JSONDecodeError, zipfile.BadZipFile, KeyError) as error:
+        return jsonify({'error': str(error)}), 400
+    return jsonify({
+        'filename': uploaded.filename,
+        'headers': headers,
+        'mapping': mapping,
+        'suggested_mapping': suggested,
+        'valid_rows': valid,
+        'rejected_rows': rejected,
+        'limits': {'max_bytes': _BOQ_IMPORT_MAX_BYTES, 'max_rows': _BOQ_IMPORT_MAX_ROWS},
+    }), 200

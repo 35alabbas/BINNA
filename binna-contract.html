@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
@@ -199,22 +199,26 @@ select.cell-in[data-f="unit"]{text-align:left;padding:6px 3px!important;font-siz
 select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--accent);outline-offset:-2px}
 </style>
 <script src="/static/js/binna-api.js"></script>
+<script src="/static/js/management-i18n.js"></script>
+<script src="/static/js/contract-i18n.js"></script>
+<link rel="stylesheet" href="/static/css/operational-shell.css">
+<script src="/static/js/operational-shell.js"></script>
 </head>
 <body>
 
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
-    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
+    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA PM <span>binnapm.com</span></a>
     <div class="proj-badge"><b id="proj-code">APS</b><span id="proj-name">Auxiliary Pump Station</span></div>
     <span id="contract-type-tag" class="ctype-tag" style="display:none"></span>
   </div>
   <div class="topbar-right">
       <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
-    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 Modules</a>
-    <div class="module-tag">&#128203; Contract &amp; Payment</div>
-    <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; Print</button>
-    <button class="btn btn-sm" type="button" onclick="saveAll()">&#128190; Save</button>
+    <a id="back-link" href="/dashboard" class="btn btn-sm" style="text-decoration:none">📋 <span data-i18n="modules">Modules</span></a>
+    <div class="module-tag">&#128203; <span data-i18n="contractPayment">Contract &amp; Payment</span></div>
+    <button class="btn btn-sm" type="button" onclick="window.print()">&#9113; <span data-i18n="print">Print</span></button>
+    <button class="btn btn-sm" type="button" onclick="saveAll()">&#128190; <span data-i18n="save">Save</span></button>
     <span id="save-indicator" style="font-size:11px;font-weight:600;padding:0 4px"></span>
   </div>
 </div>
@@ -249,9 +253,9 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 
 <!-- TAB BAR -->
 <div class="tabs-bar">
-  <button class="main-tab active" type="button" onclick="switchTab('contract',this)">&#128203; Contract Details</button>
-  <button class="main-tab" type="button" onclick="switchTab('boq',this)">&#128201; BOQ &amp; VO</button>
-  <button class="main-tab" type="button" onclick="switchTab('payments',this)">&#128179; Client Payments</button>
+  <button class="main-tab active" type="button" onclick="switchTab('contract',this)">&#128203; <span data-i18n="contractDetails">Contract details</span></button>
+  <button class="main-tab" type="button" onclick="switchTab('boq',this)">&#128201; <span data-i18n="boq">Bill of quantities</span></button>
+  <button class="main-tab" type="button" onclick="switchTab('payments',this)">&#128179; <span data-i18n="payments">Payments</span></button>
 </div>
 
 <!-- FINANCIAL STATS DASHBOARD -->
@@ -262,11 +266,11 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
   <div id="stats-section">
   <div class="stats">
     <div class="stat-card">
-      <div class="stat-label">Contract Value</div>
+      <div class="stat-label" data-i18n="contractValue">Contract value</div>
       <div class="stat-val" style="color:var(--accent);font-size:20px" id="dash-contract">—</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Payments (ذرعات)</div>
+      <div class="stat-label" data-i18n="payments">Payments</div>
       <div class="stat-val" id="dash-payments">—</div>
     </div>
     <div class="stat-card">
@@ -283,8 +287,8 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 <div class="tab-content active" id="tab-contract">
   <div class="sec-header">
     <div>
-      <div class="sec-title">Contract Details / تفاصيل العقد</div>
-      <div class="sec-sub">All contract parties, values, dates, and financial terms</div>
+      <div class="sec-title" data-i18n="contractDetails">Contract details</div>
+      <div class="sec-sub" data-i18n="contractDetailsSub">Contract parties, values, dates, and financial terms</div>
     </div>
   </div>
 
@@ -334,7 +338,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 
         <tr><td class="row-num">5</td><td><input class="cell-in label" readonly value="Contract Value / قيمة العقد الأصلية"/></td>
           <td><div style="display:flex;gap:5px;align-items:center">
-            <input class="cell-in" id="cd-contract-value" type="number" min="0" step="1" readonly
+            <input class="cell-in" id="cd-contract-value" type="text" inputmode="decimal" min="0" step="1" readonly
               placeholder="Auto from BOQ total" style="flex:1;background:var(--surface);color:var(--muted)"
               oninput="data.contractDetails['contract-value']=this.value;updateContractTotals()"/>
             <button type="button" id="cd-contract-value-btn" onclick="toggleCdMode('contract-value')"
@@ -344,7 +348,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 
         <tr><td class="row-num">6</td><td><input class="cell-in label" readonly value="Variation Orders Total / مجموع أوامر التغيير"/></td>
           <td><div style="display:flex;gap:5px;align-items:center">
-            <input class="cell-in" id="cd-vo-total" type="number" step="1" readonly
+            <input class="cell-in" id="cd-vo-total" type="text" inputmode="decimal" step="1" readonly
               placeholder="Auto from VO section" style="flex:1;background:var(--surface);color:var(--muted)"
               oninput="data.contractDetails['vo-total']=this.value;updateContractTotals()"/>
             <button type="button" id="cd-vo-total-btn" onclick="toggleCdMode('vo-total')"
@@ -354,7 +358,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 
         <tr><td class="row-num">7</td><td><input class="cell-in label" readonly value="Contract Total Final Value / القيمة الإجمالية النهائية"/></td>
           <td><div style="display:flex;gap:5px;align-items:center">
-            <input class="cell-in" id="cd-contract-total" type="number" step="1" readonly
+            <input class="cell-in" id="cd-contract-total" type="text" inputmode="decimal" step="1" readonly
               placeholder="Auto = Contract Value + VO" style="flex:1;background:var(--surface);color:var(--muted)"
               oninput="data.contractDetails['contract-total']=this.value"/>
             <button type="button" id="cd-contract-total-btn" onclick="toggleCdMode('contract-total')"
@@ -372,24 +376,25 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
           </div></td></tr>
 
         <tr><td class="row-num">9</td><td><input class="cell-in label" readonly value="Contract Period (days) / مدة العقد بالأيام"/></td>
-          <td><input class="cell-in" id="cd-period" type="number" min="1" step="1" placeholder="e.g. 540"
+          <td><input class="cell-in" id="cd-period" type="text" inputmode="decimal" min="1" step="1" placeholder="e.g. 540"
             oninput="data.contractDetails['period']=this.value;calcContractEnd()"/></td></tr>
 
-        <tr><td class="row-num">10</td><td><input class="cell-in label" readonly value="Contract Extensions / فترات التمديد"/></td>
+        <tr><td class="row-num">10</td><td><input class="cell-in label" readonly data-i18n-value="contractStoppages" value="Contract stoppages"/></td>
+          <td>
+            <div id="cd-stoppages-container"></div>
+            <div class="op-legal-notice" data-i18n="stoppageLegalNotice">Stoppages do not change the contractual completion date. Only approved extensions do.</div>
+            <button type="button" class="btn btn-sm" onclick="openContractStoppageForm()" data-i18n="addStoppage">Add stoppage</button>
+          </td></tr>
+
+        <tr><td class="row-num">11</td><td><input class="cell-in label" readonly data-i18n-value="approvedExtensions" value="Approved contract extensions"/></td>
           <td>
             <div id="cd-extensions-container"></div>
             <div id="cd-extensions-total" style="font-size:11px;color:var(--accent);font-weight:600;margin-top:2px"></div>
             <button type="button" onclick="addContractExtension()"
-              style="margin-top:5px;border:1px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 9px;font-family:Inter,sans-serif;color:var(--text2)">+ Add Extension</button>
+              style="margin-top:5px;border:1px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 9px;font-family:Inter,sans-serif;color:var(--text2)" data-i18n="addExtension">Add extension</button>
           </td></tr>
 
-        <tr><td class="row-num">11</td><td><input class="cell-in label" readonly value="Contract End Date / تاريخ الانتهاء"/></td>
-          <td><input class="cell-in" id="cd-contract-end" type="text" readonly
-            title="Auto-calculated: Contract Date + Period (days) + all Extension days"
-            placeholder="— calculated"
-            style="background:var(--surface);color:var(--muted)"/></td></tr>
-
-        <tr><td class="row-num">12</td><td><input class="cell-in label" readonly value="Actual Finish Date / تاريخ الإنجاز الفعلي"/></td>
+        <tr><td class="row-num">12</td><td><input class="cell-in label" readonly data-i18n-value="actualCompletion" value="Actual completion date"/></td>
           <td><div style="display:flex;align-items:center;min-width:0">
             <input class="cell-in" id="cd-actual-finish" type="text" maxlength="10" placeholder="DD/MM/YYYY"
               style="flex:1;min-width:0" oninput="autoFmtDate(this)"
@@ -398,9 +403,15 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
               onchange="document.getElementById('cd-actual-finish').value=isoToDisp(this.value);var iso=this.value;if(iso){data.contractDetails['actual-finish']=iso;calcWarrantyEnd();}this.value=''"/></label>
           </div></td></tr>
 
-        <tr><td class="row-num">13</td><td><input class="cell-in label" readonly value="Warranty Period / فترة الضمان"/></td>
+        <tr><td class="row-num">13</td><td><input class="cell-in label" readonly data-i18n-value="contractualCompletion" value="Contractual completion date"/></td>
+          <td><input class="cell-in" id="cd-contract-end" type="text" readonly
+            title="Auto-calculated: Contract Date + Period (days) + approved Extension days"
+            placeholder="— calculated"
+            style="background:var(--surface);color:var(--muted)"/></td></tr>
+
+        <tr><td class="row-num">14</td><td><input class="cell-in label" readonly value="Warranty Period / فترة الضمان"/></td>
           <td><div style="display:flex;gap:8px;align-items:center">
-            <input class="cell-in" id="cd-warranty" type="number" min="0" step="1"
+            <input class="cell-in" id="cd-warranty" type="text" inputmode="decimal" min="0" step="1"
               placeholder="days" style="width:76px;flex-shrink:0"
               oninput="data.contractDetails['warranty']=this.value;calcWarrantyEnd()"/>
             <span style="font-size:11px;color:var(--muted);flex-shrink:0;white-space:nowrap">days → Ends:</span>
@@ -410,10 +421,10 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
               style="flex:1;background:var(--surface);color:var(--muted)"/>
           </div></td></tr>
 
-        <tr><td class="row-num">14</td><td><input class="cell-in label" readonly value="Insurance / Guarantee %"/></td><td><input class="cell-in" id="cd-insurance" placeholder="e.g. 5%"/></td></tr>
-        <tr><td class="row-num">15</td><td><input class="cell-in label" readonly value="Tax Rate %"/></td><td><input class="cell-in" id="cd-tax" placeholder="e.g. 3%" value="3%"/></td></tr>
-        <tr><td class="row-num">16</td><td><input class="cell-in label" readonly value="Daily Penalty Rate % of contract"/></td><td><input class="cell-in" id="cd-penalty-rate" placeholder="e.g. 0.1 (means 0.1% per day)" oninput="data.contractDetails['penalty-rate']=this.value" onchange="renderPayRows()"/></td></tr>
-        <tr><td class="row-num">17</td><td><input class="cell-in label" readonly value="Contract Rules / Notes"/></td><td><input class="cell-in" id="cd-rules" placeholder="Any special contract rules..."/></td></tr>
+        <tr><td class="row-num">15</td><td><input class="cell-in label" readonly value="Insurance / Guarantee %"/></td><td><input class="cell-in" id="cd-insurance" placeholder="e.g. 5%"/></td></tr>
+        <tr><td class="row-num">16</td><td><input class="cell-in label" readonly value="Tax Rate %"/></td><td><input class="cell-in" id="cd-tax" placeholder="e.g. 3%" value="3%"/></td></tr>
+        <tr><td class="row-num">17</td><td><input class="cell-in label" readonly value="Daily Penalty Rate % of contract"/></td><td><input class="cell-in" id="cd-penalty-rate" placeholder="e.g. 0.1 (means 0.1% per day)" oninput="data.contractDetails['penalty-rate']=this.value" onchange="renderPayRows()"/></td></tr>
+        <tr><td class="row-num">18</td><td><input class="cell-in label" readonly value="Contract Rules / Notes"/></td><td><input class="cell-in" id="cd-rules" placeholder="Any special contract rules..."/></td></tr>
       </tbody>
     </table>
   </div>
@@ -439,6 +450,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
       <button class="btn btn-sm" type="button" id="boq-move-up" onclick="moveBoqUp()" disabled title="Move selected row up" style="opacity:.35;cursor:not-allowed">↑ Up</button>
       <button class="btn btn-sm" type="button" id="boq-move-dn" onclick="moveBoqDn()" disabled title="Move selected row down" style="opacity:.35;cursor:not-allowed">↓ Down</button>
       <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
+      <button class="btn btn-sm btn-primary" type="button" onclick="openBoqImport()" data-i18n="importBoq">Import BOQ</button>
       <button class="btn btn-sm" type="button" onclick="addBoqRow()">+ Add Item</button>
       <button class="btn btn-sm" type="button" onclick="addBoqSection()" style="background:#e8f0fe;color:var(--accent);border-color:#c7d7fd">+ Section Header</button>
       <button class="btn btn-sm" type="button" onclick="addBoqSubItem()" style="background:#f9f5ff;color:#6941c6;border-color:#d6bbfb">+ Sub-Item</button>
@@ -449,6 +461,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
     <table class="sheet-table" id="boq-table">
       <thead><tr>
         <th style="width:36px">#</th>
+        <th style="width:90px" data-i18n="itemNumber">Item number</th>
         <th style="width:40%">Work Item Description</th>
         <th style="width:90px">Unit</th>
         <th class="num-h" style="width:100px">Quantity</th>
@@ -619,6 +632,36 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 </div><!-- /right-col -->
 </div><!-- /layout -->
 
+<div class="overlay" id="contract-stoppage-modal">
+  <div class="modal" style="width:min(680px,94vw)">
+    <div class="mhead"><div><div class="mtitle" data-i18n="contractStoppages">Contract stoppages</div><div class="msubtitle" data-i18n="stoppageLegalNotice">Stoppages do not change the contractual completion date. Only approved extensions do.</div></div><button class="closex" type="button" onclick="closeContractStoppageForm()">✕</button></div>
+    <div class="mbody op-form-grid">
+      <input type="hidden" id="contract-stop-id">
+      <label><span data-i18n="reason">Reason</span><input class="cell-in" id="contract-stop-reason" data-i18n-placeholder="reason"></label>
+      <label><span data-i18n="reference">Reference</span><input class="cell-in" id="contract-stop-reference" data-i18n-placeholder="reference"></label>
+      <label><span data-i18n="startDate">Start date</span><input class="cell-in" id="contract-stop-start" type="date"></label>
+      <label><span data-i18n="endDate">End date</span><input class="cell-in" id="contract-stop-end" type="date"></label>
+      <label class="op-form-wide"><span data-i18n="notes">Notes</span><textarea class="cell-in" id="contract-stop-notes" rows="3" data-i18n-placeholder="notes"></textarea></label>
+    </div>
+    <div class="mfoot"><button class="btn" type="button" onclick="closeContractStoppageForm()" data-i18n="cancel">Cancel</button><button class="btn btn-primary" type="button" onclick="saveContractStoppage()" data-i18n="updateStoppage">Save stoppage</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="boq-import-modal">
+  <div class="modal" style="width:min(980px,96vw)">
+    <div class="mhead"><div><div class="mtitle" data-i18n="importBoq">Import BOQ</div><div class="msubtitle">.xlsx / .csv · 5 MB · 5,000 rows</div></div><button class="closex" type="button" onclick="closeBoqImport()">✕</button></div>
+    <div class="mbody">
+      <div class="op-import-toolbar"><input id="boq-import-file" type="file" accept=".xlsx,.csv" hidden onchange="document.getElementById('boq-import-filename').textContent=this.files[0]?this.files[0].name:''"><label class="btn" for="boq-import-file" data-i18n="selectFile">Select file</label><span id="boq-import-filename" style="flex:1;color:var(--muted)"></span><button class="btn btn-primary" type="button" onclick="previewBoqImport()" data-i18n="importPreview">Import preview</button></div>
+      <div id="boq-import-mapping" class="op-mapping-grid"></div>
+      <div id="boq-import-summary" class="op-import-summary"></div>
+      <div class="sheet-wrap" id="boq-import-table-wrap" style="display:none"><table class="sheet-table"><thead id="boq-import-head"></thead><tbody id="boq-import-body"></tbody></table></div>
+      <label class="op-replace-option"><input type="checkbox" id="boq-import-replace" onchange="toggleBoqReplaceConfirmation()"> <span data-i18n="replaceRows">Replace existing BOQ</span></label>
+      <label class="op-replace-confirm" id="boq-replace-confirm-wrap" style="display:none"><input type="checkbox" id="boq-replace-confirm"> <span data-i18n="replaceConfirm">I understand that the current BOQ will be replaced</span></label>
+    </div>
+    <div class="mfoot"><button class="btn" type="button" onclick="closeBoqImport()" data-i18n="cancel">Cancel</button><button class="btn btn-primary" id="boq-import-apply" type="button" onclick="applyBoqImport()" disabled data-i18n="confirmImport">Apply import</button></div>
+  </div>
+</div>
+
 <script>
 if (!BINNA.requireProject()) { /* redirected */ }
 const PROJECT = BINNA.getProject();
@@ -635,9 +678,9 @@ const PROJECT_ID = PROJECT ? PROJECT.id : null;
 })();
 
 function todayISO(){ return new Date().toISOString().split('T')[0]; }
-function isoToDisp(s){ if(!s)return''; var p=s.split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:''; }
-function dispToISO(s){ if(!s||s.length!==10)return''; var p=s.split('/'); return(p.length===3&&p[2].length===4)?p[2]+'-'+p[1]+'-'+p[0]:''; }
-function autoFmtDate(el){ var v=el.value.replace(/\D/g,''); if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2); if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5); el.value=v.slice(0,10); }
+function isoToDisp(s){ if(!s)return''; var p=s.split('-');var value=p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'';return BINNA_I18N.isArabic?BINNA_I18N.toArabicDigits(value):value; }
+function dispToISO(s){ s=BINNA_I18N.normalizeDigits(s);if(!s||s.length!==10)return''; var p=s.split('/'); return(p.length===3&&p[2].length===4)?p[2]+'-'+p[1]+'-'+p[0]:''; }
+function autoFmtDate(el){ var v=BINNA_I18N.normalizeDigits(el.value).replace(/\D/g,''); if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2); if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);v=v.slice(0,10);el.value=BINNA_I18N.isArabic?BINNA_I18N.toArabicDigits(v):v; }
 
 // ── FINANCIAL STATS DASHBOARD TOGGLE ─────────────────────────────────────────
 var statsVisible = true;
@@ -655,7 +698,7 @@ function updateFinancialDashboard() {
   // NET PAID TO CONTRACTOR = cash actually received (sum of every installment
   // amount across all payments), NOT the certified net. 0 if nothing received.
   var netPaid = 0;
-  payRows.forEach(function(r){ (r.received||[]).forEach(function(rc){ netPaid += parseFloat(rc.amount)||0; }); });
+  payRows.forEach(function(r){ (r.received||[]).forEach(function(rc){ netPaid += BINNA_I18N.numberValue(rc.amount)||0; }); });
   document.getElementById('dash-net-paid').textContent = fmt(netPaid) + ' IQD';
   // Income total
   var incEl = document.getElementById('inc-total');
@@ -746,6 +789,8 @@ function _reloadAll() {
 }
 
 var _hasSavedData = false; // true once we confirm the backend has a record for this project
+var contractStoppages = [];
+var boqImportPreview = null;
 
 window.addEventListener('DOMContentLoaded', async function(){
   BINNA.injectProjectBadge();
@@ -755,6 +800,7 @@ window.addEventListener('DOMContentLoaded', async function(){
   } catch(err) {
     BINNA.toast('Could not load financial data: '+(err.error||'Unknown error'), 'error');
   }
+  await loadContractStoppages();
   loadAll();
   _restoreTab();
   updateSummaries();
@@ -776,6 +822,8 @@ window.addEventListener('DOMContentLoaded', async function(){
     var btn=_finSelTr.querySelector('.del-cell');
     if(btn) btn.click();
   });
+  globalThis._contractReady = true;
+  if(window.BINNA_CONTRACT_I18N) BINNA_CONTRACT_I18N.refresh();
 });
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
@@ -819,10 +867,10 @@ function _setSaveIndicator(state) {
   var ind = document.getElementById('save-indicator');
   if (!ind) return;
   if (state === 'dirty') {
-    ind.textContent = '● Unsaved';
+    ind.textContent = '● ' + BINNA_I18N.t('unsaved');
     ind.style.color = 'var(--warning)';
   } else if (state === 'saved') {
-    ind.textContent = '✓ Saved';
+    ind.textContent = '✓ ' + BINNA_I18N.t('saved');
     ind.style.color = 'var(--success)';
     setTimeout(function(){ if (!_pendingSave) ind.textContent = ''; }, 3000);
   } else {
@@ -859,11 +907,13 @@ window.addEventListener('beforeunload', function() {
 });
 function collectAll(){
   // Contract details
+  var numericContractFields=['contract-value','vo-total','contract-total','period','warranty','insurance','tax','penalty-rate'];
   ['contractor','client','project','contract-no','contract-value','vo-total','contract-total','date','period','contract-end','actual-finish','warranty','warranty-end','insurance','tax','penalty-rate','rules'].forEach(function(k){
     var el=document.getElementById('cd-'+k);
     if(el){
       var cdDK2=['date','contract-end','actual-finish','warranty-end'];
       var v=el.value;
+      if(numericContractFields.indexOf(k)>=0)v=canonicalNumericText(v);
       data.contractDetails[k]=cdDK2.indexOf(k)>=0?(dispToISO(v)||v):v;
     }
   });
@@ -911,9 +961,9 @@ function collectBoq(){
       rows.push({_type:'section',_title:inp?inp.value:''});
     } else {
       var row=t==='sub'?{_type:'sub'}:{};
-      ['desc','unit','qty','price'].forEach(function(f){
+      ['num','desc','unit','qty','price'].forEach(function(f){
         var el=tr.querySelector('[data-f="'+f+'"]');
-        if(el) row[f]=el.value;
+        if(el) row[f]=(f==='qty'||f==='price')?canonicalNumericText(el.value):el.value;
       });
       rows.push(row);
     }
@@ -931,7 +981,7 @@ function collectVO(){
       var row=t==='sub'?{_type:'sub'}:{};
       ['vono','vodate','desc','unit','qty','price','type','extradays'].forEach(function(f){
         var el=tr.querySelector('[data-f="'+f+'"]');
-        if(el) row[f]=el.value;
+        if(el) row[f]=(f==='qty'||f==='price'||f==='extradays')?canonicalNumericText(el.value):el.value;
       });
       rows.push(row);
     }
@@ -945,10 +995,10 @@ function calcContractEnd() {
   var endEl    = document.getElementById('cd-contract-end');
   if (!startEl || !periodEl || !endEl) return;
   var startVal = dispToISO(startEl.value) || startEl.value; // support both DD/MM/YYYY and ISO
-  var days = parseFloat((periodEl.value||'').replace(/[^0-9.]/g,'')) || 0;
+  var days = BINNA_I18N.numberValue(canonicalNumericText(periodEl.value||'')) || 0;
   // Sum all extension periods
   var exts    = data.contractDetails['extensions'] || [];
-  var extDays = exts.reduce(function(s,e){ return s + (parseFloat(e.days)||0); }, 0);
+  var extDays = exts.reduce(function(s,e){ return s + (BINNA_I18N.numberValue(e.days)||0); }, 0);
   var total   = days + extDays;
   if (startVal && startVal.length === 10 && total > 0) {
     var d = new Date(startVal + 'T00:00:00');
@@ -968,7 +1018,7 @@ function calcWarrantyEnd() {
   if (!wEndEl) return;
   var actualRaw = actualEl ? actualEl.value : '';
   var actualVal = dispToISO(actualRaw) || actualRaw; // support DD/MM/YYYY or ISO
-  var days = parseFloat((warrantyEl ? warrantyEl.value : '') || '0');
+  var days = BINNA_I18N.numberValue((warrantyEl ? warrantyEl.value : '') || '0');
   // Warranty always starts from Actual Finish Date — never from Contract End Date.
   // If Actual Finish is not set, warranty end is unknown; leave blank.
   if (actualVal && actualVal.length === 10 && !isNaN(days) && days > 0) {
@@ -992,14 +1042,14 @@ function updateContractTotals() {
   document.querySelectorAll('#boq-body tr').forEach(function(tr) {
     if(tr.dataset.type==='section') return;
     boqTotal += parseQty((tr.querySelector('[data-f="qty"]')||{}).value)
-              * (parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0);
+              * (BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0);
   });
   // Compute raw VO net from DOM
   var vadd=0, vded=0;
   document.querySelectorAll('#vo-body tr').forEach(function(tr) {
     if(tr.dataset.type==='section') return;
-    var q=parseFloat((tr.querySelector('[data-f="qty"]')||{}).value)||0;
-    var p=parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0;
+    var q=BINNA_I18N.numberValue((tr.querySelector('[data-f="qty"]')||{}).value)||0;
+    var p=BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0;
     var t=(tr.querySelector('[data-f="type"]')||{}).value;
     if(t==='add') vadd+=q*p; else vded+=q*p;
   });
@@ -1010,14 +1060,14 @@ function updateContractTotals() {
     cvEl.value = boqTotal || '';
     cd['contract-value'] = boqTotal ? String(boqTotal) : '';
   }
-  var cv = cd['contract-value-mode']==='manual' ? (parseFloat(cd['contract-value'])||0) : boqTotal;
+  var cv = cd['contract-value-mode']==='manual' ? (BINNA_I18N.numberValue(cd['contract-value'])||0) : boqTotal;
   // Row 6: VO Total
   var votEl = document.getElementById('cd-vo-total');
   if (votEl && cd['vo-total-mode'] !== 'manual') {
     votEl.value = voNet || '';
     cd['vo-total'] = voNet ? String(voNet) : '';
   }
-  var vot = cd['vo-total-mode']==='manual' ? (parseFloat(cd['vo-total'])||0) : voNet;
+  var vot = cd['vo-total-mode']==='manual' ? (BINNA_I18N.numberValue(cd['vo-total'])||0) : voNet;
   // Row 7: Contract Total
   var ctEl = document.getElementById('cd-contract-total');
   if (ctEl && cd['contract-total-mode'] !== 'manual') {
@@ -1071,19 +1121,19 @@ function renderContractExtensions() {
   var totalEl   = document.getElementById('cd-extensions-total');
   if (!container) return;
   if (!exts.length) {
-    container.innerHTML='<div style="font-size:11px;color:var(--muted2);font-style:italic;padding:2px 0">No extensions — click \'+ Add Extension\' to add one</div>';
+    container.innerHTML='<div style="font-size:11px;color:var(--muted2);font-style:italic;padding:2px 0" data-i18n="noExtensions">'+BINNA_I18N.t('noExtensions')+'</div>';
     if (totalEl) totalEl.textContent='';
     return;
   }
   var totalDays=0, html='';
   exts.forEach(function(ext,i) {
-    totalDays += parseFloat(ext.days)||0;
+    totalDays += BINNA_I18N.numberValue(ext.days)||0;
     html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">'
-      +'<input type="number" class="cell-in" min="0" step="1" placeholder="0" value="'+esc(ext.days||'')+'"'
+      +'<input type="text" inputmode="decimal" class="cell-in" min="0" step="1" placeholder="0" value="'+esc(ext.days||'')+'"'
       +' style="width:72px;flex-shrink:0;text-align:center"'
       +' oninput="updateContractExtension('+i+',\'days\',this.value)"/>'
-      +'<span style="font-size:11px;color:var(--muted);flex-shrink:0">days —</span>'
-      +'<input type="text" class="cell-in" placeholder="Reason / reference" value="'+esc(ext.note||'')+'"'
+      +'<span style="font-size:11px;color:var(--muted);flex-shrink:0">'+BINNA_I18N.t('days')+'</span>'
+      +'<input type="text" class="cell-in" data-i18n-placeholder="reason" placeholder="Reason" value="'+esc(ext.note||'')+'"'
       +' style="flex:1;min-width:0"'
       +' oninput="updateContractExtension('+i+',\'note\',this.value)"/>'
       +'<button type="button" onclick="removeContractExtension('+i+')"'
@@ -1091,7 +1141,7 @@ function renderContractExtensions() {
     +'</div>';
   });
   container.innerHTML = html;
-  if (totalEl) totalEl.textContent = totalDays > 0 ? 'Total extensions: +'+totalDays+' days' : '';
+  if (totalEl) totalEl.textContent = totalDays > 0 ? BINNA_I18N.t('totalExtensions')+': +'+BINNA_I18N.formatNumber(totalDays)+' '+BINNA_I18N.t('days') : '';
 }
 
 function addContractExtension() {
@@ -1112,12 +1162,50 @@ function updateContractExtension(i, field, val) {
   if (!exts[i]) return;
   exts[i][field] = val;
   if (field === 'days') {
-    var total = exts.reduce(function(s,e){ return s+(parseFloat(e.days)||0); }, 0);
+    var total = exts.reduce(function(s,e){ return s+(BINNA_I18N.numberValue(e.days)||0); }, 0);
     var el = document.getElementById('cd-extensions-total');
-    if (el) el.textContent = total > 0 ? 'Total extensions: +'+total+' days' : '';
+    if (el) el.textContent = total > 0 ? BINNA_I18N.t('totalExtensions')+': +'+BINNA_I18N.formatNumber(total)+' '+BINNA_I18N.t('days') : '';
     calcContractEnd();
   }
   scheduleAutoSave();
+}
+
+// ── SHARED CONTRACT / GANTT STOPPAGES ────────────────────────────────────────
+async function loadContractStoppages(){
+  try{var response=await BINNA.fetchStoppages(PROJECT_ID);contractStoppages=response.stoppages||[];}
+  catch(error){contractStoppages=[];BINNA.toast((error&&error.error)||'Could not load stoppages','error');}
+  renderContractStoppages();
+}
+function renderContractStoppages(){
+  var container=document.getElementById('cd-stoppages-container');if(!container)return;
+  if(!contractStoppages.length){container.innerHTML='<div class="op-stop-meta" data-i18n="noStoppages">'+BINNA_I18N.t('noStoppages')+'</div>';return;}
+  container.innerHTML=contractStoppages.map(function(stop){
+    var duration=stop.duration_days||contractStopDuration(stop.start,stop.end);
+    return '<div class="op-stop-card"><div><div class="op-stop-reason">'+esc(stop.name||'')+'</div><div class="op-stop-meta">'+esc(stop.reference||'')+'</div></div>'
+      +'<div><div class="op-stop-meta" data-i18n="startDate">'+BINNA_I18N.t('startDate')+'</div>'+BINNA_I18N.formatDate(stop.start)+'</div>'
+      +'<div><div class="op-stop-meta" data-i18n="endDate">'+BINNA_I18N.t('endDate')+'</div>'+BINNA_I18N.formatDate(stop.end)+'</div>'
+      +'<div><div class="op-stop-meta" data-i18n="duration">'+BINNA_I18N.t('duration')+'</div>'+BINNA_I18N.formatNumber(duration)+' '+BINNA_I18N.t('days')+'</div>'
+      +'<div class="op-stop-actions"><button class="btn btn-sm" type="button" onclick="editContractStoppage(\''+esc(stop.id)+'\')" data-i18n="edit">'+BINNA_I18N.t('edit')+'</button><button class="btn btn-sm btn-danger" type="button" onclick="deleteContractStoppage(\''+esc(stop.id)+'\')" data-i18n="delete">'+BINNA_I18N.t('delete')+'</button></div>'
+      +(stop.notes?'<div class="op-stop-meta" style="grid-column:1/-1">'+esc(stop.notes)+'</div>':'')+'</div>';
+  }).join('');
+}
+function contractStopDuration(start,end){var a=new Date(start+'T00:00:00'),b=new Date(end+'T00:00:00');return Math.max(1,Math.round((b-a)/86400000)+1);}
+function openContractStoppageForm(){
+  ['id','reason','reference','start','end','notes'].forEach(function(key){var el=document.getElementById('contract-stop-'+key);if(el)el.value='';});
+  document.getElementById('contract-stoppage-modal').classList.add('open');
+}
+function closeContractStoppageForm(){document.getElementById('contract-stoppage-modal').classList.remove('open');}
+function editContractStoppage(id){var stop=contractStoppages.find(function(row){return row.id===id;});if(!stop)return;openContractStoppageForm();document.getElementById('contract-stop-id').value=stop.id;document.getElementById('contract-stop-reason').value=stop.name||'';document.getElementById('contract-stop-reference').value=stop.reference||'';document.getElementById('contract-stop-start').value=stop.start||'';document.getElementById('contract-stop-end').value=stop.end||'';document.getElementById('contract-stop-notes').value=stop.notes||'';}
+async function saveContractStoppage(){
+  var id=document.getElementById('contract-stop-id').value||('s'+Date.now());
+  var row={id:id,name:document.getElementById('contract-stop-reason').value.trim(),reference:document.getElementById('contract-stop-reference').value.trim(),start:document.getElementById('contract-stop-start').value,end:document.getElementById('contract-stop-end').value,notes:document.getElementById('contract-stop-notes').value.trim(),type:'other'};
+  if(!row.name||!row.start){BINNA.toast(BINNA_I18N.t('reason')+' / '+BINNA_I18N.t('startDate'),'error');return;}if(!row.end)row.end=row.start;
+  var next=contractStoppages.filter(function(stop){return stop.id!==id;});next.push(row);
+  try{var response=await BINNA.saveStoppages(PROJECT_ID,next);contractStoppages=response.stoppages||next;closeContractStoppageForm();renderContractStoppages();}catch(error){BINNA.toast((error&&error.error)||'Could not save stoppage','error');}
+}
+async function deleteContractStoppage(id){
+  var next=contractStoppages.filter(function(stop){return stop.id!==id;});
+  try{var response=await BINNA.saveStoppages(PROJECT_ID,next);contractStoppages=response.stoppages||next;renderContractStoppages();}catch(error){BINNA.toast((error&&error.error)||'Could not delete stoppage','error');}
 }
 
 function _loadBoqRow(r){ if(r._type==='section') addBoqSection(r._title||''); else if(r._type==='sub') addBoqSubItem(r); else addBoqRow(r); }
@@ -1187,12 +1275,12 @@ function getContractType(){ return data.contract_type==='private' ? 'private' : 
 function hasPaymentData(){
   return payRows.some(function(r){
     return (r.boqItems&&r.boqItems.length)
-        || (r.manualWork&&parseFloat(r.manualWork))
+        || (r.manualWork&&BINNA_I18N.numberValue(r.manualWork))
         || (r.received&&r.received.length)
         || (r.extraDeductions&&r.extraDeductions.length)
         || (r.surplusCredits&&r.surplusCredits.length)
         // Private-side data: a summary row carrying a real amount, or attachments
-        || (r.summaryRows&&r.summaryRows.some(function(s){return parseFloat(s.amount);}))
+        || (r.summaryRows&&r.summaryRows.some(function(s){return BINNA_I18N.numberValue(s.amount);}))
         || (r.attachments&&r.attachments.length);
   });
 }
@@ -1276,10 +1364,11 @@ function addBoqRow(d){
   var rowNum=document.querySelectorAll('#boq-body tr').length+1;
   tr.innerHTML=
     '<td class="row-num">'+rowNum+'</td>'
+    +'<td><input class="cell-in" data-f="num" placeholder="A-1" value="'+esc(d.num||'')+'"/></td>'
     +'<td class="desc-cell"><textarea class="cell-in desc-ta" data-f="desc" placeholder="Work item description" rows="1" oninput="autoResizeTa(this);recalcBoq()">'+esc(d.desc||'')+'</textarea></td>'
     +'<td>'+buildUnitSelect(d.unit||'')+'</td>'
     +'<td><input class="cell-in num" data-f="qty" placeholder="0 or LS" value="'+esc(d.qty||'')+'" oninput="checkLumpSum(this)"/></td>'
-    +'<td><input class="cell-in num" data-f="price" placeholder="0" value="'+esc(d.price||'')+'" oninput="recalcBoq()" type="number" min="0"/></td>'
+    +'<td><input class="cell-in num" data-f="price" placeholder="0" value="'+esc(d.price||'')+'" oninput="recalcBoq()" type="text" inputmode="decimal" min="0"/></td>'
     +'<td><input class="cell-in" data-f="amount" readonly value="'+esc(d.amount||'0')+'"/></td>'
     +'<td><button class="del-cell" type="button" onclick="delRow(this,\'recalcBoq\')">✕</button></td>';
   document.getElementById('boq-body').appendChild(tr);
@@ -1315,7 +1404,7 @@ function addBoqSection(title){
   tr.draggable = true;
   tr.innerHTML =
     '<td class="row-num" style="background:#e8f0fe">§</td>'
-    +'<td colspan="5" style="padding:0;background:#e8f0fe">'
+      +'<td colspan="6" style="padding:0;background:#e8f0fe">'
       +'<input class="cell-in" style="font-weight:700;color:var(--accent);background:#e8f0fe;font-size:13px" '
       +'placeholder="Section / Work Category Title (e.g. الأعمال الإنشائية)" value="'+esc(title)+'"/>'
     +'</td>'
@@ -1331,10 +1420,11 @@ function addBoqSubItem(d){
   tr.draggable = true;
   tr.innerHTML =
     '<td class="row-num" style="background:#faf5ff;color:#6941c6">↳</td>'
+    +'<td><input class="cell-in" data-f="num" placeholder="A-1.1" value="'+esc(d.num||'')+'"/></td>'
     +'<td class="desc-cell" style="padding-left:28px"><textarea class="cell-in desc-ta" data-f="desc" placeholder="Sub-item description" rows="1" oninput="autoResizeTa(this);recalcBoq()">'+esc(d.desc||'')+'</textarea></td>'
     +'<td>'+buildUnitSelect(d.unit||'')+'</td>'
     +'<td><input class="cell-in num" data-f="qty" placeholder="0 or LS" value="'+esc(d.qty||'')+'" oninput="checkLumpSum(this)"/></td>'
-    +'<td><input class="cell-in num" data-f="price" type="number" min="0" placeholder="0" value="'+esc(d.price||'')+'" oninput="recalcBoq()"/></td>'
+    +'<td><input class="cell-in num" data-f="price" type="text" inputmode="decimal" min="0" placeholder="0" value="'+esc(d.price||'')+'" oninput="recalcBoq()"/></td>'
     +'<td><input class="cell-in" data-f="amount" readonly value="'+(d.amount||'0')+'"/></td>'
     +'<td><button class="del-cell" type="button" onclick="delRow(this,\'recalcBoq\')">✕</button></td>';
   document.getElementById('boq-body').appendChild(tr);
@@ -1354,7 +1444,7 @@ function recalcBoq(){
     var aEl=tr.querySelector('[data-f="amount"]');
     if(!qEl||!pEl||!aEl) return;
     var qty=parseQty(qEl.value);
-    var price=parseFloat(pEl.value)||0;
+    var price=BINNA_I18N.numberValue(pEl.value)||0;
     var amt=qty*price;
     aEl.value=fmt(amt);
     total+=amt;
@@ -1362,6 +1452,30 @@ function recalcBoq(){
   document.getElementById('boq-total').textContent=fmt(total)+' IQD';
   _updateBoqMoveButtons();
   updateSummaries();
+}
+
+// ── BOQ IMPORT PREVIEW ────────────────────────────────────────────────────────
+function openBoqImport(){boqImportPreview=null;document.getElementById('boq-import-modal').classList.add('open');document.getElementById('boq-import-apply').disabled=true;document.getElementById('boq-import-summary').innerHTML='';document.getElementById('boq-import-table-wrap').style.display='none';}
+function closeBoqImport(){document.getElementById('boq-import-modal').classList.remove('open');}
+function boqImportMapping(){var result={};document.querySelectorAll('#boq-import-mapping select[data-field]').forEach(function(select){if(select.value)result[select.dataset.field]=select.value;});return result;}
+async function previewBoqImport(){
+  var input=document.getElementById('boq-import-file');if(!input.files||!input.files[0]){BINNA.toast(BINNA_I18N.t('fileRequired'),'error');return;}
+  var form=new FormData();form.append('file',input.files[0]);var selected=boqImportMapping();if(Object.keys(selected).length)form.append('mapping',JSON.stringify(selected));
+  try{boqImportPreview=await BINNA.previewBoqImport(PROJECT_ID,form);renderBoqImportPreview();}
+  catch(error){boqImportPreview=null;document.getElementById('boq-import-apply').disabled=true;BINNA.toast((error&&error.error)||BINNA_I18N.t('previewFailed'),'error');}
+}
+function renderBoqImportPreview(){
+  var preview=boqImportPreview;if(!preview)return;var fields=[['num','itemNumber'],['desc','description'],['unit','unit'],['qty','quantity'],['price','unitPrice'],['total','sourceTotal']];
+  document.getElementById('boq-import-mapping').innerHTML=fields.map(function(field){var current=(preview.mapping||preview.suggested_mapping||{})[field[0]]||'';return '<label class="op-map-field"><span data-i18n="'+field[1]+'">'+BINNA_I18N.t(field[1])+'</span><select data-field="'+field[0]+'"><option value="">'+BINNA_I18N.t('chooseColumn')+'</option>'+preview.headers.map(function(header){return '<option value="'+esc(header)+'"'+(header===current?' selected':'')+'>'+esc(header)+'</option>';}).join('')+'</select></label>';}).join('');
+  var valid=preview.valid_rows||[],rejected=preview.rejected_rows||[];document.getElementById('boq-import-summary').innerHTML='<span class="op-import-pill">'+BINNA_I18N.t('validRows')+': '+BINNA_I18N.formatNumber(valid.length)+'</span><span class="op-import-pill error">'+BINNA_I18N.t('rejectedRows')+': '+BINNA_I18N.formatNumber(rejected.length)+'</span>';
+  document.getElementById('boq-import-head').innerHTML='<tr><th>'+BINNA_I18N.t('itemNumber')+'</th><th>'+BINNA_I18N.t('description')+'</th><th>'+BINNA_I18N.t('unit')+'</th><th>'+BINNA_I18N.t('quantity')+'</th><th>'+BINNA_I18N.t('unitPrice')+'</th><th>'+BINNA_I18N.t('calculatedTotal')+'</th></tr>';
+  document.getElementById('boq-import-body').innerHTML=valid.slice(0,100).map(function(row){return '<tr><td>'+esc(row.num||'')+'</td><td>'+esc(row.desc||'')+'</td><td>'+esc(row.unit||'')+'</td><td>'+BINNA_I18N.formatNumber(row.qty)+'</td><td>'+BINNA_I18N.formatNumber(row.price)+'</td><td>'+BINNA_I18N.formatNumber(row.calculated_total)+'</td></tr>';}).join('')+rejected.slice(0,20).map(function(row){return '<tr><td colspan="6" style="color:var(--danger)">'+BINNA_I18N.t('row')+' '+BINNA_I18N.formatNumber(row.source_row)+': '+esc((row.errors||[]).join(', '))+'</td></tr>';}).join('');
+  document.getElementById('boq-import-table-wrap').style.display='block';document.getElementById('boq-import-apply').disabled=!valid.length;BINNA_I18N.localize(document.getElementById('boq-import-modal'));
+}
+function toggleBoqReplaceConfirmation(){var replace=document.getElementById('boq-import-replace').checked;document.getElementById('boq-replace-confirm-wrap').style.display=replace?'flex':'none';if(!replace)document.getElementById('boq-replace-confirm').checked=false;}
+function applyBoqImport(){
+  if(!boqImportPreview||!(boqImportPreview.valid_rows||[]).length)return;var replace=document.getElementById('boq-import-replace').checked;if(replace&&!document.getElementById('boq-replace-confirm').checked){BINNA.toast(BINNA_I18N.t('replaceConfirm'),'error');return;}
+  _pushFinanceUndo();_loadingAll=true;try{if(replace)document.getElementById('boq-body').innerHTML='';(boqImportPreview.valid_rows||[]).forEach(function(row){addBoqRow({num:row.num,desc:row.desc,unit:row.unit,qty:String(row.qty),price:String(row.price)});});}finally{_loadingAll=false;}recalcBoq();scheduleAutoSave();closeBoqImport();BINNA.toast(BINNA_I18N.t('importApplied'),'success');
 }
 
 // ── VO ────────────────────────────────────────────────────────────────────────
@@ -1378,14 +1492,14 @@ function addVoRow(d){
     +'<td><input class="cell-in" data-f="vodate" type="text" maxlength="10" placeholder="DD/MM/YYYY" value="'+esc(isoToDisp(d.vodate||todayISO()))+'" style="text-align:center;font-size:11.5px" oninput="autoFmtDate(this)"/></td>'
     +'<td><input class="cell-in" data-f="desc" placeholder="VO description" value="'+esc(d.desc||'')+'" oninput="recalcVo()"/></td>'
     +'<td><input class="cell-in" data-f="unit" placeholder="m³" style="text-align:center" value="'+esc(d.unit||'')+'"/></td>'
-    +'<td><input class="cell-in num" data-f="qty" placeholder="0" value="'+esc(d.qty||'')+'" oninput="recalcVo()" type="number"/></td>'
-    +'<td><input class="cell-in num" data-f="price" placeholder="0" value="'+esc(d.price||'')+'" oninput="recalcVo()" type="number"/></td>'
+    +'<td><input class="cell-in num" data-f="qty" placeholder="0" value="'+esc(d.qty||'')+'" oninput="recalcVo()" type="text" inputmode="decimal"/></td>'
+    +'<td><input class="cell-in num" data-f="price" placeholder="0" value="'+esc(d.price||'')+'" oninput="recalcVo()" type="text" inputmode="decimal"/></td>'
     +'<td><input class="cell-in" data-f="amount" readonly value="'+esc(d.amount||'0')+'"/></td>'
     +'<td><select class="cell-in" data-f="type" onchange="recalcVo()" style="padding:6px 4px;font-size:12px">'
       +'<option value="add"'+(d.type==='add'?' selected':'')+'>+ Addition</option>'
       +'<option value="ded"'+(d.type==='ded'?' selected':'')+'>− Deduction</option>'
     +'</select></td>'
-    +'<td><input class="cell-in num" data-f="extradays" placeholder="0" value="'+esc(d.extradays||'')+'" type="number" title="Extra days added (+) or removed (−) from contract period"/></td>'
+    +'<td><input class="cell-in num" data-f="extradays" placeholder="0" value="'+esc(d.extradays||'')+'" type="text" inputmode="decimal" title="Extra days added (+) or removed (−) from contract period"/></td>'
     +'<td><button class="del-cell" type="button" onclick="delRow(this,\'recalcVo\')">✕</button></td>';
   document.getElementById('vo-body').appendChild(tr);
   recalcVo();
@@ -1395,8 +1509,8 @@ function recalcVo(){
   document.querySelectorAll('#vo-body tr').forEach(function(tr,i){
     if(tr.dataset.type==='section') return;
     tr.querySelector('.row-num').textContent=i+1;
-    var qty=parseFloat(tr.querySelector('[data-f="qty"]').value)||0;
-    var price=parseFloat(tr.querySelector('[data-f="price"]').value)||0;
+    var qty=BINNA_I18N.numberValue(tr.querySelector('[data-f="qty"]').value)||0;
+    var price=BINNA_I18N.numberValue(tr.querySelector('[data-f="price"]').value)||0;
     var type=tr.querySelector('[data-f="type"]').value;
     var amt=qty*price;
     tr.querySelector('[data-f="amount"]').value=fmt(amt);
@@ -1420,27 +1534,27 @@ function getContractTotal(){
   var cd = data.contractDetails || {};
   // Contract-total manual override takes full precedence
   if (cd['contract-total-mode'] === 'manual' && cd['contract-total'])
-    return parseFloat(cd['contract-total']) || 0;
+    return BINNA_I18N.numberValue(cd['contract-total']) || 0;
   // Effective contract value
   var cv;
   if (cd['contract-value-mode'] === 'manual' && cd['contract-value']) {
-    cv = parseFloat(cd['contract-value']) || 0;
+    cv = BINNA_I18N.numberValue(cd['contract-value']) || 0;
   } else {
     cv = 0;
     document.querySelectorAll('#boq-body tr').forEach(function(tr){
-      cv += (parseFloat((tr.querySelector('[data-f="qty"]')||{}).value)||0)
-           *(parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0);
+      cv += (BINNA_I18N.numberValue((tr.querySelector('[data-f="qty"]')||{}).value)||0)
+           *(BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0);
     });
   }
   // Effective VO total
   var vot;
   if (cd['vo-total-mode'] === 'manual' && cd['vo-total']) {
-    vot = parseFloat(cd['vo-total']) || 0;
+    vot = BINNA_I18N.numberValue(cd['vo-total']) || 0;
   } else {
     var vadd=0, vded=0;
     document.querySelectorAll('#vo-body tr').forEach(function(tr){
-      var q=parseFloat((tr.querySelector('[data-f="qty"]')||{}).value)||0;
-      var p=parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0;
+      var q=BINNA_I18N.numberValue((tr.querySelector('[data-f="qty"]')||{}).value)||0;
+      var p=BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0;
       var t=(tr.querySelector('[data-f="type"]')||{}).value;
       if(t==='add') vadd+=q*p; else vded+=q*p;
     });
@@ -1458,8 +1572,8 @@ function getVoActiveAt(payIdx){
     var payDate=payRows[payIdx]?payRows[payIdx].date:'';
     // If VO has date and it's after this payment's date, skip
     if(voDate && payDate && voDate > payDate) return;
-    var q=parseFloat((tr.querySelector('[data-f="qty"]')||{}).value)||0;
-    var p=parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0;
+    var q=BINNA_I18N.numberValue((tr.querySelector('[data-f="qty"]')||{}).value)||0;
+    var p=BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0;
     var t=(tr.querySelector('[data-f="type"]')||{}).value;
     if(t==='add') total+=q*p; else total-=q*p;
   });
@@ -1470,12 +1584,13 @@ function getVoActiveAt(payIdx){
 function getBoqItems(){
   var items=[];
   document.querySelectorAll('#boq-body tr').forEach(function(tr,i){
+    var num=(tr.querySelector('[data-f="num"]')||{}).value||'';
     var desc=(tr.querySelector('[data-f="desc"]')||{}).value||'Item '+(i+1);
     var unit=(tr.querySelector('[data-f="unit"]')||{}).value||'';
-    var price=parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0;
+    var price=BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0;
     var qtyRaw=(tr.querySelector('[data-f="qty"]')||{}).value||'0';
     var maxQty=parseQty(qtyRaw);
-    items.push({id:'boq'+i, desc:desc, unit:unit, price:price, maxQty:maxQty, qtyStr:qtyRaw});
+    items.push({id:'boq'+i, num:num, desc:desc, unit:unit, price:price, maxQty:maxQty, qtyStr:qtyRaw});
   });
   return items;
 }
@@ -1540,7 +1655,7 @@ function buildDeductionsRegistry(upToPayIdx){
   var ct=getContractTotal();
   var insRequired=ct*0.05;
   var cd=data.contractDetails||{};
-  var penaltyRate=parseFloat(cd['penalty-rate'])||0;
+  var penaltyRate=BINNA_I18N.numberValue(cd['penalty-rate'])||0;
   var prevCumulative=0,insHeldSoFar=0;
   var registry=[];
   payRows.forEach(function(row,payIdx){
@@ -1549,8 +1664,8 @@ function buildDeductionsRegistry(upToPayIdx){
     (row.boqItems||[]).forEach(function(bi){
       var item=boqItems.find(function(b){return b.id===bi.id;});
       if(!item) return;
-      var eQ=parseFloat(bi.engQty),certQty=!isNaN(eQ)?eQ:(parseFloat(bi.qty)||0);
-      var o20=parseFloat(bi.over20)||0,w20=parseFloat(bi.within20)||0,np=parseFloat(bi.newPrice)||0;
+      var eQ=BINNA_I18N.numberValue(bi.engQty),certQty=!isNaN(eQ)?eQ:(BINNA_I18N.numberValue(bi.qty)||0);
+      var o20=BINNA_I18N.numberValue(bi.over20)||0,w20=BINNA_I18N.numberValue(bi.within20)||0,np=BINNA_I18N.numberValue(bi.newPrice)||0;
       if(o20>0&&np>0) cumulativeWork+=w20*item.price+o20*np;
       else cumulativeWork+=certQty*item.price;
     });
@@ -1558,16 +1673,16 @@ function buildDeductionsRegistry(upToPayIdx){
     var completionPct=ct>0?(cumulativeWork/ct*100):0;
     var insThis=completionPct>=50?Math.max(0,insRequired-insHeldSoFar):Math.min(thisWork*0.10,Math.max(0,insRequired-insHeldSoFar));
     insHeldSoFar+=insThis;
-    var penNet=Math.max(0,(parseFloat(row.penaltyDays)||0)*penaltyRate/100*ct-(parseFloat(row.penaltyWaived)||0));
+    var penNet=Math.max(0,(BINNA_I18N.numberValue(row.penaltyDays)||0)*penaltyRate/100*ct-(BINNA_I18N.numberValue(row.penaltyWaived)||0));
     var netPreExtra=thisWork-insThis-penNet;
     (row.extraDeductions||[]).forEach(function(ed,edIdx){
-      if(!ed.label&&!parseFloat(ed.value)) return;
-      var gross=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      if(!ed.label&&!BINNA_I18N.numberValue(ed.value)) return;
+      var gross=ed.type==='pct'?netPreExtra*(BINNA_I18N.numberValue(ed.value)||0)/100:(BINNA_I18N.numberValue(ed.value)||0);
       if(gross<=0) return;
       var totalReversed=0;
       payRows.forEach(function(r){
         (r.deductionReversals||[]).forEach(function(rv){
-          if(rv.sourcePayIdx===payIdx&&rv.sourceEdIdx===edIdx) totalReversed+=parseFloat(rv.amount)||0;
+          if(rv.sourcePayIdx===payIdx&&rv.sourceEdIdx===edIdx) totalReversed+=BINNA_I18N.numberValue(rv.amount)||0;
         });
       });
       var remaining=Math.max(0,gross-totalReversed);
@@ -1663,8 +1778,8 @@ function revModalUpdatePreview(){
   var r=_revM.registry[_revM.selIdx];
   var amt=0;
   if(_revM.type==='full') amt=r.remaining;
-  else if(_revM.type==='pct') amt=r.remaining*(parseFloat(_revM.value)||0)/100;
-  else amt=Math.min(parseFloat(_revM.value)||0,r.remaining);
+  else if(_revM.type==='pct') amt=r.remaining*(BINNA_I18N.numberValue(_revM.value)||0)/100;
+  else amt=Math.min(BINNA_I18N.numberValue(_revM.value)||0,r.remaining);
   el.textContent=amt>0?'Will release: +'+fmt(amt)+' '+curSym():'';
   el.style.color=amt>0?'var(--success)':'var(--muted)';
 }
@@ -1674,8 +1789,8 @@ function revModalConfirm(){
   var r=_revM.registry[_revM.selIdx];
   var amt=0;
   if(_revM.type==='full') amt=r.remaining;
-  else if(_revM.type==='pct'){ amt=r.remaining*(parseFloat(_revM.value)||0)/100; }
-  else { amt=parseFloat(_revM.value)||0; }
+  else if(_revM.type==='pct'){ amt=r.remaining*(BINNA_I18N.numberValue(_revM.value)||0)/100; }
+  else { amt=BINNA_I18N.numberValue(_revM.value)||0; }
   amt=Math.min(amt,r.remaining); // never exceed remaining
   if(amt<=0){ alert('Please enter a valid reversal amount.'); return; }
   var note='Reversal of "'+r.label+'" from ذرعة '+r.payNum;
@@ -1737,7 +1852,7 @@ function setPayBiField(payIdx,boqId,field,val){
 }
 
 function payEngQtyChange(payIdx,boqId,inputEl,prevCert){
-  var val=parseFloat(inputEl.value);
+  var val=BINNA_I18N.numberValue(inputEl.value);
   if(!isNaN(val)&&val<prevCert){
     inputEl.value=prevCert; // enforce minimum — reset silently
     inputEl.style.borderColor='var(--danger)';
@@ -1762,7 +1877,7 @@ function renderPayRows(){
   var insRequired=ct*0.05;
   var threshold=ct*0.5;
   var cd=data.contractDetails||{};
-  var penaltyRate=parseFloat(cd['penalty-rate'])||0;
+  var penaltyRate=BINNA_I18N.numberValue(cd['penalty-rate'])||0;
   var contractEndDate=cd['contract-end']||'';
   var CUR=curSym(); // currency symbol applied across all government card amounts (Fix 1)
 
@@ -1792,18 +1907,18 @@ function renderPayRows(){
     if(row.workMode==='manual'){
       // Manual entry is the CUMULATIVE work done to date (not the net for this
       // payment). Net for this payment = entered cumulative − previous cumulative.
-      cumulativeWork=parseFloat(row.manualWork)||0;
+      cumulativeWork=BINNA_I18N.numberValue(row.manualWork)||0;
     } else {
       (row.boqItems||[]).forEach(function(bi){
         var item=boqItems.find(function(b){return b.id===bi.id;});
         if(!item) return;
-        var eQ=parseFloat(bi.engQty); var certQty=!isNaN(eQ)?eQ:(parseFloat(bi.qty)||0);
-        var o20=parseFloat(bi.over20)||0; var w20=parseFloat(bi.within20)||0; var np=parseFloat(bi.newPrice)||0;
+        var eQ=BINNA_I18N.numberValue(bi.engQty); var certQty=!isNaN(eQ)?eQ:(BINNA_I18N.numberValue(bi.qty)||0);
+        var o20=BINNA_I18N.numberValue(bi.over20)||0; var w20=BINNA_I18N.numberValue(bi.within20)||0; var np=BINNA_I18N.numberValue(bi.newPrice)||0;
         if(o20>0&&np>0){ cumulativeWork+=w20*item.price+o20*np; }
         else { cumulativeWork+=certQty*item.price; }
       });
       // Quick manual items (from Quick Manual Entry tab) add as net amounts
-      (row.manualItems||[]).forEach(function(mi){ cumulativeWork+=(parseFloat(mi.amount)||0); });
+      (row.manualItems||[]).forEach(function(mi){ cumulativeWork+=(BINNA_I18N.numberValue(mi.amount)||0); });
     }
     var thisWork=cumulativeWork-prevCumulative; // net payment this درعة
     var cumulative=cumulativeWork;              // total certified through this payment
@@ -1820,32 +1935,32 @@ function renderPayRows(){
     insHeldSoFar+=insThis;
 
     // ── Penalty ───────────────────────────────────────────────────────────
-    var penDays=parseFloat(row.penaltyDays)||0;
+    var penDays=BINNA_I18N.numberValue(row.penaltyDays)||0;
     var penAmt=penDays*penaltyRate/100*contractAtThis;
-    var penWaived=parseFloat(row.penaltyWaived)||0;
+    var penWaived=BINNA_I18N.numberValue(row.penaltyWaived)||0;
     var penNet=Math.max(0,penAmt-penWaived);
 
     // ── Extra deductions (net after reversals, before tax) ────────────────
     var netPreExtra=thisWork-insThis-penNet;
     var extraTotal=0;
     (row.extraDeductions||[]).forEach(function(ed){
-      var gross=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      var gross=ed.type==='pct'?netPreExtra*(BINNA_I18N.numberValue(ed.value)||0)/100:(BINNA_I18N.numberValue(ed.value)||0);
       var revs=0;
       (ed.reversals||[]).forEach(function(rv){
         if(rv.type==='full') revs+=gross;
-        else if(rv.type==='pct') revs+=gross*(parseFloat(rv.value)||0)/100;
-        else revs+=parseFloat(rv.value)||0;
+        else if(rv.type==='pct') revs+=gross*(BINNA_I18N.numberValue(rv.value)||0)/100;
+        else revs+=BINNA_I18N.numberValue(rv.value)||0;
       });
       extraTotal+=Math.max(0,gross-revs);
     });
     var surplusTotal=0;
-    (row.surplusCredits||[]).forEach(function(sc){ surplusTotal+=parseFloat(sc.amount)||0; });
+    (row.surplusCredits||[]).forEach(function(sc){ surplusTotal+=BINNA_I18N.numberValue(sc.amount)||0; });
     var crossRevTotal=0;
-    (row.deductionReversals||[]).forEach(function(rv){ crossRevTotal+=parseFloat(rv.amount)||0; });
+    (row.deductionReversals||[]).forEach(function(rv){ crossRevTotal+=BINNA_I18N.numberValue(rv.amount)||0; });
     extraTotal=Math.max(0,extraTotal-surplusTotal-crossRevTotal);
 
     // ── Tax (on net after ALL deductions) ─────────────────────────────────
-    var taxRate=parseFloat(row.taxRate)||3;
+    var taxRate=BINNA_I18N.numberValue(row.taxRate)||3;
     var netBeforeTax=thisWork-insThis-penNet-extraTotal;
     var taxAmt=netBeforeTax*(taxRate/100);
     var netAfterTax=netBeforeTax-taxAmt;
@@ -1865,7 +1980,7 @@ function renderPayRows(){
 
     // ── Amount received (cash collected against this payment) ──────────────
     var receivedTotal=0;
-    (row.received||[]).forEach(function(r){ receivedTotal+=parseFloat(r.amount)||0; });
+    (row.received||[]).forEach(function(r){ receivedTotal+=BINNA_I18N.numberValue(r.amount)||0; });
 
     totalWork+=thisWork; totalIns+=insThis; totalTax+=taxAmt;
     totalPenalty+=penNet; totalExtra+=extraTotal; totalNet+=netFinal;
@@ -1942,9 +2057,9 @@ function renderPayRows(){
 
         includedBoqItems.forEach(function(item,ii){
           var bi=(row.boqItems||[]).find(function(b){return b.id===item.id;})||{};
-          var ctrQty=parseFloat(bi.qty)||0;
-          var eQ=parseFloat(bi.engQty); var certQty=!isNaN(eQ)?eQ:ctrQty;
-          var o20=parseFloat(bi.over20)||0; var w20=parseFloat(bi.within20)||0; var np=parseFloat(bi.newPrice)||0;
+          var ctrQty=BINNA_I18N.numberValue(bi.qty)||0;
+          var eQ=BINNA_I18N.numberValue(bi.engQty); var certQty=!isNaN(eQ)?eQ:ctrQty;
+          var o20=BINNA_I18N.numberValue(bi.over20)||0; var w20=BINNA_I18N.numberValue(bi.within20)||0; var np=BINNA_I18N.numberValue(bi.newPrice)||0;
           var ctrAmt=ctrQty*item.price;
           var engAmt; if(o20>0&&np>0){engAmt=w20*item.price+o20*np;}else{engAmt=certQty*item.price;}
           var prevCertThis=prevCertQtyMap[item.id]||0;
@@ -1955,13 +2070,13 @@ function renderPayRows(){
             +(cv.boqQty?'<td style="padding:4px 6px;border-right:1px solid var(--border2);text-align:right;font-family:monospace;color:var(--muted)">'+fmtQty(item.qtyStr)+'</td>':'')
             +(cv.unitPrice?'<td style="padding:4px 6px;border-right:1px solid var(--border2);text-align:right;font-family:monospace;color:var(--muted)">'+fmt(item.price)+'</td>':'')
             +(cv.unit?'<td style="padding:4px 6px;border-right:1px solid var(--border2);text-align:center;color:var(--muted)">'+esc(item.unit)+'</td>':'')
-            +(cv.within20?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="number" min="0" step="any" '+inp+'value="'+esc(bi.within20||'')+'" placeholder="0" oninput="setPayBiField('+idx+',\''+item.id+'\',\'within20\',this.value)" onchange="renderPayRows()"/></td>':'')
-            +(cv.over20?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="number" min="0" step="any" '+inp+'value="'+esc(bi.over20||'')+'" placeholder="0" oninput="setPayBiField('+idx+',\''+item.id+'\',\'over20\',this.value)" onchange="renderPayRows()"/></td>':'')
-            +(cv.newPrice?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="number" min="0" step="any" '+inp+'value="'+esc(bi.newPrice||'')+'" placeholder="'+(o20>0?'price':'—')+'" '+(o20<=0?'style="'+inp.replace('style="','').replace('"','')+'opacity:.4;pointer-events:none"':inp)+' oninput="setPayBiField('+idx+',\''+item.id+'\',\'newPrice\',this.value)" onchange="renderPayRows()"/></td>':'')
-            +(cv.ctrQty?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="number" min="0" step="any" '+inp+'style="width:66px;border:1px solid var(--border);border-radius:3px;padding:2px 5px;font-size:11.5px;text-align:right;font-family:monospace;color:var(--muted2)" value="'+esc(bi.qty||'')+'" placeholder="0" oninput="setPayBiField('+idx+',\''+item.id+'\',\'qty\',this.value)" onchange="renderPayRows()"/></td>':'')
+            +(cv.within20?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="text" inputmode="decimal" min="0" step="any" '+inp+'value="'+esc(bi.within20||'')+'" placeholder="0" oninput="setPayBiField('+idx+',\''+item.id+'\',\'within20\',this.value)" onchange="renderPayRows()"/></td>':'')
+            +(cv.over20?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="text" inputmode="decimal" min="0" step="any" '+inp+'value="'+esc(bi.over20||'')+'" placeholder="0" oninput="setPayBiField('+idx+',\''+item.id+'\',\'over20\',this.value)" onchange="renderPayRows()"/></td>':'')
+            +(cv.newPrice?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="text" inputmode="decimal" min="0" step="any" '+inp+'value="'+esc(bi.newPrice||'')+'" placeholder="'+(o20>0?'price':'—')+'" '+(o20<=0?'style="'+inp.replace('style="','').replace('"','')+'opacity:.4;pointer-events:none"':inp)+' oninput="setPayBiField('+idx+',\''+item.id+'\',\'newPrice\',this.value)" onchange="renderPayRows()"/></td>':'')
+            +(cv.ctrQty?'<td style="padding:3px 5px;border-right:1px solid var(--border2)"><input type="text" inputmode="decimal" min="0" step="any" '+inp+'style="width:66px;border:1px solid var(--border);border-radius:3px;padding:2px 5px;font-size:11.5px;text-align:right;font-family:monospace;color:var(--muted2)" value="'+esc(bi.qty||'')+'" placeholder="0" oninput="setPayBiField('+idx+',\''+item.id+'\',\'qty\',this.value)" onchange="renderPayRows()"/></td>':'')
             +(cv.ctrAmt?'<td style="padding:4px 6px;border-right:1px solid var(--border2);text-align:right;font-family:monospace;color:var(--muted2);font-size:11px">'+fmt(ctrAmt)+'</td>':'')
             +(cv.engQty?'<td style="padding:3px 5px;border-right:1px solid var(--border2)">'
-              +'<input type="number" min="'+prevCertThis+'" step="any" style="width:66px;border:1px solid var(--accent);border-radius:3px;padding:2px 5px;font-size:11.5px;text-align:right;font-family:monospace;color:var(--accent);font-weight:700" '
+              +'<input type="text" inputmode="decimal" min="'+prevCertThis+'" step="any" style="width:66px;border:1px solid var(--accent);border-radius:3px;padding:2px 5px;font-size:11.5px;text-align:right;font-family:monospace;color:var(--accent);font-weight:700" '
               +'value="'+(bi.engQty!==undefined&&bi.engQty!==''?esc(bi.engQty):'')+'" '
               +'placeholder="'+(prevCertThis>0?'≥'+prevCertThis:'0')+'" '
               +'title="'+(prevCertThis>0?'Min: '+prevCertThis+' (previous payment cumulative)':'')+'" '
@@ -1991,12 +2106,12 @@ function renderPayRows(){
     // ── Extra deductions builder ──────────────────────────────────────────
     var extraHTML='';
     (row.extraDeductions||[]).forEach(function(ed,ei){
-      var edGross=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      var edGross=ed.type==='pct'?netPreExtra*(BINNA_I18N.numberValue(ed.value)||0)/100:(BINNA_I18N.numberValue(ed.value)||0);
       var revTotal=0;
       (ed.reversals||[]).forEach(function(rv){
         if(rv.type==='full') revTotal+=edGross;
-        else if(rv.type==='pct') revTotal+=edGross*(parseFloat(rv.value)||0)/100;
-        else revTotal+=parseFloat(rv.value)||0;
+        else if(rv.type==='pct') revTotal+=edGross*(BINNA_I18N.numberValue(rv.value)||0)/100;
+        else revTotal+=BINNA_I18N.numberValue(rv.value)||0;
       });
       var edNet=Math.max(0,edGross-revTotal);
 
@@ -2005,8 +2120,8 @@ function renderPayRows(){
       (ed.reversals||[]).forEach(function(rv,ri){
         var rvAmt;
         if(rv.type==='full') rvAmt=edGross;
-        else if(rv.type==='pct') rvAmt=edGross*(parseFloat(rv.value)||0)/100;
-        else rvAmt=parseFloat(rv.value)||0;
+        else if(rv.type==='pct') rvAmt=edGross*(BINNA_I18N.numberValue(rv.value)||0)/100;
+        else rvAmt=BINNA_I18N.numberValue(rv.value)||0;
         revHTML+='<div style="display:flex;align-items:center;gap:7px;margin-top:5px;padding:5px 8px 5px 18px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:5px;font-size:11.5px">'
           +'<span style="color:var(--success);font-weight:700;font-size:13px">↩</span>'
           +'<input style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif" placeholder="Reversal reason / reference" value="'+esc(rv.note||'')+'" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].note=this.value"/>'
@@ -2015,7 +2130,7 @@ function renderPayRows(){
             +'<option value="fixed"'+(rv.type==='fixed'||!rv.type?' selected':'')+'>Reverse Partial ('+CUR+')</option>'
             +'<option value="pct"'+(rv.type==='pct'?' selected':'')+'>Reverse by % (of deduction)</option>'
           +'</select>'
-          +(rv.type!=='full'?'<input type="number" min="0" style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(rv.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].value=this.value" onchange="renderPayRows()"/>':
+          +(rv.type!=='full'?'<input type="text" inputmode="decimal" min="0" style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(rv.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].value=this.value" onchange="renderPayRows()"/>':
             '<span style="width:80px;font-size:11.5px;color:var(--success);font-family:monospace;text-align:right">= full</span>')
           +'<span style="font-size:11.5px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(rvAmt)+' '+CUR+'</span>'
           +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px;padding:1px 4px" onclick="payRows['+idx+'].extraDeductions['+ei+'].reversals.splice('+ri+',1);renderPayRows()" title="Remove reversal">✕</button>'
@@ -2030,7 +2145,7 @@ function renderPayRows(){
             +'<option value="pct"'+(ed.type==='pct'?' selected':'')+'>% of net</option>'
             +'<option value="fixed"'+(ed.type==='fixed'?' selected':'')+'>Fixed '+CUR+'</option>'
           +'</select>'
-          +'<input type="number" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(ed.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].value=this.value" onchange="renderPayRows()"/>'
+          +'<input type="text" inputmode="decimal" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(ed.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].value=this.value" onchange="renderPayRows()"/>'
           +'<span style="font-size:12px;color:var(--danger);font-family:monospace;min-width:90px;text-align:right">−'+fmt(edGross)+' '+CUR+'</span>'
           +(revTotal>0?'<span style="font-size:11px;color:var(--success);font-family:monospace;white-space:nowrap">Net: −'+fmt(edNet)+' '+CUR+'</span>':'')
           +'<button type="button" title="Add reversal / credit" onclick="addEdReversal('+idx+','+ei+')" style="border:1px solid #a6f4c5;background:#f0fbf4;color:var(--success);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 7px;white-space:nowrap;font-family:Inter,sans-serif">↩ Reverse</button>'
@@ -2044,7 +2159,7 @@ function renderPayRows(){
     // ── Cross-payment deduction reversal lines ────────────────────────────
     var crossRevHTML='';
     (row.deductionReversals||[]).forEach(function(rv,ri){
-      var amt=parseFloat(rv.amount)||0;
+      var amt=BINNA_I18N.numberValue(rv.amount)||0;
       crossRevHTML+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
         +'<span style="color:var(--success);font-weight:700;font-size:13px;flex-shrink:0">↩</span>'
         +'<span style="flex:1;font-size:12px;color:var(--text2)">'+esc(rv.note||'Reversal')+'</span>'
@@ -2056,11 +2171,11 @@ function renderPayRows(){
     // ── Surplus credit rows (rendered inside the Payment Summary table) ────
     var surplusRows='';
     (row.surplusCredits||[]).forEach(function(sc,si){
-      var amt=parseFloat(sc.amount)||0;
+      var amt=BINNA_I18N.numberValue(sc.amount)||0;
       surplusRows+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
         +'<span style="color:var(--success);font-weight:700;font-size:14px;flex-shrink:0">+</span>'
         +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Surplus credit description" value="'+esc(sc.note||'')+'" oninput="payRows['+idx+'].surplusCredits['+si+'].note=this.value"/>'
-        +'<input type="number" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success);font-weight:600" value="'+esc(sc.amount||'')+'" placeholder="Amount '+CUR+'" oninput="payRows['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPayRows()"/>'
+        +'<input type="text" inputmode="decimal" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success);font-weight:600" value="'+esc(sc.amount||'')+'" placeholder="Amount '+CUR+'" oninput="payRows['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPayRows()"/>'
         +'<span style="font-size:12px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(amt)+' '+CUR+'</span>'
         +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="payRows['+idx+'].surplusCredits.splice('+si+',1);renderPayRows()" title="Remove credit">✕</button>'
       +'</div></td></tr>';
@@ -2109,7 +2224,7 @@ function renderPayRows(){
         +'</div>'
         +'<div style="padding:8px 12px">'
           +'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Tax Rate %</div>'
-          +'<input type="number" style="width:100%;border:none;outline:none;font-size:13px;font-family:Inter,sans-serif;color:var(--danger)" value="'+esc(row.taxRate||'3')+'" oninput="payRows['+idx+'].taxRate=this.value" onchange="renderPayRows()"/>'
+          +'<input type="text" inputmode="decimal" style="width:100%;border:none;outline:none;font-size:13px;font-family:Inter,sans-serif;color:var(--danger)" value="'+esc(row.taxRate||'3')+'" oninput="payRows['+idx+'].taxRate=this.value" onchange="renderPayRows()"/>'
         +'</div>'
       +'</div>'
       // Work mode toggle bar
@@ -2118,7 +2233,7 @@ function renderPayRows(){
         +'<button type="button" class="wm-btn'+(row.workMode!=='manual'?' active':'')+'" onclick="togglePayWorkMode('+idx+',\'auto\')">⚙ Auto from BOQ</button>'
         +'<button type="button" class="wm-btn'+(row.workMode==='manual'?' active':'')+'" onclick="togglePayWorkMode('+idx+',\'manual\')">✏ Manual Entry</button>'
         +(row.workMode==='manual'
-          ?'<input type="number" min="0" value="'+esc(row.manualWork||'')+'" placeholder="Cumulative work done to date ('+CUR+')" title="Total cumulative work done from project start through this payment — the net for this payment is calculated automatically" style="width:260px;border:1px solid #d6bbfb;border-radius:6px;padding:4px 10px;font-size:13px;font-family:monospace;color:#6941c6;font-weight:600;outline:none" oninput="payRows['+idx+'].manualWork=this.value" onchange="renderPayRows()"/>'
+          ?'<input type="text" inputmode="decimal" min="0" value="'+esc(row.manualWork||'')+'" placeholder="Cumulative work done to date ('+CUR+')" title="Total cumulative work done from project start through this payment — the net for this payment is calculated automatically" style="width:260px;border:1px solid #d6bbfb;border-radius:6px;padding:4px 10px;font-size:13px;font-family:monospace;color:#6941c6;font-weight:600;outline:none" oninput="payRows['+idx+'].manualWork=this.value" onchange="renderPayRows()"/>'
           :'')
       +'</div>'
       // Collapsed BOQ summary (Auto mode) — full table opens in a modal.
@@ -2145,13 +2260,13 @@ function renderPayRows(){
         if(!hr['insurance']&&insThis>0) rows+='<tr><td class="pst-lbl" style="color:var(--danger)">'+pstLbl(idx,'insurance','تأمينات حسن التنفيذ / Performance Bond')+' <span style="font-size:10.5px;color:var(--muted2)">'+(completionPct>=50?'≥50% — Full 5% applied':'<50% — 10% of work')+'</span><button class="pst-x" onclick="hidePayRow('+idx+',\'insurance\')">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(insThis)+' '+CUR+'</td></tr>';
         // Daily Penalty — editable, in-table; shown only when there are delay days
         // (penalty amount > 0) or the user has opened it for entry via the footer.
-        var penDaysNum=parseFloat(row.penaltyDays)||0;
+        var penDaysNum=BINNA_I18N.numberValue(row.penaltyDays)||0;
         var penShown=penDaysNum>0||row._penaltyOpen;
         if(penShown) rows+='<tr class="pst-pen"><td class="pst-lbl" style="color:var(--danger)">'
           +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
             +'<b>غرامة التأخير / Daily Penalty</b>'
-            +'<span style="color:var(--muted2);font-weight:400">Delay days:</span><input type="number" min="0" style="width:58px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(row.penaltyDays||0)+'" oninput="payRows['+idx+'].penaltyDays=this.value" onchange="renderPayRows()"/>'
-            +'<span style="color:var(--muted2);font-weight:400">Waived:</span><input type="number" min="0" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(row.penaltyWaived||0)+'" oninput="payRows['+idx+'].penaltyWaived=this.value" onchange="renderPayRows()"/>'
+            +'<span style="color:var(--muted2);font-weight:400">Delay days:</span><input type="text" inputmode="decimal" min="0" style="width:58px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(row.penaltyDays||0)+'" oninput="payRows['+idx+'].penaltyDays=this.value" onchange="renderPayRows()"/>'
+            +'<span style="color:var(--muted2);font-weight:400">Waived:</span><input type="text" inputmode="decimal" min="0" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(row.penaltyWaived||0)+'" oninput="payRows['+idx+'].penaltyWaived=this.value" onchange="renderPayRows()"/>'
             +'<input style="flex:1;min-width:120px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:Inter,sans-serif;color:var(--success)" placeholder="Waiver reason / VO reference" value="'+esc(row.penaltyWaivedNote||'')+'" oninput="payRows['+idx+'].penaltyWaivedNote=this.value"/>'
             +'<button class="pst-x" title="Clear penalty" onclick="payRows['+idx+'].penaltyDays=0;payRows['+idx+'].penaltyWaived=0;payRows['+idx+']._penaltyOpen=false;renderPayRows()">×</button>'
           +'</div>'
@@ -2162,7 +2277,7 @@ function renderPayRows(){
         // Custom rows from user
         (row.customSummaryRows||[]).forEach(function(cr,ci){
           rows+='<tr class="pst-custom"><td class="pst-lbl"><input value="'+esc(cr.label||'')+'" placeholder="Row label…" style="border:none;background:transparent;width:70%;font-size:13px;font-family:Inter,sans-serif;color:var(--text2)" oninput="payRows['+idx+'].customSummaryRows['+ci+'].label=this.value"/><button class="pst-x" onclick="deletePayCustomRow('+idx+','+ci+')">×</button></td>'
-            +'<td class="pst-amt"><select onchange="payRows['+idx+'].customSummaryRows['+ci+'].sign=this.value" style="border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:12px;margin-right:4px"><option value="-"'+(cr.sign==='-'?' selected':'')+'>−</option><option value="+"'+(cr.sign==='+'?' selected':'')+'>+</option></select><input type="number" value="'+esc(cr.value||'')+'" placeholder="0" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payRows['+idx+'].customSummaryRows['+ci+'].value=this.value"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">'+CUR+'</span></td></tr>';
+            +'<td class="pst-amt"><select onchange="payRows['+idx+'].customSummaryRows['+ci+'].sign=this.value" style="border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:12px;margin-right:4px"><option value="-"'+(cr.sign==='-'?' selected':'')+'>−</option><option value="+"'+(cr.sign==='+'?' selected':'')+'>+</option></select><input type="text" inputmode="decimal" value="'+esc(cr.value||'')+'" placeholder="0" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payRows['+idx+'].customSummaryRows['+ci+'].value=this.value"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">'+CUR+'</span></td></tr>';
         });
         // 10% Retention — Final Payment only
         if(row.isFinalPayment&&!hr['retention10']) rows+='<tr><td class="pst-lbl" style="color:#6941c6">'+pstLbl(idx,'retention10','10% Retention — held until clearance certificates obtained from relevant authorities')+'<button class="pst-x" onclick="hidePayRow('+idx+',\'retention10\')">×</button></td><td class="pst-amt" style="color:#6941c6">− '+fmt(retention10)+' '+CUR+'</td></tr>';
@@ -2216,8 +2331,8 @@ function renderPayRows(){
           ?row.received.map(function(rc,ri){
             return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
               +'<input type="text" maxlength="10" placeholder="DD/MM/YYYY" style="width:108px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(isoToDisp(rc.date||todayISO()))+'" oninput="autoFmtDate(this)" onchange="var iso=dispToISO(this.value);if(iso)payRows['+idx+'].received['+ri+'].date=iso;"/>'
-              +'<input type="number" min="0" style="width:130px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:monospace;color:var(--success);font-weight:600" placeholder="Amount '+CUR+'" value="'+esc(rc.amount||'')+'" oninput="payRows['+idx+'].received['+ri+'].amount=this.value" onchange="renderPayRows()"/>'
-              +'<span title="% of Net Due" style="font-size:11px;color:var(--muted2);min-width:52px;text-align:right;font-family:monospace">'+(netFinal>0?(Math.round((parseFloat(rc.amount)||0)/netFinal*1000)/10)+'%':'—')+'</span>'
+              +'<input type="text" inputmode="decimal" min="0" style="width:130px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:monospace;color:var(--success);font-weight:600" placeholder="Amount '+CUR+'" value="'+esc(rc.amount||'')+'" oninput="payRows['+idx+'].received['+ri+'].amount=this.value" onchange="renderPayRows()"/>'
+              +'<span title="% of Net Due" style="font-size:11px;color:var(--muted2);min-width:52px;text-align:right;font-family:monospace">'+(netFinal>0?(Math.round((BINNA_I18N.numberValue(rc.amount)||0)/netFinal*1000)/10)+'%':'—')+'</span>'
               +'<input style="flex:1;min-width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Note (optional)" value="'+esc(rc.note||'')+'" oninput="payRows['+idx+'].received['+ri+'].note=this.value"/>'
               +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="removeInstallment('+idx+','+ri+')" title="Remove installment">✕</button>'
             +'</div>';
@@ -2266,7 +2381,7 @@ function renderPayRows(){
     container.appendChild(card);
     prevCumulative=cumulative;
     (row.boqItems||[]).forEach(function(bi){
-      var eQ=parseFloat(bi.engQty); var cq=!isNaN(eQ)?eQ:(parseFloat(bi.qty)||0);
+      var eQ=BINNA_I18N.numberValue(bi.engQty); var cq=!isNaN(eQ)?eQ:(BINNA_I18N.numberValue(bi.qty)||0);
       cumulativeQtyMap[bi.id]=cq; // SET to this payment's cumulative (not accumulate)
     });
   });
@@ -2284,7 +2399,7 @@ function renderPayRows(){
   set('pay-ins-rel2',fmt(totalRelFin)+' '+CUR+'');
   set('pay-ins-still',fmt(Math.max(0,totalIns-totalRelIni-totalRelFin))+' '+CUR+'');
   set('pay-pen-end',contractEndDate||'—');
-  set('pay-pen-days',payRows.reduce(function(a,r){return a+(parseFloat(r.penaltyDays)||0);},0));
+  set('pay-pen-days',payRows.reduce(function(a,r){return a+(BINNA_I18N.numberValue(r.penaltyDays)||0);},0));
   set('pay-pen-applied',fmt(totalPenalty+totalPenaltyWaived)+' '+CUR+'');
   set('pay-pen-waived',fmt(totalPenaltyWaived)+' '+CUR+'');
   set('pay-pen-net',fmt(totalPenalty)+' '+CUR+'');
@@ -2347,7 +2462,7 @@ function setDecimalPlaces(v){
 }
 // ── % allocation helpers (Fix 2) ─────────────────────────────────────────────
 function privCapped(){ var t=getPrivSettings().template; return t==='milestone'||t==='lumpsum'; }
-function privAllocatedPct(){ var s=getPrivSettings(); if(!privCapped()) return 0; return payRows.reduce(function(a,r){return a+(parseFloat(s.template==='milestone'?r.milestonePct:r.schedulePct)||0);},0); }
+function privAllocatedPct(){ var s=getPrivSettings(); if(!privCapped()) return 0; return payRows.reduce(function(a,r){return a+(BINNA_I18N.numberValue(s.template==='milestone'?r.milestonePct:r.schedulePct)||0);},0); }
 // Cross-payment deduction registry for private contracts — mirrors the
 // government buildDeductionsRegistry but derives each deduction's gross from the
 // private net (subtotal − advance recovery − retention), not government rules.
@@ -2355,10 +2470,10 @@ function buildPrivDeductionsRegistry(upToPayIdx){
   var s=getPrivSettings();
   var ct=getContractTotal();
   var grossTotalAll=0; payRows.forEach(function(r){ grossTotalAll+=privGross(r); });
-  var retPct=parseFloat(s.retentionPct)||0;
+  var retPct=BINNA_I18N.numberValue(s.retentionPct)||0;
   var retRequired=s.retentionEnabled?(ct>0?ct*retPct/100:grossTotalAll*retPct/100):0;
-  var advTotal=s.advanceEnabled?(parseFloat(s.advanceAmount)||0):0;
-  var advRecPct=parseFloat(s.advanceRecoveryPct)||0;
+  var advTotal=s.advanceEnabled?(BINNA_I18N.numberValue(s.advanceAmount)||0):0;
+  var advRecPct=BINNA_I18N.numberValue(s.advanceRecoveryPct)||0;
   var prevRecovered=0,retHeldSoFar=0;
   var registry=[];
   payRows.forEach(function(row,payIdx){
@@ -2370,11 +2485,11 @@ function buildPrivDeductionsRegistry(upToPayIdx){
     if(payIdx>=upToPayIdx) return; // accumulators above still advance for ordering
     var netPreExtra=subtotal-recovery-retHeld;
     (row.extraDeductions||[]).forEach(function(ed,edIdx){
-      if(!ed.label&&!parseFloat(ed.value)) return;
-      var grossEd=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      if(!ed.label&&!BINNA_I18N.numberValue(ed.value)) return;
+      var grossEd=ed.type==='pct'?netPreExtra*(BINNA_I18N.numberValue(ed.value)||0)/100:(BINNA_I18N.numberValue(ed.value)||0);
       if(grossEd<=0) return;
       var totalReversed=0;
-      payRows.forEach(function(r){ (r.deductionReversals||[]).forEach(function(rv){ if(rv.sourcePayIdx===payIdx&&rv.sourceEdIdx===edIdx) totalReversed+=parseFloat(rv.amount)||0; }); });
+      payRows.forEach(function(r){ (r.deductionReversals||[]).forEach(function(rv){ if(rv.sourcePayIdx===payIdx&&rv.sourceEdIdx===edIdx) totalReversed+=BINNA_I18N.numberValue(rv.amount)||0; }); });
       var remaining=Math.max(0,grossEd-totalReversed);
       if(remaining<=0.001) return;
       registry.push({payIdx:payIdx,edIdx:edIdx,payNum:payIdx+1,label:ed.label||('Deduction '+(edIdx+1)),gross:grossEd,totalReversed:totalReversed,remaining:remaining});
@@ -2408,14 +2523,14 @@ function setLumpField(i,f,v){ var ls=getPrivSettings().lumpSchedule[i]; if(ls) l
 function generateLumpPayments(){
   var s=getPrivSettings();
   if(!s.lumpSchedule.length){ BINNA.toast('Add at least one schedule stage first','info',2200); return; }
-  var schedTotal=s.lumpSchedule.reduce(function(a,r){return a+(parseFloat(r.pct)||0);},0);
+  var schedTotal=s.lumpSchedule.reduce(function(a,r){return a+(BINNA_I18N.numberValue(r.pct)||0);},0);
   if(schedTotal>100){ BINNA.toast('Schedule total ('+(Math.round(schedTotal*10)/10)+'%) cannot exceed 100% of contract value','error',2800); return; }
   if(!confirm('Create '+s.lumpSchedule.length+' payment card(s) from this schedule?')) return;
   // Drop a single empty starter card so the schedule starts clean
   if(payRows.length===1 && !hasPrivRowData(payRows[0])) payRows=[];
   var ct=getContractTotal();
   s.lumpSchedule.forEach(function(ls){
-    var pct=parseFloat(ls.pct)||0;
+    var pct=BINNA_I18N.numberValue(ls.pct)||0;
     addPayRow({payment_mode:'private',status:'draft',desc:ls.label||'',scheduleLabel:ls.label||'',schedulePct:ls.pct||'',
       summaryRows:[{id:'sr'+Date.now()+Math.random().toString(36).slice(2,6),label:'Contract Work Done / أعمال منجزة',amount:ct>0?Math.round(ct*pct/100):''}]});
   });
@@ -2441,9 +2556,9 @@ function renderPrivSettings(){
   html+='<div style="display:flex;flex-direction:column;gap:6px">'
     +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.advanceEnabled?'checked':'')+' onchange="togglePrivField(\'advanceEnabled\',this.checked)"/> Advance Payment</label>'
     +(s.advanceEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px;flex-wrap:wrap">'
-        +'<input type="number" min="0" placeholder="Advance amount '+curSym()+'" value="'+esc(s.advanceAmount)+'" style="'+IN+';width:160px;font-family:monospace" oninput="setPrivField(\'advanceAmount\',this.value)"/>'
+        +'<input type="text" inputmode="decimal" min="0" placeholder="Advance amount '+curSym()+'" value="'+esc(s.advanceAmount)+'" style="'+IN+';width:160px;font-family:monospace" oninput="setPrivField(\'advanceAmount\',this.value)"/>'
         +'<span style="color:var(--muted2)">recover</span>'
-        +'<input type="number" min="0" placeholder="%" value="'+esc(s.advanceRecoveryPct)+'" style="'+IN+';width:58px" oninput="setPrivField(\'advanceRecoveryPct\',this.value)"/>'
+        +'<input type="text" inputmode="decimal" min="0" placeholder="%" value="'+esc(s.advanceRecoveryPct)+'" style="'+IN+';width:58px" oninput="setPrivField(\'advanceRecoveryPct\',this.value)"/>'
         +'<span style="color:var(--muted2)">% / payment</span>'
       +'</div>':'')
   +'</div>';
@@ -2451,7 +2566,7 @@ function renderPrivSettings(){
   html+='<div style="display:flex;flex-direction:column;gap:6px">'
     +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.retentionEnabled?'checked':'')+' onchange="togglePrivField(\'retentionEnabled\',this.checked)"/> Retention</label>'
     +(s.retentionEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px">'
-        +'<input type="number" min="0" placeholder="%" value="'+esc(s.retentionPct)+'" style="'+IN+';width:58px" oninput="setPrivField(\'retentionPct\',this.value)"/>'
+        +'<input type="text" inputmode="decimal" min="0" placeholder="%" value="'+esc(s.retentionPct)+'" style="'+IN+';width:58px" oninput="setPrivField(\'retentionPct\',this.value)"/>'
         +'<span style="color:var(--muted2)">% held per payment</span>'
       +'</div>':'')
   +'</div>';
@@ -2459,21 +2574,21 @@ function renderPrivSettings(){
   html+='<div style="display:flex;flex-direction:column;gap:6px">'
     +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:var(--text2)"><input type="checkbox" '+(s.taxEnabled?'checked':'')+' onchange="togglePrivField(\'taxEnabled\',this.checked)"/> Tax (default)</label>'
     +(s.taxEnabled?'<div style="display:flex;gap:6px;align-items:center;padding-left:22px">'
-        +'<input type="number" min="0" placeholder="%" value="'+esc(s.taxRate)+'" style="'+IN+';width:58px" oninput="setPrivField(\'taxRate\',this.value)"/>'
+        +'<input type="text" inputmode="decimal" min="0" placeholder="%" value="'+esc(s.taxRate)+'" style="'+IN+';width:58px" oninput="setPrivField(\'taxRate\',this.value)"/>'
         +'<span style="color:var(--muted2)">% on net work</span>'
       +'</div>':'')
   +'</div>';
   html+='</div>';
   // Lump-sum schedule editor
   if(s.template==='lumpsum'){
-    var totalPct=s.lumpSchedule.reduce(function(a,r){return a+(parseFloat(r.pct)||0);},0);
+    var totalPct=s.lumpSchedule.reduce(function(a,r){return a+(BINNA_I18N.numberValue(r.pct)||0);},0);
     html+='<div style="margin-top:12px;border-top:1px solid var(--border2);padding-top:10px">'
       +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Installment Schedule</div>';
     if(!s.lumpSchedule.length) html+='<div style="font-size:11.5px;color:var(--muted2);font-style:italic;margin-bottom:6px">No stages yet — e.g. 30% Mobilization · 40% Progress · 30% Completion</div>';
     s.lumpSchedule.forEach(function(ls,i){
       html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
         +'<input placeholder="Stage (e.g. Mobilization)" value="'+esc(ls.label)+'" style="'+IN+';flex:1;min-width:0" oninput="setLumpField('+i+',\'label\',this.value)"/>'
-        +'<input type="number" min="0" placeholder="%" value="'+esc(ls.pct)+'" style="'+IN+';width:70px;text-align:right" oninput="setLumpField('+i+',\'pct\',this.value)" onchange="renderPrivSettings()"/>'
+        +'<input type="text" inputmode="decimal" min="0" placeholder="%" value="'+esc(ls.pct)+'" style="'+IN+';width:70px;text-align:right" oninput="setLumpField('+i+',\'pct\',this.value)" onchange="renderPrivSettings()"/>'
         +'<span style="color:var(--muted2)">%</span>'
         +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px;padding:1px 6px" onclick="removeLumpRow('+i+')">✕</button>'
       +'</div>';
@@ -2488,10 +2603,10 @@ function renderPrivSettings(){
   el.innerHTML=html;
 }
 // ── Private calc helpers ─────────────────────────────────────────────────────
-function privGross(row){ var g=0; (row.summaryRows||[]).forEach(function(r){var a=parseFloat(r.amount)||0; if(a>0)g+=a;}); return g; }
-function privSubtotal(row){ var g=0; (row.summaryRows||[]).forEach(function(r){g+=parseFloat(r.amount)||0;}); return g; }
+function privGross(row){ var g=0; (row.summaryRows||[]).forEach(function(r){var a=BINNA_I18N.numberValue(r.amount)||0; if(a>0)g+=a;}); return g; }
+function privSubtotal(row){ var g=0; (row.summaryRows||[]).forEach(function(r){g+=BINNA_I18N.numberValue(r.amount)||0;}); return g; }
 function hasPrivRowData(row){
-  return (row.summaryRows&&row.summaryRows.some(function(s){return parseFloat(s.amount);}))
+  return (row.summaryRows&&row.summaryRows.some(function(s){return BINNA_I18N.numberValue(s.amount);}))
       || (row.received&&row.received.length)
       || (row.attachments&&row.attachments.length)
       || (row.extraDeductions&&row.extraDeductions.length)
@@ -2506,7 +2621,7 @@ function addPrivatePay(){
   if(s.template==='milestone'){
     var nm=prompt('Milestone name:'); if(nm===null) return;
     var pc=prompt('Completion % (optional):','')||'';
-    var pcNum=parseFloat(pc)||0;
+    var pcNum=BINNA_I18N.numberValue(pc)||0;
     if(pcNum>0 && privAllocatedPct()+pcNum>100){ BINNA.toast('Cannot exceed 100% of contract value','error',2600); return; }
     d.milestoneName=nm||''; d.milestonePct=pc; d.desc=nm||'';
   } else if(s.template==='monthly'){
@@ -2529,10 +2644,10 @@ function renderPrivatePayRows(){
 
   // Pre-pass: gross work across all payments → retention base when no contract total
   var grossTotalAll=0; payRows.forEach(function(r){ grossTotalAll+=privGross(r); });
-  var retPct=parseFloat(s.retentionPct)||0;
+  var retPct=BINNA_I18N.numberValue(s.retentionPct)||0;
   var retRequired = s.retentionEnabled ? (ct>0?ct*retPct/100:grossTotalAll*retPct/100) : 0;
-  var advTotal = s.advanceEnabled ? (parseFloat(s.advanceAmount)||0) : 0;
-  var advRecPct = parseFloat(s.advanceRecoveryPct)||0;
+  var advTotal = s.advanceEnabled ? (BINNA_I18N.numberValue(s.advanceAmount)||0) : 0;
+  var advRecPct = BINNA_I18N.numberValue(s.advanceRecoveryPct)||0;
 
   var prevRecovered=0, retHeldSoFar=0;
   var totNet=0,totReceived=0,totWork=0;
@@ -2562,23 +2677,23 @@ function renderPrivatePayRows(){
     var netPreExtra=subtotal-recovery-retHeld;
     var extraTotal=0;
     (row.extraDeductions||[]).forEach(function(ed){
-      var grossEd=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      var grossEd=ed.type==='pct'?netPreExtra*(BINNA_I18N.numberValue(ed.value)||0)/100:(BINNA_I18N.numberValue(ed.value)||0);
       var revs=0;
       (ed.reversals||[]).forEach(function(rv){
         if(rv.type==='full') revs+=grossEd;
-        else if(rv.type==='pct') revs+=grossEd*(parseFloat(rv.value)||0)/100;
-        else revs+=parseFloat(rv.value)||0;
+        else if(rv.type==='pct') revs+=grossEd*(BINNA_I18N.numberValue(rv.value)||0)/100;
+        else revs+=BINNA_I18N.numberValue(rv.value)||0;
       });
       extraTotal+=Math.max(0,grossEd-revs);
     });
     var surplusTotal=0;
-    (row.surplusCredits||[]).forEach(function(sc){ surplusTotal+=parseFloat(sc.amount)||0; });
+    (row.surplusCredits||[]).forEach(function(sc){ surplusTotal+=BINNA_I18N.numberValue(sc.amount)||0; });
     var crossRevTotal=0;
-    (row.deductionReversals||[]).forEach(function(rv){ crossRevTotal+=parseFloat(rv.amount)||0; });
+    (row.deductionReversals||[]).forEach(function(rv){ crossRevTotal+=BINNA_I18N.numberValue(rv.amount)||0; });
     var additions=surplusTotal+crossRevTotal;
     // Tax on net work after deductions (credits/releases excluded)
     var taxOn = row.privTaxEnabled!=null ? row.privTaxEnabled : s.taxEnabled;
-    var taxRate = (row.privTaxRate!==''&&row.privTaxRate!=null) ? (parseFloat(row.privTaxRate)||0) : (parseFloat(s.taxRate)||0);
+    var taxRate = (row.privTaxRate!==''&&row.privTaxRate!=null) ? (BINNA_I18N.numberValue(row.privTaxRate)||0) : (BINNA_I18N.numberValue(s.taxRate)||0);
     var taxBase=Math.max(0, netPreExtra-extraTotal);
     var tax = taxOn ? taxBase*taxRate/100 : 0;
 
@@ -2587,20 +2702,20 @@ function renderPrivatePayRows(){
     // ── Extra-deduction editing markup, rendered as rows inside the table ───
     var extraHTML='';
     (row.extraDeductions||[]).forEach(function(ed,ei){
-      var edGross=ed.type==='pct'?netPreExtra*(parseFloat(ed.value)||0)/100:(parseFloat(ed.value)||0);
+      var edGross=ed.type==='pct'?netPreExtra*(BINNA_I18N.numberValue(ed.value)||0)/100:(BINNA_I18N.numberValue(ed.value)||0);
       var revTotal=0;
       (ed.reversals||[]).forEach(function(rv){
         if(rv.type==='full') revTotal+=edGross;
-        else if(rv.type==='pct') revTotal+=edGross*(parseFloat(rv.value)||0)/100;
-        else revTotal+=parseFloat(rv.value)||0;
+        else if(rv.type==='pct') revTotal+=edGross*(BINNA_I18N.numberValue(rv.value)||0)/100;
+        else revTotal+=BINNA_I18N.numberValue(rv.value)||0;
       });
       var edNet=Math.max(0,edGross-revTotal);
       var revHTML='';
       (ed.reversals||[]).forEach(function(rv,ri){
         var rvAmt;
         if(rv.type==='full') rvAmt=edGross;
-        else if(rv.type==='pct') rvAmt=edGross*(parseFloat(rv.value)||0)/100;
-        else rvAmt=parseFloat(rv.value)||0;
+        else if(rv.type==='pct') rvAmt=edGross*(BINNA_I18N.numberValue(rv.value)||0)/100;
+        else rvAmt=BINNA_I18N.numberValue(rv.value)||0;
         revHTML+='<div style="display:flex;align-items:center;gap:7px;margin-top:5px;padding:5px 8px 5px 18px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:5px;font-size:11.5px">'
           +'<span style="color:var(--success);font-weight:700;font-size:13px">↩</span>'
           +'<input style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif" placeholder="Reversal reason / reference" value="'+esc(rv.note||'')+'" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].note=this.value"/>'
@@ -2609,7 +2724,7 @@ function renderPrivatePayRows(){
             +'<option value="fixed"'+(rv.type==='fixed'||!rv.type?' selected':'')+'>Reverse Partial ('+CUR+')</option>'
             +'<option value="pct"'+(rv.type==='pct'?' selected':'')+'>Reverse by % (of deduction)</option>'
           +'</select>'
-          +(rv.type!=='full'?'<input type="number" min="0" style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(rv.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].value=this.value" onchange="renderPrivatePayRows()"/>':
+          +(rv.type!=='full'?'<input type="text" inputmode="decimal" min="0" style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11.5px;font-family:Inter,sans-serif;color:var(--success)" value="'+esc(rv.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].reversals['+ri+'].value=this.value" onchange="renderPrivatePayRows()"/>':
             '<span style="width:80px;font-size:11.5px;color:var(--success);font-family:monospace;text-align:right">= full</span>')
           +'<span style="font-size:11.5px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(rvAmt)+' '+CUR+'</span>'
           +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px;padding:1px 4px" onclick="payRows['+idx+'].extraDeductions['+ei+'].reversals.splice('+ri+',1);renderPrivatePayRows()" title="Remove reversal">✕</button>'
@@ -2622,7 +2737,7 @@ function renderPrivatePayRows(){
             +'<option value="pct"'+(ed.type==='pct'?' selected':'')+'>% of net</option>'
             +'<option value="fixed"'+(ed.type==='fixed'?' selected':'')+'>Fixed '+CUR+'</option>'
           +'</select>'
-          +'<input type="number" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(ed.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].value=this.value" onchange="renderPrivatePayRows()"/>'
+          +'<input type="text" inputmode="decimal" style="width:80px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" value="'+esc(ed.value||'')+'" placeholder="0" oninput="payRows['+idx+'].extraDeductions['+ei+'].value=this.value" onchange="renderPrivatePayRows()"/>'
           +'<span style="font-size:12px;color:var(--danger);font-family:monospace;min-width:90px;text-align:right">−'+fmt(edGross)+' '+CUR+'</span>'
           +(revTotal>0?'<span style="font-size:11px;color:var(--success);font-family:monospace;white-space:nowrap">Net: −'+fmt(edNet)+' '+CUR+'</span>':'')
           +'<button type="button" title="Add reversal / credit" onclick="addEdReversal('+idx+','+ei+')" style="border:1px solid #a6f4c5;background:#f0fbf4;color:var(--success);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 7px;white-space:nowrap;font-family:Inter,sans-serif">↩ Reverse</button>'
@@ -2633,7 +2748,7 @@ function renderPrivatePayRows(){
     });
     var crossRevHTML='';
     (row.deductionReversals||[]).forEach(function(rv,ri){
-      var amt=parseFloat(rv.amount)||0;
+      var amt=BINNA_I18N.numberValue(rv.amount)||0;
       crossRevHTML+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
         +'<span style="color:var(--success);font-weight:700;font-size:13px;flex-shrink:0">↩</span>'
         +'<span style="flex:1;font-size:12px;color:var(--text2)">'+esc(rv.note||'Reversal')+'</span>'
@@ -2643,16 +2758,16 @@ function renderPrivatePayRows(){
     });
     var surplusRows='';
     (row.surplusCredits||[]).forEach(function(sc,si){
-      var amt=parseFloat(sc.amount)||0;
+      var amt=BINNA_I18N.numberValue(sc.amount)||0;
       surplusRows+='<tr class="pst-ded"><td colspan="2" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
         +'<span style="color:var(--success);font-weight:700;font-size:14px;flex-shrink:0">+</span>'
         +'<input style="flex:1;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif" placeholder="Surplus credit description" value="'+esc(sc.note||'')+'" oninput="payRows['+idx+'].surplusCredits['+si+'].note=this.value"/>'
-        +'<input type="number" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success);font-weight:600" value="'+esc(sc.amount||'')+'" placeholder="Amount '+CUR+'" oninput="payRows['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPrivatePayRows()"/>'
+        +'<input type="text" inputmode="decimal" min="0" style="width:110px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:Inter,sans-serif;color:var(--success);font-weight:600" value="'+esc(sc.amount||'')+'" placeholder="Amount '+CUR+'" oninput="payRows['+idx+'].surplusCredits['+si+'].amount=this.value" onchange="renderPrivatePayRows()"/>'
         +'<span style="font-size:12px;color:var(--success);font-family:monospace;min-width:80px;text-align:right">+'+fmt(amt)+' '+CUR+'</span>'
         +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="payRows['+idx+'].surplusCredits.splice('+si+',1);renderPrivatePayRows()" title="Remove credit">✕</button>'
       +'</div></td></tr>';
     });
-    var receivedTotal=0; (row.received||[]).forEach(function(r){receivedTotal+=parseFloat(r.amount)||0;});
+    var receivedTotal=0; (row.received||[]).forEach(function(r){receivedTotal+=BINNA_I18N.numberValue(r.amount)||0;});
     row._netDue=net; row._received=receivedTotal;
     totNet+=net; totReceived+=receivedTotal;
 
@@ -2671,7 +2786,7 @@ function renderPrivatePayRows(){
         +'<input placeholder="June 2026" value="'+esc(row.period||'')+'" style="width:100%;'+IN+'" oninput="payRows['+idx+'].period=this.value" onchange="renderPrivatePayRows()"/>';
     } else if(s.template==='milestone'){
       thirdCell='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Completion %</div>'
-        +'<input type="number" min="0" max="100" placeholder="0" value="'+esc(row.milestonePct||'')+'" style="width:100%;'+IN+';font-family:monospace" oninput="payRows['+idx+'].milestonePct=this.value" onchange="renderPrivatePayRows()"/>';
+        +'<input type="text" inputmode="decimal" min="0" max="100" placeholder="0" value="'+esc(row.milestonePct||'')+'" style="width:100%;'+IN+';font-family:monospace" oninput="payRows['+idx+'].milestonePct=this.value" onchange="renderPrivatePayRows()"/>';
     } else {
       thirdCell='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Reference</div>'
         +'<input placeholder="Optional ref / note" value="'+esc(row.scheduleLabel||'')+'" style="width:100%;'+IN+'" oninput="payRows['+idx+'].scheduleLabel=this.value"/>';
@@ -2681,7 +2796,7 @@ function renderPrivatePayRows(){
     var srows='';
     (row.summaryRows||[]).forEach(function(sr,ri){
       srows+='<tr class="pst-custom"><td class="pst-lbl"><input value="'+esc(sr.label||'')+'" placeholder="Row label…" style="border:none;background:transparent;width:72%;font-size:13px;font-family:Inter,sans-serif;color:var(--text2)" oninput="payRows['+idx+'].summaryRows['+ri+'].label=this.value;scheduleAutoSave()"/><button class="pst-x" onclick="removePrivRow('+idx+','+ri+')">×</button></td>'
-        +'<td class="pst-amt"><input type="number" value="'+esc(sr.amount||'')+'" placeholder="0" title="Positive = addition, negative = deduction" style="width:120px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payRows['+idx+'].summaryRows['+ri+'].amount=this.value" onchange="renderPrivatePayRows()"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">'+CUR+'</span></td></tr>';
+        +'<td class="pst-amt"><input type="text" inputmode="decimal" value="'+esc(sr.amount||'')+'" placeholder="0" title="Positive = addition, negative = deduction" style="width:120px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;font-family:monospace;text-align:right" oninput="payRows['+idx+'].summaryRows['+ri+'].amount=this.value" onchange="renderPrivatePayRows()"/><span style="font-size:11px;color:var(--muted2);margin-left:3px">'+CUR+'</span></td></tr>';
     });
     // Auto rows
     if(recovery>0) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">استرداد السلفة — Advance Payment Recovery <span style="font-size:10.5px;color:var(--muted2)">('+advRecPct+'%)</span></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(recovery)+' '+CUR+'</td></tr>';
@@ -2690,7 +2805,7 @@ function renderPrivatePayRows(){
     srows+=extraHTML+crossRevHTML+surplusRows;
     if(relR1>0) srows+='<tr><td class="pst-lbl" style="color:var(--success)">Retention Release — Initial (50%)</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relR1)+' '+CUR+'</td></tr>';
     if(relR2>0) srows+='<tr><td class="pst-lbl" style="color:var(--success)">Retention Release — Final (50%)</td><td class="pst-amt" style="color:var(--success)">+ '+fmt(relR2)+' '+CUR+'</td></tr>';
-    if(taxOn) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">Tax <input type="number" min="0" value="'+esc(row.privTaxRate!==''&&row.privTaxRate!=null?row.privTaxRate:(s.taxRate||''))+'" placeholder="'+(parseFloat(s.taxRate)||0)+'" style="width:48px;border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:12px;text-align:right;font-family:monospace" oninput="payRows['+idx+'].privTaxRate=this.value" onchange="renderPrivatePayRows()"/>% <button class="pst-x" title="Remove tax" onclick="payRows['+idx+'].privTaxEnabled=false;renderPrivatePayRows()">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(tax)+' '+CUR+'</td></tr>';
+    if(taxOn) srows+='<tr><td class="pst-lbl" style="color:var(--danger)">Tax <input type="text" inputmode="decimal" min="0" value="'+esc(row.privTaxRate!==''&&row.privTaxRate!=null?row.privTaxRate:(s.taxRate||''))+'" placeholder="'+(BINNA_I18N.numberValue(s.taxRate)||0)+'" style="width:48px;border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:12px;text-align:right;font-family:monospace" oninput="payRows['+idx+'].privTaxRate=this.value" onchange="renderPrivatePayRows()"/>% <button class="pst-x" title="Remove tax" onclick="payRows['+idx+'].privTaxEnabled=false;renderPrivatePayRows()">×</button></td><td class="pst-amt" style="color:var(--danger)">− '+fmt(tax)+' '+CUR+'</td></tr>';
     // Footer controls (above NET): add deduction / add surplus / reverse previous
     srows+='<tr class="pst-foot"><td colspan="2" style="padding:8px 12px;background:var(--surface)">'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
@@ -2758,8 +2873,8 @@ function renderPrivatePayRows(){
           ?row.received.map(function(rc,ri){
             return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:#f0fbf4;border:1px solid #a6f4c5;border-radius:6px">'
               +'<input type="text" maxlength="10" placeholder="DD/MM/YYYY" style="width:108px;'+IN+'" value="'+esc(isoToDisp(rc.date||todayISO()))+'" oninput="autoFmtDate(this)" onchange="var iso=dispToISO(this.value);if(iso)payRows['+idx+'].received['+ri+'].date=iso;renderPrivatePayRows()"/>'
-              +'<input type="number" min="0" style="width:130px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:monospace;color:var(--success);font-weight:600" placeholder="Amount '+CUR+'" value="'+esc(rc.amount||'')+'" oninput="payRows['+idx+'].received['+ri+'].amount=this.value" onchange="renderPrivatePayRows()"/>'
-              +'<span title="% of Net Due" style="font-size:11px;color:var(--muted2);min-width:52px;text-align:right;font-family:monospace">'+(net>0?(Math.round((parseFloat(rc.amount)||0)/net*1000)/10)+'%':'—')+'</span>'
+              +'<input type="text" inputmode="decimal" min="0" style="width:130px;border:1px solid #a6f4c5;border-radius:5px;padding:4px 8px;font-size:12px;font-family:monospace;color:var(--success);font-weight:600" placeholder="Amount '+CUR+'" value="'+esc(rc.amount||'')+'" oninput="payRows['+idx+'].received['+ri+'].amount=this.value" onchange="renderPrivatePayRows()"/>'
+              +'<span title="% of Net Due" style="font-size:11px;color:var(--muted2);min-width:52px;text-align:right;font-family:monospace">'+(net>0?(Math.round((BINNA_I18N.numberValue(rc.amount)||0)/net*1000)/10)+'%':'—')+'</span>'
               +'<input style="flex:1;min-width:80px;'+IN+'" placeholder="Note (optional)" value="'+esc(rc.note||'')+'" oninput="payRows['+idx+'].received['+ri+'].note=this.value"/>'
               +'<button type="button" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:14px" onclick="removeInstallment('+idx+','+ri+')" title="Remove installment">✕</button>'
             +'</div>';
@@ -2808,7 +2923,7 @@ function renderPrivatePayRows(){
 
   // ── % allocation cap for Milestone & Lump Sum templates (Fix 2) ───────────
   var capped=(s.template==='milestone'||s.template==='lumpsum');
-  var allocated=capped?payRows.reduce(function(a,r){return a+(parseFloat(s.template==='milestone'?r.milestonePct:r.schedulePct)||0);},0):0;
+  var allocated=capped?payRows.reduce(function(a,r){return a+(BINNA_I18N.numberValue(s.template==='milestone'?r.milestonePct:r.schedulePct)||0);},0):0;
   var allocBar=document.getElementById('priv-alloc-bar');
   if(allocBar){
     if(capped){
@@ -2897,7 +3012,7 @@ function getPrevCertifiedQty(payIdx, boqId){
   for(var i=payIdx-1;i>=0;i--){
     var pr=payRows[i];
     var bi=(pr.boqItems||[]).find(function(b){return b.id===boqId;});
-    if(bi){ var eQ=parseFloat(bi.engQty); return !isNaN(eQ)?eQ:(parseFloat(bi.qty)||0); }
+    if(bi){ var eQ=BINNA_I18N.numberValue(bi.engQty); return !isNaN(eQ)?eQ:(BINNA_I18N.numberValue(bi.qty)||0); }
   }
   return 0;
 }
@@ -2937,11 +3052,11 @@ function wimBuildTable(){
   var totalAmt = 0;
 
   boqItems.forEach(function(item){
-    if(query && !(item.desc.toLowerCase().includes(query)||item.id.toLowerCase().includes(query))) return;
+    if(query && !(item.desc.toLowerCase().includes(query)||(item.num||'').toLowerCase().includes(query)||item.id.toLowerCase().includes(query))) return;
     shown++;
     var prevCert = getPrevCertifiedQty(_wimPayIdx, item.id);
     var isSelected = _wimSelections.hasOwnProperty(item.id);
-    var selQty = isSelected ? (parseFloat(_wimSelections[item.id])||0) : 0;
+    var selQty = isSelected ? (BINNA_I18N.numberValue(_wimSelections[item.id])||0) : 0;
     if(isSelected){ selectedCount++; if(selQty>0) totalAmt+=selQty*item.price; }
     var rowBg = isSelected ? 'background:#f0f7ff;' : '';
     var belowMin = isSelected && selQty>0 && selQty<prevCert;
@@ -2961,7 +3076,7 @@ function wimBuildTable(){
         +(prevCert>0?'<div style="font-size:9px;color:var(--muted);font-weight:400">min</div>':'')
       +'</td>'
       +'<td style="padding:5px 10px;text-align:right;width:130px">'
-        +'<input type="number" min="'+prevCert+'" step="any" '
+        +'<input type="text" inputmode="decimal" min="'+prevCert+'" step="any" '
         +'data-wim-qty="'+esc(item.id)+'" '
         +'value="'+(isSelected&&selQty>0?selQty:'')+'" '
         +'placeholder="'+(prevCert>0?'≥'+prevCert:'0')+'" '
@@ -2984,7 +3099,7 @@ function wimToggleAll(checked){
   var boqItems=getBoqItems();
   var query=(document.getElementById('wim-search').value||'').toLowerCase().trim();
   boqItems.forEach(function(item){
-    if(query && !(item.desc.toLowerCase().includes(query)||item.id.toLowerCase().includes(query))) return;
+    if(query && !(item.desc.toLowerCase().includes(query)||(item.num||'').toLowerCase().includes(query)||item.id.toLowerCase().includes(query))) return;
     if(checked){
       if(!_wimSelections.hasOwnProperty(item.id)) _wimSelections[item.id]='';
     } else {
@@ -3008,7 +3123,7 @@ function wimToggleItem(boqId, checked){
 }
 
 function wimQtyInput(boqId, inputEl, prevCert){
-  var val=parseFloat(inputEl.value);
+  var val=BINNA_I18N.numberValue(inputEl.value);
   if(!isNaN(val)&&val<prevCert&&prevCert>0){
     // Show error — below minimum
     inputEl.style.borderColor='var(--danger)';
@@ -3028,7 +3143,7 @@ function wimUpdateTotals(){
   for(var bid in _wimSelections){
     if(!_wimSelections.hasOwnProperty(bid)) continue;
     selectedCount++;
-    var qty=parseFloat(_wimSelections[bid])||0;
+    var qty=BINNA_I18N.numberValue(_wimSelections[bid])||0;
     if(qty>0){ var item=boqItems.find(function(b){return b.id===bid;}); if(item) totalAmt+=qty*item.price; }
   }
   var sc=document.getElementById('wim-selected-count');
@@ -3051,7 +3166,7 @@ function wimConfirmAll(){
   var errors=[];
   for(var bid in _wimSelections){
     if(!_wimSelections.hasOwnProperty(bid)) continue;
-    var qty=parseFloat(_wimSelections[bid]);
+    var qty=BINNA_I18N.numberValue(_wimSelections[bid]);
     if(!isNaN(qty)){
       var prevCert=getPrevCertifiedQty(_wimPayIdx,bid);
       if(qty<prevCert){
@@ -3121,14 +3236,14 @@ function buildPaySearchResults(idx, row, boqItems, query){
   var html='';
   var shown=0;
   boqItems.forEach(function(item){
-    if(q && !(item.desc.toLowerCase().includes(q)||item.id.toLowerCase().includes(q))) return;
+    if(q && !(item.desc.toLowerCase().includes(q)||(item.num||'').toLowerCase().includes(q)||item.id.toLowerCase().includes(q))) return;
     if(shown>60) return;
     shown++;
     var bi=row.boqItems.find(function(b){return b.id===item.id;})||{};
-    var hasQty=parseFloat(bi.qty||0)>0;
+    var hasQty=BINNA_I18N.numberValue(bi.qty||0)>0;
     html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border2);cursor:pointer;'+(hasQty?'background:#f0fbf4':'')
       +'" onclick="quickAddPayItem('+idx+',\''+item.id+'\')">'
-      +'<div style="flex:1;font-size:12px;color:var(--text2)">'+esc(item.desc)+'</div>'
+      +'<div style="flex:1;font-size:12px;color:var(--text2)">'+(item.num?'<strong>'+esc(item.num)+'</strong> — ':'')+esc(item.desc)+'</div>'
       +'<div style="font-size:11px;color:var(--muted);white-space:nowrap">'+esc(item.unit)+'</div>'
       +'<div style="font-size:11px;font-family:monospace;color:var(--muted);white-space:nowrap">'+fmt(item.price)+' IQD</div>'
       +(hasQty?'<div style="font-size:10px;background:#ecfdf3;color:#027a48;border-radius:4px;padding:1px 6px;white-space:nowrap">✓ Added</div>':'<div style="font-size:10px;background:var(--accent-light);color:var(--accent);border-radius:4px;padding:1px 6px;white-space:nowrap">+ Add</div>')
@@ -3150,7 +3265,7 @@ function quickAddPayItem(idx, boqId){
   var item=boqItems.find(function(b){return b.id===boqId;}); if(!item) return;
   var row=payRows[idx]; if(!row) return;
   var bi=row.boqItems.find(function(b){return b.id===boqId;});
-  if(bi && parseFloat(bi.qty)>0){
+  if(bi && BINNA_I18N.numberValue(bi.qty)>0){
     // Already added — fully remove it so it disappears from payment
     removePayBoqItem(idx,boqId);
     return; // removePayBoqItem calls renderPayRows already
@@ -3198,13 +3313,13 @@ function addVoSubItem(d){
     +'<td style="background:#faf5ff"></td>'
     +'<td style="padding-left:22px"><input class="cell-in" data-f="desc" placeholder="Sub-item description" value="'+esc(d.desc||'')+'" oninput="recalcVo()"/></td>'
     +'<td><input class="cell-in" data-f="unit" style="text-align:center" value="'+esc(d.unit||'')+'"/></td>'
-    +'<td><input class="cell-in num" data-f="qty" type="number" value="'+esc(d.qty||'')+'" oninput="recalcVo()"/></td>'
-    +'<td><input class="cell-in num" data-f="price" type="number" value="'+esc(d.price||'')+'" oninput="recalcVo()"/></td>'
+    +'<td><input class="cell-in num" data-f="qty" type="text" inputmode="decimal" value="'+esc(d.qty||'')+'" oninput="recalcVo()"/></td>'
+    +'<td><input class="cell-in num" data-f="price" type="text" inputmode="decimal" value="'+esc(d.price||'')+'" oninput="recalcVo()"/></td>'
     +'<td><input class="cell-in" data-f="amount" readonly value="0"/></td>'
     +'<td><select class="cell-in" data-f="type" onchange="recalcVo()" style="padding:6px 4px;font-size:12px">'
       +'<option value="add">+ Addition</option><option value="ded">− Deduction</option>'
     +'</select></td>'
-    +'<td><input class="cell-in num" data-f="extradays" placeholder="0" type="number"/></td>'
+    +'<td><input class="cell-in num" data-f="extradays" placeholder="0" type="text" inputmode="decimal"/></td>'
     +'<td><button class="del-cell" type="button" onclick="delRow(this,\'recalcVo\')">✕</button></td>';
   document.getElementById('vo-body').appendChild(tr);
   recalcVo();
@@ -3286,8 +3401,8 @@ function addIncomeRow(d){
       +'<option value="IQD"'+(d.cur==='IQD'||!d.cur?' selected':'')+'>IQD</option>'
       +'<option value="USD"'+(d.cur==='USD'?' selected':'')+'>USD $</option>'
     +'</select></td>'
-    +'<td><input class="cell-in num" data-f="amount" placeholder="0" value="'+esc(d.amount||'')+'" oninput="recalcExpenses()" type="number" min="0"/></td>'
-    +'<td><input class="cell-in num" data-f="rate" placeholder="Rate" value="'+esc(d.rate||'')+'" style="'+(isUsd?'':'opacity:.3;pointer-events:none')+'" type="number" oninput="recalcExpenses()"/></td>'
+    +'<td><input class="cell-in num" data-f="amount" placeholder="0" value="'+esc(d.amount||'')+'" oninput="recalcExpenses()" type="text" inputmode="decimal" min="0"/></td>'
+    +'<td><input class="cell-in num" data-f="rate" placeholder="Rate" value="'+esc(d.rate||'')+'" style="'+(isUsd?'':'opacity:.3;pointer-events:none')+'" type="text" inputmode="decimal" oninput="recalcExpenses()"/></td>'
     +'<td><input class="cell-in" data-f="iqd-amt" readonly value=""/></td>'
     +'<td><button class="del-cell" type="button" onclick="delRow(this,\'recalcExpenses\')">✕</button></td>';
   document.getElementById('income-body').appendChild(tr);
@@ -3355,8 +3470,8 @@ function addExpRowData(catId,d){
       +'<option value="IQD"'+(d.cur==='IQD'||!d.cur?' selected':'')+'>IQD</option>'
       +'<option value="USD"'+(d.cur==='USD'?' selected':'')+'>USD $</option>'
     +'</select></td>'
-    +'<td><input class="cell-in num" data-f="amount" placeholder="0" value="'+esc(d.amount||'')+'" oninput="recalcExpenses()" type="number" min="0"/></td>'
-    +'<td><input class="cell-in num" data-f="rate" placeholder="Rate" value="'+esc(d.rate||'')+'" style="'+(isUsd?'':'opacity:.3;pointer-events:none')+'" type="number" oninput="recalcExpenses()"/></td>'
+    +'<td><input class="cell-in num" data-f="amount" placeholder="0" value="'+esc(d.amount||'')+'" oninput="recalcExpenses()" type="text" inputmode="decimal" min="0"/></td>'
+    +'<td><input class="cell-in num" data-f="rate" placeholder="Rate" value="'+esc(d.rate||'')+'" style="'+(isUsd?'':'opacity:.3;pointer-events:none')+'" type="text" inputmode="decimal" oninput="recalcExpenses()"/></td>'
     +'<td><input class="cell-in" data-f="iqd-amt" readonly value=""/></td>'
     +'<td><button class="del-cell" type="button" onclick="delRow(this,\'recalcExpenses\')">✕</button></td>';
   tbody.appendChild(tr);
@@ -3379,7 +3494,7 @@ function removeCat(id){
 
 function recalcExpenses(){
   var _usdRateEl=document.getElementById('usd-rate');
-  var defaultRate=parseFloat(_usdRateEl?_usdRateEl.value:'')||1310;
+  var defaultRate=BINNA_I18N.numberValue(_usdRateEl?_usdRateEl.value:'')||1310;
 
   function calcRows(bodyId){
     var totalIqd=0,totalUsdIqd=0,totalUsdOrig=0;
@@ -3387,8 +3502,8 @@ function recalcExpenses(){
     tbody.querySelectorAll('tr').forEach(function(tr,i){
       tr.querySelector('.row-num').textContent=i+1;
       var cur=tr.querySelector('[data-f="cur"]').value;
-      var amt=parseFloat(tr.querySelector('[data-f="amount"]').value)||0;
-      var rate=parseFloat(tr.querySelector('[data-f="rate"]').value)||defaultRate;
+      var amt=BINNA_I18N.numberValue(tr.querySelector('[data-f="amount"]').value)||0;
+      var rate=BINNA_I18N.numberValue(tr.querySelector('[data-f="rate"]').value)||defaultRate;
       var iqd=cur==='USD'?amt*rate:amt;
       tr.querySelector('[data-f="iqd-amt"]').value=cur==='USD'?fmt(iqd)+' ($ '+amt+')':fmt(iqd);
       totalIqd+=cur==='IQD'?amt:0;
@@ -3440,14 +3555,14 @@ function updateSummaries(){
   document.querySelectorAll('#boq-body tr').forEach(function(tr){
     if(tr.dataset.type==='section') return;
     var qty=parseQty((tr.querySelector('[data-f="qty"]')||{}).value);
-    var price=parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0;
+    var price=BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0;
     boqTotal+=qty*price;
   });
   // VO net
   var voAdd=0,voDed=0;
   document.querySelectorAll('#vo-body tr').forEach(function(tr){
-    var qty=parseFloat((tr.querySelector('[data-f="qty"]')||{}).value)||0;
-    var price=parseFloat((tr.querySelector('[data-f="price"]')||{}).value)||0;
+    var qty=BINNA_I18N.numberValue((tr.querySelector('[data-f="qty"]')||{}).value)||0;
+    var price=BINNA_I18N.numberValue((tr.querySelector('[data-f="price"]')||{}).value)||0;
     var type=(tr.querySelector('[data-f="type"]')||{}).value;
     if(type==='add') voAdd+=qty*price; else voDed+=qty*price;
   });
@@ -3505,9 +3620,10 @@ function delRow(btn,recalcFn){
 }
 
 function set(id,val){var el=document.getElementById(id);if(el)el.textContent=val;}
+function canonicalNumericText(value){return BINNA_I18N.normalizeDigits(value).replace(/,/g,'').trim();}
 // Decimal places — lives in the FinancialData.data blob (data.decimalPlaces, default 0)
 function dp(){var n=parseInt(data.decimalPlaces,10);return isNaN(n)?0:Math.min(2,Math.max(0,n));}
-function fmtN(val){var d=dp();return Number(val||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function fmtN(val){var d=dp();return BINNA_I18N.formatNumber(BINNA_I18N.numberValue(val)||0,{minimumFractionDigits:d,maximumFractionDigits:d});}
 function fmt(n){return fmtN(n);} // money formatter — honors data.decimalPlaces
 function esc(s){return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
@@ -3516,14 +3632,14 @@ function parseQty(v){
   if(v===null||v===undefined) return 0;
   v=String(v).trim();
   if(LS_RE.test(v)) return 1;
-  return parseFloat(v)||0;
+  return BINNA_I18N.numberValue(v)||0;
 }
 function isLumpSum(v){ return LS_RE.test(String(v||'').trim()); }
 function fmtQty(v){
   if(isLumpSum(v)) return 'LS';
   var s=String(v||'').trim();
   if(!s||s==='0') return '0';
-  var n=parseFloat(s);
+  var n=BINNA_I18N.numberValue(s);
   return isNaN(n)?s:Math.round(n).toLocaleString('en-US'); // quantities stay integer, independent of money decimals
 }
 
@@ -4164,7 +4280,7 @@ function toggleSidebar() {
           <input type="radio" name="rev-type" value="pct" onchange="revModalTypeChange('pct')"/> By Percentage (%)
         </label>
         <div id="rev-value-wrap" style="display:none">
-          <input type="number" id="rev-value-inp" min="0" step="any"
+          <input type="text" inputmode="decimal" id="rev-value-inp" min="0" step="any"
             style="width:130px;border:1px solid var(--accent);border-radius:6px;padding:6px 10px;font-size:13px;font-family:Inter,sans-serif;font-weight:600;color:var(--accent);outline:none"
             placeholder="Amount IQD" oninput="revModalValueInput(this.value)"/>
         </div>
@@ -4431,11 +4547,11 @@ function wimAddManualRow(){
 }
 
 function renderWimManualTable(tbody){
-  var total=_wimManualRows.reduce(function(s,r){return s+(parseFloat(r.amount)||0);},0);
+  var total=_wimManualRows.reduce(function(s,r){return s+(BINNA_I18N.numberValue(r.amount)||0);},0);
   tbody.innerHTML=_wimManualRows.map(function(mi,i){
     return '<tr style="border-bottom:1px solid var(--border2)">'
       +'<td style="padding:5px 8px;border:1px solid var(--border2)"><input value="'+esc(mi.desc||'')+'" placeholder="Work item description…" style="width:100%;border:none;font-size:13px;font-family:Inter,sans-serif;outline:none" oninput="_wimManualRows['+i+'].desc=this.value"/></td>'
-      +'<td style="padding:5px 8px;border:1px solid var(--border2);text-align:right"><input type="number" min="0" value="'+esc(mi.amount||'')+'" placeholder="0" style="width:130px;border:none;font-size:13px;font-family:monospace;text-align:right;outline:none;color:var(--accent);font-weight:600" oninput="_wimManualRows['+i+'].amount=this.value;wimUpdateManualTotal()"/></td>'
+      +'<td style="padding:5px 8px;border:1px solid var(--border2);text-align:right"><input type="text" inputmode="decimal" min="0" value="'+esc(mi.amount||'')+'" placeholder="0" style="width:130px;border:none;font-size:13px;font-family:monospace;text-align:right;outline:none;color:var(--accent);font-weight:600" oninput="_wimManualRows['+i+'].amount=this.value;wimUpdateManualTotal()"/></td>'
       +'<td style="padding:3px;border:1px solid var(--border2);text-align:center"><button onclick="_wimManualRows.splice('+i+',1);var t=document.getElementById(\'wim-manual-tbody\');if(t)renderWimManualTable(t);" style="border:none;background:none;color:#b42318;cursor:pointer;font-size:13px;padding:1px 4px">✕</button></td>'
     +'</tr>';
   }).join('');
@@ -4444,7 +4560,7 @@ function renderWimManualTable(tbody){
 }
 
 function wimUpdateManualTotal(){
-  var total=_wimManualRows.reduce(function(s,r){return s+(parseFloat(r.amount)||0);},0);
+  var total=_wimManualRows.reduce(function(s,r){return s+(BINNA_I18N.numberValue(r.amount)||0);},0);
   var el=document.getElementById('wim-manual-total');
   if(el) el.textContent=total>0?'Total: '+fmt(total)+' IQD':'';
 }
@@ -4452,7 +4568,7 @@ function wimUpdateManualTotal(){
 function wimConfirmManual(){
   if(_wimPayIdx===null) return;
   var row=payRows[_wimPayIdx]; if(!row) return;
-  row.manualItems=_wimManualRows.filter(function(r){return r.desc||parseFloat(r.amount)>0;});
+  row.manualItems=_wimManualRows.filter(function(r){return r.desc||BINNA_I18N.numberValue(r.amount)>0;});
   closeWorkModal();
   renderPayRows();
   scheduleAutoSave();

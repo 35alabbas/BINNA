@@ -37,7 +37,7 @@ if os.environ.get('BINNA_ISOLATED_TEST_DB') != '1':
 
 from app import create_app, db
 from app.models import (
-    AuditLog, Company, FinancialData, Project, ProjectMember,
+    AuditLog, Company, FinancialData, GanttData, Project, ProjectMember,
     ProjectMonitoringComment, User,
 )
 from migrate_phase_1b_roles import apply_migration as apply_phase_1b_1
@@ -96,7 +96,14 @@ def seed_demo():
         active.id: {
             'currency': 'IQD',
             'contractDetails': {'contract-value': '2850000000', 'date': '2026-02-01',
-                                'contract-end': '2027-07-15', 'period': '530'},
+                                'contract-end': '2027-07-15', 'period': '530',
+                                'actual-finish': '',
+                                'extensions': [{'days': '14', 'note': 'Approved variation order VO-03'}]},
+            'boq': [
+                {'num': 'C-01', 'desc': 'Reinforced concrete foundations', 'unit': 'm³', 'qty': '420', 'price': '550000'},
+                {'num': 'A-12', 'desc': 'أعمال إنهاء الواجهات الخارجية', 'unit': 'm²', 'qty': '1850', 'price': '95000'},
+            ],
+            'vo': [], 'payments': [],
             'cashflowSummary': {'totalCertified': 740000000, 'totalReceived': 610000000},
         },
         closed.id: {
@@ -120,6 +127,19 @@ def seed_demo():
         db.session.add(FinancialData(company_id=company.id, project_id=project.id,
                                      data=json.dumps(overview_payloads[project.id]),
                                      updated_by=manager.id))
+
+    db.session.add(GanttData(
+        company_id=company.id, project_id=active.id, updated_by=project_manager.id,
+        tasks=json.dumps([{
+            'id': 'demo-task-1', 'name': 'Foundation works', 'type': 'task', 'level': 0,
+            'start': '2026-02-01', 'end': '2026-03-15', 'pct': 65, 'preds': [],
+        }]),
+        stoppages=json.dumps([{
+            'id': 'demo-stop-1', 'name': 'Heavy rainfall', 'start': '2026-02-18',
+            'end': '2026-02-21', 'type': 'weather',
+            'notes': 'Site access was suspended for safety.', 'reference': 'SITE-INS-014',
+        }]),
+    ))
 
     db.session.add_all([
         ProjectMonitoringComment(company_id=company.id, project_id=active.id,

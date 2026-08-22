@@ -14,6 +14,7 @@ Recalculation (mirrors frontend recalc() in binna-gantt.html):
     Tasks (type='task') are leaf nodes — they are never recalculated here.
 """
 import json
+import uuid
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
@@ -234,6 +235,88 @@ def get_gantt(project_id):
         stoppages = []
 
     return jsonify({'tasks': tasks, 'stoppages': stoppages}), 200
+
+
+def _normalize_stoppage_rows(rows):
+    """Validate the shared stoppage shape without touching Gantt tasks."""
+    if not isinstance(rows, list):
+        return None, 'stoppages must be a list'
+    normalized = []
+    allowed_types = {'holiday', 'weather', 'decision', 'other'}
+    for index, raw in enumerate(rows, 1):
+        if not isinstance(raw, dict):
+            return None, f'stoppage {index} must be an object'
+        name = str(raw.get('name') or raw.get('reason') or '').strip()
+        start = _parse_date(str(raw.get('start') or '').strip())
+        end = _parse_date(str(raw.get('end') or raw.get('start') or '').strip())
+        if not name or start is None or end is None:
+            return None, f'stoppage {index} requires reason, start, and end dates'
+        if end < start:
+            start, end = end, start
+        stop_type = str(raw.get('type') or 'other').strip()
+        if stop_type not in allowed_types:
+            stop_type = 'other'
+        normalized.append({
+            'id': str(raw.get('id') or ('s-' + uuid.uuid4().hex)),
+            'name': name,
+            'start': _fmt_date(start),
+            'end': _fmt_date(end),
+            'type': stop_type,
+            'notes': str(raw.get('notes') or '').strip(),
+            'reference': str(raw.get('reference') or '').strip(),
+        })
+    return normalized, None
+
+
+def _stoppage_response(rows):
+    result = []
+    for row in rows:
+        item = dict(row)
+        start = _parse_date(item.get('start'))
+        end = _parse_date(item.get('end'))
+        item['duration_days'] = (end - start).days + 1 if start and end else None
+        result.append(item)
+    return result
+
+
+@gantt_bp.route('/stoppages', methods=['GET'])
+@jwt_required()
+def get_stoppages(project_id):
+    uid = int(get_jwt_identity())
+    proj = _check_access(project_id, uid)
+    if not proj:
+        return jsonify({'error': 'Project not found or access denied'}), 404
+    gd = GanttData.query.filter_by(project_id=project_id).first()
+    try:
+        rows = json.loads(getattr(gd, 'stoppages', None) or '[]') if gd else []
+    except (ValueError, TypeError):
+        rows = []
+    normalized, _error = _normalize_stoppage_rows(rows)
+    return jsonify({'stoppages': _stoppage_response(normalized or [])}), 200
+
+
+@gantt_bp.route('/stoppages', methods=['PUT'])
+@jwt_required()
+def save_stoppages(project_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if proj is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions — member role required'}), 403
+    rows, error = _normalize_stoppage_rows((request.get_json(silent=True) or {}).get('stoppages'))
+    if error:
+        return jsonify({'error': error}), 400
+    gd = GanttData.query.filter_by(project_id=project_id).first()
+    if not gd:
+        gd = GanttData(project_id=project_id, company_id=proj.company_id,
+                       tasks='[]', updated_by=uid)
+        db.session.add(gd)
+    gd.stoppages = json.dumps(rows, ensure_ascii=False)
+    gd.updated_by = uid
+    gd.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify({'ok': True, 'stoppages': _stoppage_response(rows)}), 200
 
 
 @gantt_bp.route('', methods=['PUT'])

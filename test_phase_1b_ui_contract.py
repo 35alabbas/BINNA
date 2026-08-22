@@ -151,6 +151,10 @@ employee_project = (client.get(f"/api/v1/projects/{ids['project']}", headers=hea
 employee_caps = employee_project.get('project', {}).get('capabilities', {})
 check('ordinary employee receives no management-record capability',
       employee_caps.get('read_management_records') is False)
+check('project response exposes only the caller effective module permissions',
+      employee_project.get('project', {}).get('my_permissions', {}).get('financial') == {
+          'view': False, 'edit': False,
+      })
 
 pm_overview_response = client.get(
     f"/api/v1/projects/{ids['project']}/overview", headers=headers['pm'],

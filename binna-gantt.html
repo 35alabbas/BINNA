@@ -237,12 +237,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 }
 </style>
 <script src="/static/js/binna-api.js"></script>
+<script src="/static/js/management-i18n.js"></script>
+<link rel="stylesheet" href="/static/css/operational-shell.css">
+<script src="/static/js/operational-shell.js"></script>
 </head>
 <body>
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <button class="tb-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar" style="padding:6px 9px;font-size:15px;line-height:1;flex-shrink:0">☰</button>
-    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA <span>Construction PM</span></a>
+    <a href="/dashboard" class="logo" title="Back to All Projects">BINNA PM <span>binnapm.com</span></a>
     <div class="proj-badge"><b id="proj-code">—</b><span id="proj-name"></span></div>
   </div>
   <div class="topbar-right">
@@ -411,14 +414,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <div id="stoppages-modal" onclick="if(event.target===this)closeStoppagesModal()"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:401;align-items:center;justify-content:center">
   <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:24px 24px 18px;max-width:560px;width:calc(100% - 32px);max-height:88vh;overflow:auto;box-shadow:0 20px 48px rgba(0,0,0,.18)">
-    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">⛔ Stoppages — <span dir="rtl">فترات التوقف</span></div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px" data-i18n="contractStoppages">Contract stoppages</div>
 
     <div style="display:grid;grid-template-columns:90px 1fr;gap:8px 10px;align-items:center;font-size:13px">
-      <label style="color:var(--muted)">Name</label>
-      <input type="text" id="stop-name" placeholder="e.g. Eid Al-Adha, Weather Hold…" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
-      <label style="color:var(--muted)">Start Date</label>
+      <label style="color:var(--muted)" data-i18n="reason">Reason</label>
+      <input type="text" id="stop-name" data-i18n-placeholder="reason" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
+      <label style="color:var(--muted)" data-i18n="startDate">Start date</label>
       <input type="date" id="stop-start" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
-      <label style="color:var(--muted)">End Date</label>
+      <label style="color:var(--muted)" data-i18n="endDate">End date</label>
       <input type="date" id="stop-end" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
       <label style="color:var(--muted)">Type</label>
       <select id="stop-type" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px">
@@ -427,9 +430,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
         <option value="decision">Administrative — قرار إداري</option>
         <option value="other">Other — أخرى</option>
       </select>
+      <label style="color:var(--muted)" data-i18n="reference">Reference</label>
+      <input type="text" id="stop-reference" data-i18n-placeholder="reference" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px"/>
+      <label style="color:var(--muted)" data-i18n="notes">Notes</label>
+      <textarea id="stop-notes" rows="2" data-i18n-placeholder="notes" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;resize:vertical"></textarea>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:12px">
-      <button class="btn btn-primary" id="stop-add-btn" type="button" onclick="addStoppage()" style="padding:7px 14px">+ Add Stoppage</button>
+      <button class="btn btn-primary" id="stop-add-btn" type="button" onclick="addStoppage()" style="padding:7px 14px" data-i18n="addStoppage">Add stoppage</button>
     </div>
 
     <div style="border-top:1px solid var(--border);margin:16px 0 12px"></div>
@@ -801,6 +808,8 @@ function sanitizeStoppage(s) {
     start: start,
     end:   end,
     type:  ['holiday','weather','decision','other'].indexOf(s.type) >= 0 ? s.type : 'other',
+    notes: s.notes || '',
+    reference: s.reference || '',
   };
 }
 
@@ -887,6 +896,8 @@ function resetStoppageForm() {
   document.getElementById('stop-start').value = '';
   document.getElementById('stop-end').value = '';
   document.getElementById('stop-type').value = 'holiday';
+  document.getElementById('stop-reference').value = '';
+  document.getElementById('stop-notes').value = '';
   var b = document.getElementById('stop-add-btn'); if (b) b.textContent = '+ Add Stoppage';
   _editStopId = null;
 }
@@ -895,14 +906,16 @@ function addStoppage() {
   var start = document.getElementById('stop-start').value;
   var end   = document.getElementById('stop-end').value || start;
   var type  = document.getElementById('stop-type').value;
+  var reference = document.getElementById('stop-reference').value.trim();
+  var notes = document.getElementById('stop-notes').value.trim();
   if (!name)  { BINNA.toast('Enter a stoppage name', 'error'); return; }
   if (!start) { BINNA.toast('Pick a start date', 'error'); return; }
   if (end < start) { var tmp = start; start = end; end = tmp; }
   if (_editStopId) {
     var s = stoppages.find(function(x){ return x.id === _editStopId; });
-    if (s) { s.name = name; s.start = start; s.end = end; s.type = type; }
+    if (s) { s.name = name; s.start = start; s.end = end; s.type = type; s.reference = reference; s.notes = notes; }
   } else {
-    stoppages.push(sanitizeStoppage({ name: name, start: start, end: end, type: type }));
+    stoppages.push(sanitizeStoppage({ name: name, start: start, end: end, type: type, reference: reference, notes: notes }));
   }
   resetStoppageForm();
   renderStoppageList();
@@ -914,6 +927,8 @@ function editStoppage(id) {
   document.getElementById('stop-start').value = s.start;
   document.getElementById('stop-end').value   = s.end;
   document.getElementById('stop-type').value  = s.type;
+  document.getElementById('stop-reference').value = s.reference || '';
+  document.getElementById('stop-notes').value = s.notes || '';
   _editStopId = id;
   var b = document.getElementById('stop-add-btn'); if (b) b.textContent = '✓ Save Changes';
   document.getElementById('stop-name').focus();
@@ -924,8 +939,17 @@ function deleteStoppage(id) {
   renderStoppageList();
   stoppagesChanged();
 }
-// Re-render the chart (bars + shading recompute) and persist.
-function stoppagesChanged() { render(); save(); }
+// Re-render the chart, then persist only stoppages. Gantt tasks are never resubmitted here.
+async function stoppagesChanged() {
+  render();
+  try {
+    var response = await BINNA.saveStoppages(PROJECT_ID, JSON.parse(JSON.stringify(stoppages)));
+    stoppages = (response.stoppages || stoppages).map(sanitizeStoppage);
+  } catch (err) {
+    BINNA.toast('Stoppage save failed: ' + (err.error || 'Unknown error'), 'error');
+    try { var fresh = await BINNA.fetchStoppages(PROJECT_ID); stoppages = (fresh.stoppages || []).map(sanitizeStoppage); render(); } catch (_) {}
+  }
+}
 function renderStoppageList() {
   var el = document.getElementById('stop-list'); if (!el) return;
   if (!stoppages.length) {
@@ -938,7 +962,9 @@ function renderStoppageList() {
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-surface-2)">'
       + '<div style="flex:1;min-width:0">'
         + '<div style="font-weight:600;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(s.name) + '</div>'
-        + '<div style="font-size:11.5px;color:var(--muted)">' + range + ' · ' + escHtml(STOP_TYPE_LABELS[s.type] || s.type) + '</div>'
+        + '<div style="font-size:11.5px;color:var(--muted)">' + range + ' · ' + escHtml(STOP_TYPE_LABELS[s.type] || s.type) + ' · ' + BINNA_I18N.formatNumber(dur({start:s.start,end:s.end})) + ' ' + BINNA_I18N.t('days') + '</div>'
+        + (s.reference ? '<div style="font-size:11px;color:var(--muted)">' + escHtml(s.reference) + '</div>' : '')
+        + (s.notes ? '<div style="font-size:11px;color:var(--muted)">' + escHtml(s.notes) + '</div>' : '')
       + '</div>'
       + '<button class="tb-btn" type="button" style="font-size:11px" onclick="editStoppage(\'' + s.id + '\')">✏ Edit</button>'
       + '<button class="tb-btn" type="button" style="font-size:11px;color:var(--danger);border-color:#fecdca" onclick="deleteStoppage(\'' + s.id + '\')">🗑 Delete</button>'
@@ -2450,4 +2476,3 @@ BINNA.renderSidebarTeam();
 </script>
 </body>
 </html>
-
