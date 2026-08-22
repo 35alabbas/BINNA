@@ -42,6 +42,7 @@
 </style>
 
 {% block extra_css %}{% endblock %}
+<link rel="stylesheet" href="/static/css/management.css">
 </head>
 <body>
 
@@ -53,7 +54,7 @@
     <span class="logo-sub">Construction PM</span>
   </div>
   <div class="topbar-right">
-    <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
+    <button class="mgmt-language-toggle" type="button" onclick="BINNA_I18N.toggle()">العربية</button>
     <div class="user-pill" id="user-pill">
       <div class="avatar" id="user-avatar">?</div>
       <span class="user-name" id="user-name">Loading…</span>
@@ -64,11 +65,20 @@
 {% endblock %}
 {% endif %}
 
+{% if not hide_nav %}
+<aside class="mgmt-sidebar" aria-label="Management navigation">
+  <a href="/dashboard" data-i18n="dashboard">Dashboard</a>
+  <a href="/company" data-i18n="company">Company</a>
+  <a href="/dashboard" data-i18n="project">Project</a>
+</aside>
+{% endif %}
+
 {% block content %}{% endblock %}
 
 {% block footer %}{% endblock %}
 
 <script src="/static/js/binna-api.js"></script>
+<script src="/static/js/management-i18n.js"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

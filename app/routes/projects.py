@@ -124,6 +124,34 @@ def _with_lifecycle(project, data):
     return data
 
 
+def _with_ui_metadata(project, data, user, member=None):
+    """Add effective UI hints without replacing route authorization."""
+    if phase_1b_schema_status()['ready']:
+        data['project_manager_user_id'] = project.project_manager_user_id
+    data = _with_lifecycle(project, data)
+    portfolio = can_manage_project_portfolio(user)
+    designated_pm = is_project_manager(user, project)
+    legacy_assignment = bool(
+        member and member.role in ('admin', 'owner') and member.can('projects', 'edit')
+    )
+    manage_assignments = can_manage_project_assignments(user, project) or legacy_assignment
+    closed = is_project_closed(project)
+    data['capabilities'] = {
+        'manage_assignments': manage_assignments,
+        'manage_permissions': manage_assignments,
+        'manage_lifecycle': portfolio,
+        'add_monitoring_comment': portfolio,
+        'read_management_records': can_read_project_management_records(user, project),
+        'edit_project': (not closed and
+                         (designated_pm or legacy_assignment)),
+        'edit_operational': (not closed and
+                             (designated_pm or bool(member and member.role != 'viewer'))),
+    }
+    data['phase_1b_ready'] = phase_1b_schema_status()['ready']
+    data['phase_1b_2_ready'] = phase_1b_2_schema_status()['ready']
+    return data
+
+
 def _management_project(project_id, user_id, read_only=False):
     user = User.query.get(user_id)
     project = Project.query.get(project_id)
@@ -134,18 +162,18 @@ def _management_project(project_id, user_id, read_only=False):
     return (project if allowed else None), user
 
 
-def _assignment_manager(project_id, user_id):
+def _assignment_manager(project_id, user_id, allow_closed=False):
     user = User.query.get(user_id)
     project = Project.query.get(project_id)
     if can_manage_project_assignments(user, project):
-        if is_project_closed(project):
+        if is_project_closed(project) and not allow_closed:
             from app.tenancy import ProjectClosedError
             raise ProjectClosedError()
         return project, user
     # Backward compatibility: an existing technical admin/owner with projects
     # edit permission keeps the project-management access they already had.
     legacy_project, _member, allowed = authorize_project_access(
-        project_id, user_id, 'projects', 'edit', 'admin',
+        project_id, user_id, 'projects', 'view' if allow_closed else 'edit', 'admin',
     )
     return (legacy_project, user) if allowed else (None, None)
 
@@ -210,7 +238,7 @@ def list_projects():
         if not can_manage_project_portfolio(user) and (
                 m is None or not m.can('projects', 'view')):
             continue
-        p = _with_lifecycle(project, project.to_dict())
+        p = _with_ui_metadata(project, project.to_dict(), user, m)
         p['my_role']      = m.role if m else 'viewer'
         p['member_count'] = len(project.members)
         result.append(p)
@@ -312,6 +340,7 @@ def create_project():
     result['my_role']   = creator_membership.role if creator_membership else 'viewer'
     result['project_manager_user_id'] = manager.id
     result['member_count'] = 1
+    result = _with_ui_metadata(project, result, user, creator_membership)
     return jsonify({'project': result}), 201
 
 
@@ -326,7 +355,10 @@ def get_project(project_id):
     if not project:
         return jsonify({'error': 'Project not found or access denied'}), 404
 
-    result             = _with_lifecycle(project, project.to_dict(include_members=True))
+    user = User.query.get(user_id)
+    result = _with_ui_metadata(
+        project, project.to_dict(include_members=True), user, member,
+    )
     result['my_role']  = member.role if member else 'viewer'
     if phase_1b_schema_status()['ready']:
         result['project_manager_user_id'] = project.project_manager_user_id
@@ -861,7 +893,7 @@ def get_permissions(project_id):
     Project admin/owner only — this is the data behind the CEO permissions grid.
     """
     user_id         = int(get_jwt_identity())
-    project, member = _assignment_manager(project_id, user_id)
+    project, member = _assignment_manager(project_id, user_id, allow_closed=True)
     if not project:
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
 

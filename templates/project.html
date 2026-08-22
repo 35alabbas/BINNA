@@ -240,7 +240,7 @@ textarea.form-input{resize:vertical;min-height:72px}
     </div>
   </div>
   <div class="topbar-right">
-      <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
+      <button class="mgmt-language-toggle" type="button" onclick="BINNA_I18N.toggle()">العربية</button>
     <div class="user-badge">
       <div class="avatar" id="user-avatar">?</div>
       <span class="username-label" id="user-name"></span>
@@ -276,16 +276,34 @@ textarea.form-input{resize:vertical;min-height:72px}
     <!-- populated by JS -->
   </div>
 
-  <!-- Team Members Legend -->
-  <div class="members-section">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <span style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap">Team Members</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <button class="btn-sm btn-sm-primary" id="btn-add-member" onclick="openAddMember()" style="display:none">+ Add Member</button>
+  <div id="closed-project-notice" class="mgmt-notice warning" style="display:none;margin:0 0 18px"></div>
+
+  <div class="mgmt-section">
+    <div class="mgmt-section-head"><div class="mgmt-section-title">Project management</div></div>
+    <div class="mgmt-grid">
+      <div class="mgmt-card" id="project-manager-card"><h3 data-i18n="projectManager">Project manager</h3><p>Loading assignment…</p></div>
+      <div class="mgmt-card" id="lifecycle-card"><h3 data-i18n="lifecycle">Project lifecycle</h3><p>Loading lifecycle…</p></div>
     </div>
-    <div id="team-legend-list">
-      <div class="skeleton" style="width:300px;height:36px;border-radius:9px;margin-bottom:7px"></div>
-      <div class="skeleton" style="width:260px;height:36px;border-radius:9px"></div>
+  </div>
+
+  <div class="mgmt-section">
+    <div class="mgmt-section-head"><div><div class="mgmt-section-title" data-i18n="employees">Project employees</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Authoritative project memberships and project-specific roles.</div></div>
+      <button class="mgmt-btn primary" id="btn-add-member" onclick="openAddMember()" style="display:none">+ Add employee</button></div>
+    <div id="team-legend-list" class="mgmt-notice">Loading project employees…</div>
+  </div>
+
+  <div class="mgmt-section" id="permissions-section" style="display:none">
+    <div class="mgmt-section-head"><div class="mgmt-section-title" data-i18n="permissions">Module permissions</div></div>
+    <div id="project-permissions" class="mgmt-notice">Loading module permissions…</div>
+  </div>
+
+  <div class="mgmt-section" id="management-records" style="display:none">
+    <div class="mgmt-grid">
+      <div class="mgmt-card"><h3 data-i18n="monitoring">Monitoring comments</h3><p>Append-only management observations.</p>
+        <div id="comment-form" style="display:none;margin-top:12px"><div class="mgmt-field"><textarea id="monitoring-comment-body" rows="3" placeholder="Add a monitoring comment"></textarea></div><div class="mgmt-actions" style="margin-top:8px"><button class="mgmt-btn primary" onclick="addMonitoringComment()">Add comment</button></div></div>
+        <div id="monitoring-comments" style="margin-top:14px"></div>
+      </div>
+      <div class="mgmt-card"><h3 data-i18n="audit">Audit timeline</h3><p>Important project and access changes.</p><div id="audit-timeline" class="mgmt-timeline" style="margin-top:14px"></div></div>
     </div>
   </div>
 
@@ -338,28 +356,21 @@ textarea.form-input{resize:vertical;min-height:72px}
   </div>
 </div>
 
-<!-- Add / Edit Team Member modal -->
+<!-- Add project employee modal -->
 <div class="overlay" id="member-overlay" onclick="closeMemberIfBg(event)">
   <div class="modal" style="max-width:400px">
-    <div class="modal-title" id="member-modal-title">Add Team Member</div>
+    <div class="modal-title" id="member-modal-title">Add project employee</div>
     <div class="form-group">
-      <label class="form-label">Name</label>
-      <input class="form-input" id="m-name" placeholder="e.g. Ahmed Al-Karimi" autocomplete="off" />
+      <label class="form-label">Company account email or username</label>
+      <input class="form-input" id="m-identifier" placeholder="employee@company.com" autocomplete="off" />
     </div>
     <div class="form-group">
-      <label class="form-label">Role / Title</label>
-      <input class="form-input" id="m-role" placeholder="e.g. Site Engineer" autocomplete="off" />
-    </div>
-    <div class="form-group">
-      <label class="form-label">Color</label>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <input type="color" id="m-color" value="#8B5CF6" style="width:44px;height:36px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;padding:3px;background:var(--surface2)" />
-        <div id="color-presets" style="display:flex;gap:7px;flex-wrap:wrap"></div>
-      </div>
+      <label class="form-label">Project role</label>
+      <select class="form-select" id="m-role"><option value="viewer">Viewer</option><option value="member" selected>Member</option><option value="admin">Admin</option></select>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeMemberModal()">Cancel</button>
-      <button class="btn-save" id="btn-save-member" onclick="saveMember()">Add Member</button>
+      <button class="btn-save" id="btn-save-member" onclick="saveMember()">Add employee</button>
     </div>
   </div>
 </div>
@@ -427,6 +438,8 @@ if (!PROJECT_ID) { window.location.href = '/dashboard'; throw 0; }
 
 let PROJECT = null;
 let MY_ROLE  = null;
+let COMPANY_MEMBERS = [];
+let PROJECT_MEMBERS = [];
 const ROLE_LEVEL = { viewer: 0, member: 1, admin: 2, owner: 3 };
 
 // ── Module definitions ────────────────────────────────────────────────────
@@ -516,13 +529,13 @@ async function loadProject() {
     const data = await BINNA.get(`/projects/${PROJECT_ID}`);
     PROJECT  = data.project;
     MY_ROLE  = data.project.my_role;
+    try { COMPANY_MEMBERS = (await BINNA.fetchCompanyMembers()).members || []; } catch (_) { COMPANY_MEMBERS = []; }
 
     // Persist as current project
     BINNA.setProject(PROJECT);
 
     renderHeader();
-    document.getElementById('btn-add-member').style.display = 'inline-flex';
-    renderTeamLegend();
+    await renderManagement();
 
   } catch (err) {
     if (err.status === 403 || err.status === 404) {
@@ -549,14 +562,12 @@ function renderHeader() {
   document.getElementById('top-name').textContent = p.name;
   document.title = `BINNA — ${p.code}`;
 
-  // Remove skeletons
-  document.getElementById('skel-code').outerHTML =
-    `<span class="proj-code">${BINNA.esc(p.code)}</span>`;
-  document.getElementById('skel-name').outerHTML =
-    `<span class="proj-title">${BINNA.esc(p.name)}</span>
+  document.querySelector('.proj-title-row').innerHTML =
+    `<span class="proj-code">${BINNA.esc(p.code)}</span>
+     <span class="proj-title">${BINNA.esc(p.name)}</span>
      <span class="status-badge ${statusClass(p.status)}">
        <span class="status-dot"></span>${statusLabel(p.status)}
-     </span>`;
+     </span>${p.is_closed ? `<span class="mgmt-closed-badge">${BINNA_I18N.t('closed')}</span>` : ''}`;
 
   // Meta row
   const meta = document.getElementById('proj-meta');
@@ -571,109 +582,85 @@ function renderHeader() {
 
   // Actions: Parties is visible to everyone with project access; Edit is admin/owner only.
   document.getElementById('proj-actions').style.display = 'flex';
-  if ((ROLE_LEVEL[MY_ROLE] || 0) >= ROLE_LEVEL.admin) {
+  if (p.capabilities && p.capabilities.edit_project) {
     document.getElementById('btn-edit-project').style.display = 'inline-flex';
-  }
-}
-
-// ── Team Members Legend (localStorage) ───────────────────────────────────
-const PRESET_COLORS = ['#8B5CF6','#A78BFA','#059669','#dc2626','#d97706','#0891b2','#be185d','#65a30d','#c2410c','#0f766e'];
-let _editingMemberIdx = -1;
-
-function teamKey() { return `binna_team_${PROJECT_ID}`; }
-function getTeamMembers() {
-  try { return JSON.parse(localStorage.getItem(teamKey()) || '[]'); } catch { return []; }
-}
-function saveTeamMembers(arr) { localStorage.setItem(teamKey(), JSON.stringify(arr)); }
-
-function renderTeamLegend() {
-  const list = document.getElementById('team-legend-list');
-  const members = getTeamMembers();
-  if (!members.length) {
-    list.innerHTML = '<p style="font-size:13px;color:var(--muted2);padding:4px 0">No team members yet — click "+ Add Member" to build your project legend.</p>';
-    return;
-  }
-  list.innerHTML = members.map((m, i) => `
-    <div class="legend-row">
-      <span class="legend-swatch" style="background:${BINNA.esc(m.color)}"></span>
-      <div class="legend-info">
-        <span class="legend-name">${BINNA.esc(m.name)}</span>
-        <span class="legend-role">${BINNA.esc(m.role || '')}</span>
-      </div>
-      <div class="legend-btns">
-        <button class="legend-btn" onclick="openEditMember(${i})" title="Edit">✏</button>
-        <button class="legend-btn del" onclick="deleteMember(${i})" title="Remove">✕</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function buildColorPresets(currentColor) {
-  const container = document.getElementById('color-presets');
-  container.innerHTML = PRESET_COLORS.map(c => `
-    <button type="button" title="${c}"
-      onclick="document.getElementById('m-color').value='${c}';buildColorPresets('${c}')"
-      style="width:22px;height:22px;border-radius:5px;border:2px solid ${c === currentColor ? '#fff' : 'transparent'};
-             background:${c};cursor:pointer;padding:0;transition:border-color .1s"></button>
-  `).join('');
-}
-
-function openAddMember() {
-  _editingMemberIdx = -1;
-  document.getElementById('member-modal-title').textContent = 'Add Team Member';
-  document.getElementById('m-name').value = '';
-  document.getElementById('m-role').value = '';
-  const used = getTeamMembers().map(m => m.color);
-  const next = PRESET_COLORS.find(c => !used.includes(c)) || PRESET_COLORS[0];
-  document.getElementById('m-color').value = next;
-  document.getElementById('btn-save-member').textContent = 'Add Member';
-  buildColorPresets(next);
-  document.getElementById('member-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('m-name').focus(), 60);
-}
-
-function openEditMember(idx) {
-  const m = getTeamMembers()[idx];
-  if (!m) return;
-  _editingMemberIdx = idx;
-  document.getElementById('member-modal-title').textContent = 'Edit Team Member';
-  document.getElementById('m-name').value = m.name;
-  document.getElementById('m-role').value = m.role || '';
-  document.getElementById('m-color').value = m.color;
-  document.getElementById('btn-save-member').textContent = 'Save Changes';
-  buildColorPresets(m.color);
-  document.getElementById('member-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('m-name').focus(), 60);
-}
-
-function closeMemberModal() { document.getElementById('member-overlay').classList.remove('open'); }
-function closeMemberIfBg(e) { if (e.target === document.getElementById('member-overlay')) closeMemberModal(); }
-
-function saveMember() {
-  const name  = document.getElementById('m-name').value.trim();
-  const role  = document.getElementById('m-role').value.trim();
-  const color = document.getElementById('m-color').value;
-  if (!name) { BINNA.toast('Name is required', 'error'); return; }
-  const members = getTeamMembers();
-  if (_editingMemberIdx >= 0) {
-    members[_editingMemberIdx] = { ...members[_editingMemberIdx], name, role, color };
-    BINNA.toast('Member updated ✓', 'success', 2000);
   } else {
-    members.push({ id: Date.now(), name, role, color });
-    BINNA.toast('Member added ✓', 'success', 2000);
+    document.getElementById('btn-edit-project').style.display = 'none';
   }
-  saveTeamMembers(members);
-  closeMemberModal();
-  renderTeamLegend();
 }
 
-function deleteMember(idx) {
-  const members = getTeamMembers();
-  members.splice(idx, 1);
-  saveTeamMembers(members);
-  renderTeamLegend();
-  BINNA.toast('Member removed', 'info', 2000);
+// ── Phase 1B management ──────────────────────────────────────────────────
+async function renderManagement() {
+  const caps = PROJECT.capabilities || {};
+  const notice = document.getElementById('closed-project-notice');
+  notice.style.display = PROJECT.is_closed ? 'block' : 'none';
+  notice.textContent = PROJECT.is_closed ? 'This project is closed. Records remain readable, while operational modifications are disabled.' : '';
+  renderProjectManagerCard(); renderLifecycleCard();
+  document.getElementById('btn-add-member').style.display = caps.manage_assignments && !PROJECT.is_closed ? 'inline-flex' : 'none';
+  await loadProjectMembers();
+  if (caps.manage_permissions) { document.getElementById('permissions-section').style.display = 'block'; await loadProjectPermissions(); }
+  if (caps.read_management_records && PROJECT.phase_1b_2_ready) {
+    document.getElementById('management-records').style.display = 'block';
+    document.getElementById('comment-form').style.display = caps.add_monitoring_comment ? 'block' : 'none';
+    await Promise.all([loadMonitoringComments(), loadAuditTimeline()]);
+  } else if (!PROJECT.phase_1b_2_ready) {
+    document.getElementById('management-records').style.display = 'block';
+    document.getElementById('monitoring-comments').innerHTML = `<div class="mgmt-notice warning">${BINNA_I18N.t('migration2')}</div>`;
+    document.getElementById('audit-timeline').innerHTML = `<div class="mgmt-notice warning">${BINNA_I18N.t('migration2')}</div>`;
+  }
 }
+
+function renderProjectManagerCard() {
+  const card = document.getElementById('project-manager-card');
+  if (!PROJECT.phase_1b_ready) { card.innerHTML = `<h3>${BINNA_I18N.t('projectManager')}</h3><div class="mgmt-notice warning">${BINNA_I18N.t('migration1')}</div>`; return; }
+  const current = COMPANY_MEMBERS.find(m => m.id === PROJECT.project_manager_user_id);
+  const may = PROJECT.capabilities && PROJECT.capabilities.manage_assignments && !PROJECT.is_closed;
+  const options = COMPANY_MEMBERS.filter(m => m.is_active).map(m => `<option value="${m.id}" ${m.id === PROJECT.project_manager_user_id ? 'selected' : ''}>${BINNA.esc(m.username)}</option>`).join('');
+  card.innerHTML = `<h3>${BINNA_I18N.t('projectManager')}</h3><p>${current ? BINNA.esc(current.username) : BINNA_I18N.t('notAssigned')}</p>${may ? `<div class="mgmt-field" style="margin-top:12px"><label>${BINNA_I18N.t('projectManager')}</label><select id="project-manager-select">${options}</select></div><div class="mgmt-actions" style="margin-top:9px"><button class="mgmt-btn primary" onclick="saveProjectManager()">${BINNA_I18N.t('save')}</button></div>` : ''}`;
+}
+
+async function saveProjectManager() {
+  const uid = Number(document.getElementById('project-manager-select').value);
+  try { await BINNA.setProjectManager(PROJECT_ID, uid); PROJECT.project_manager_user_id = uid; renderProjectManagerCard(); await loadProjectMembers(); BINNA.toast('Project manager updated', 'success'); }
+  catch(e) { BINNA.toast(BINNA.managementError(e), 'error'); }
+}
+
+function renderLifecycleCard() {
+  const card = document.getElementById('lifecycle-card'), caps = PROJECT.capabilities || {};
+  if (!PROJECT.phase_1b_2_ready) { card.innerHTML = `<h3>${BINNA_I18N.t('lifecycle')}</h3><div class="mgmt-notice warning">${BINNA_I18N.t('migration2')}</div>`; return; }
+  const action = caps.manage_lifecycle ? (PROJECT.is_closed ? `<button class="mgmt-btn primary" onclick="changeLifecycle(false)">${BINNA_I18N.t('reopenProject')}</button>` : `<button class="mgmt-btn danger" onclick="changeLifecycle(true)">${BINNA_I18N.t('closeProject')}</button>`) : '';
+  card.innerHTML = `<h3>${BINNA_I18N.t('lifecycle')}</h3><p>${PROJECT.is_closed ? BINNA_I18N.t('closed') : BINNA_I18N.t('active')}</p>${action ? `<div class="mgmt-actions" style="margin-top:12px">${action}</div>` : ''}`;
+}
+
+async function changeLifecycle(close) {
+  if (!confirm(close ? 'Close this project without deleting any data?' : 'Reopen this project?')) return;
+  try { const data = close ? await BINNA.closeProject(PROJECT_ID) : await BINNA.reopenProject(PROJECT_ID); PROJECT = {...PROJECT,...data.project}; BINNA.setProject(PROJECT); renderHeader(); await renderManagement(); BINNA.toast(close ? 'Project closed' : 'Project reopened','success'); }
+  catch(e) { BINNA.toast(BINNA.managementError(e),'error'); }
+}
+
+async function loadProjectMembers() {
+  const list = document.getElementById('team-legend-list');
+  try { PROJECT_MEMBERS = (await BINNA.fetchMembers(PROJECT_ID)).members || []; }
+  catch(e) { list.className='mgmt-notice danger'; list.textContent=BINNA.managementError(e); return; }
+  list.className='';
+  if (!PROJECT_MEMBERS.length) { list.innerHTML='<div class="mgmt-notice">No project employees.</div>'; return; }
+  const may = PROJECT.capabilities && PROJECT.capabilities.manage_assignments && !PROJECT.is_closed;
+  list.innerHTML = `<table class="mgmt-table"><thead><tr><th>Employee</th><th>Project role</th><th>Assignment</th><th></th></tr></thead><tbody>${PROJECT_MEMBERS.map(m=>`<tr><td><strong>${BINNA.esc(m.username||'')}</strong><br><span style="color:var(--muted)">${BINNA.esc(m.email||'')}</span></td><td>${BINNA.esc(m.role)}</td><td>${m.user_id===PROJECT.project_manager_user_id?'Project manager':'Employee'}</td><td>${may&&m.role!=='owner'&&m.user_id!==PROJECT.project_manager_user_id?`<button class="mgmt-btn danger" onclick="removeProjectMember(${m.id})">Remove</button>`:''}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function openAddMember() { document.getElementById('m-identifier').value=''; document.getElementById('m-role').value='member'; document.getElementById('member-overlay').classList.add('open'); document.getElementById('m-identifier').focus(); }
+function closeMemberModal(){document.getElementById('member-overlay').classList.remove('open');}
+function closeMemberIfBg(e){if(e.target===document.getElementById('member-overlay'))closeMemberModal();}
+async function saveMember(){const identifier=document.getElementById('m-identifier').value.trim(),role=document.getElementById('m-role').value;if(!identifier){BINNA.toast('Email or username is required','error');return;}try{await BINNA.addMember(PROJECT_ID,{email:identifier,role});closeMemberModal();await loadProjectMembers();await loadProjectPermissions();BINNA.toast('Employee added','success');}catch(e){BINNA.toast(BINNA.managementError(e),'error');}}
+async function removeProjectMember(mid){if(!confirm('Remove this employee from the project?'))return;try{await BINNA.removeMember(PROJECT_ID,mid);await loadProjectMembers();await loadProjectPermissions();BINNA.toast('Employee removed','info');}catch(e){BINNA.toast(BINNA.managementError(e),'error');}}
+
+async function loadProjectPermissions(){const box=document.getElementById('project-permissions');try{const data=await BINNA.fetchPermissions(PROJECT_ID);renderProjectPermissions(data.modules,data.members);}catch(e){box.className='mgmt-notice danger';box.textContent=BINNA.managementError(e);}}
+function renderProjectPermissions(modules,members){const box=document.getElementById('project-permissions'),locked=PROJECT.is_closed;box.className='';box.innerHTML=members.map(m=>`<div class="mgmt-card" style="margin-bottom:10px"><h3>${BINNA.esc(m.username)} · ${BINNA.esc(m.role)}</h3><div style="display:grid;grid-template-columns:minmax(140px,1fr) 70px 70px;gap:0;margin-top:10px">${modules.map(mod=>{const p=m.permissions[mod]||{};return `<div style="padding:7px;border-bottom:1px solid var(--border)">${BINNA.esc(mod)}</div><label style="padding:7px;text-align:center;border-bottom:1px solid var(--border)"><input type="checkbox" data-mid="${m.member_id}" data-mod="${mod}" data-kind="view" ${p.view?'checked':''} ${locked||m.role==='owner'?'disabled':''}> ${BINNA_I18N.t('view')}</label><label style="padding:7px;text-align:center;border-bottom:1px solid var(--border)"><input type="checkbox" data-mid="${m.member_id}" data-mod="${mod}" data-kind="edit" ${p.edit?'checked':''} ${locked||m.role==='owner'?'disabled':''}> ${BINNA_I18N.t('edit')}</label>`}).join('')}</div>${!locked&&m.role!=='owner'?`<div class="mgmt-actions" style="margin-top:10px"><button class="mgmt-btn primary" onclick="saveMemberPermissions(${m.member_id})">${BINNA_I18N.t('save')}</button></div>`:''}</div>`).join('');}
+async function saveMemberPermissions(mid){const permissions={};document.querySelectorAll(`[data-mid="${mid}"]`).forEach(cb=>{permissions[cb.dataset.mod]=permissions[cb.dataset.mod]||{view:false,edit:false};permissions[cb.dataset.mod][cb.dataset.kind]=cb.checked;});Object.values(permissions).forEach(p=>{if(p.edit)p.view=true;});try{await BINNA.updatePermissions(PROJECT_ID,mid,permissions);BINNA.toast('Permissions saved','success');await loadProjectPermissions();}catch(e){BINNA.toast(BINNA.managementError(e),'error');}}
+
+async function loadMonitoringComments(){const box=document.getElementById('monitoring-comments');try{const rows=(await BINNA.fetchMonitoringComments(PROJECT_ID)).comments||[];box.innerHTML=rows.length?rows.map(c=>`<div style="padding:10px 0;border-top:1px solid var(--border)"><strong>${BINNA.esc(c.author_username||'User')}</strong><div style="font-size:12px;margin-top:4px">${BINNA.esc(c.body)}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">${new Date(c.created_at).toLocaleString()}</div></div>`).join(''):'<div class="mgmt-notice">No monitoring comments yet.</div>';}catch(e){box.innerHTML=`<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;}}
+async function addMonitoringComment(){const input=document.getElementById('monitoring-comment-body'),body=input.value.trim();if(!body)return;try{await BINNA.addMonitoringComment(PROJECT_ID,body);input.value='';await loadMonitoringComments();BINNA.toast('Comment added','success');}catch(e){BINNA.toast(BINNA.managementError(e),'error');}}
+async function loadAuditTimeline(){const box=document.getElementById('audit-timeline');try{const rows=(await BINNA.fetchProjectAudit(PROJECT_ID)).audit_logs||[];box.innerHTML=rows.length?rows.slice().reverse().map(a=>{const changes=[a.previous_values?`Before: ${JSON.stringify(a.previous_values)}`:'',a.new_values?`After: ${JSON.stringify(a.new_values)}`:''].filter(Boolean).join(' · ');return `<div class="mgmt-event"><div class="mgmt-event-title">${BINNA.esc(a.action_type.replaceAll('.',' · '))}</div><div class="mgmt-event-meta">${BINNA.esc(a.actor_username||'User')} · ${new Date(a.created_at).toLocaleString()}</div>${changes?`<div class="mgmt-event-meta">${BINNA.esc(changes)}</div>`:''}</div>`;}).join(''):'<div class="mgmt-notice">No audit events yet.</div>';}catch(e){box.innerHTML=`<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;}}
 
 // ── Edit modal ────────────────────────────────────────────────────────────
 function openEditModal() {
@@ -756,7 +743,7 @@ async function loadGlobalParties() {
 
 function renderPartiesList() {
   const tbody = document.getElementById('parties-tbody');
-  const canEdit   = (ROLE_LEVEL[MY_ROLE] || 0) >= ROLE_LEVEL.member;
+  const canEdit   = !PROJECT.is_closed && (ROLE_LEVEL[MY_ROLE] || 0) >= ROLE_LEVEL.member;
   const canDelete = (ROLE_LEVEL[MY_ROLE] || 0) >= ROLE_LEVEL.admin;
 
   if (!GLOBAL_PARTIES.length) {
@@ -925,6 +912,9 @@ function renderUser() {
 renderUser();
 renderModules();   // builds the cards (so stat-* spans exist)
 loadStats();       // fills the card counters from the stats API
+window.addEventListener('binna:languagechange', () => {
+  if (PROJECT) { renderHeader(); renderManagement(); }
+});
 // Wait for the project (and MY_ROLE) to load before honouring #parties, so the
 // Parties modal renders with the correct edit/delete permissions. Other modules
 // (e.g. Subcontractors & Suppliers) link here with #parties to add a party.

@@ -182,7 +182,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
       Projects
       <small>All construction projects you have access to</small>
     </div>
-    <button class="btn btn-primary" onclick="openProjectModal()">＋ New Project</button>
+    <button class="btn btn-primary" id="btn-new-project" onclick="openProjectModal()" style="display:none">＋ New Project</button>
   </div>
 
   <!-- Stats -->
@@ -213,6 +213,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
       <option value="active">Active</option>
       <option value="on-hold">On Hold</option>
       <option value="completed">Completed</option>
+    </select>
+    <select class="filter-sel" id="filter-lifecycle" onchange="filterProjects()">
+      <option value="">All lifecycle states</option><option value="open">Open</option><option value="closed">Closed</option>
     </select>
     <span style="margin-left:auto;font-size:12px;color:var(--muted)" id="proj-count"></span>
   </div>
@@ -278,40 +281,22 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
           <input class="fi" type="text" id="f-description" placeholder="Short project summary (optional)" />
         </div>
       </div>
+      <div class="frow full" id="manager-field-row">
+        <div class="fgrp">
+          <label class="flbl">Project manager <span style="font-weight:400;text-transform:none">(optional)</span></label>
+          <select class="fs" id="f-project-manager"><option value="">Use projects manager as interim manager</option></select>
+          <div class="fhint" data-i18n="interim">If no project manager is selected, the company projects manager will serve as interim project manager.</div>
+        </div>
+      </div>
       <div class="form-error" id="modal-error"></div>
     </div>
     <div class="mfoot">
-      <button class="btn btn-danger btn-sm" id="btn-delete-proj"
-              style="margin-right:auto;display:none" onclick="confirmDeleteProject()">
-        🗑 Delete Project
-      </button>
       <button class="btn" onclick="closeProjectModal()">Cancel</button>
       <button class="btn btn-primary" id="btn-save-proj" onclick="saveProject()">Create Project</button>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ CONFIRM DELETE DIALOG ══════════════ -->
-<div class="overlay" id="confirm-overlay">
-  <div class="modal" style="max-width:380px">
-    <div class="mhead">
-      <div class="mtitle" style="color:var(--danger)">Delete Project?</div>
-      <button class="closex" onclick="closeConfirm()">✕</button>
-    </div>
-    <div class="mbody">
-      <p style="font-size:14px;color:var(--text2);line-height:1.6">
-        This will permanently delete <b id="confirm-proj-name"></b> and all its data.
-        This action <b>cannot be undone</b>.
-      </p>
-    </div>
-    <div class="mfoot">
-      <button class="btn" onclick="closeConfirm()">Cancel</button>
-      <button class="btn btn-danger" id="btn-confirm-delete" onclick="executeDelete()">
-        Delete Permanently
-      </button>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -319,6 +304,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 // ── State ─────────────────────────────────────────────────────────────────────
 let allProjects = [];
 let editingId   = null;
+let currentUser = null;
+let companyMembers = [];
+let canCreateProjects = false;
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -326,8 +314,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     const user = await BINNA.fetchMe();
+    currentUser = user;
+    canCreateProjects = !!(user.is_company_manager || user.is_projects_manager);
+    document.getElementById('btn-new-project').style.display = canCreateProjects ? 'inline-flex' : 'none';
     document.getElementById('user-name').textContent   = user.username;
     document.getElementById('user-avatar').textContent = user.username[0].toUpperCase();
+    try { companyMembers = (await BINNA.fetchCompanyMembers()).members || []; } catch (_) { companyMembers = []; }
   } catch(e) { /* token expired → BINNA.fetchMe redirects */ }
 
   await loadProjects();
@@ -356,12 +348,14 @@ async function loadProjects() {
 function filterProjects() {
   const q      = document.getElementById('search').value.toLowerCase();
   const status = document.getElementById('filter-status').value;
+  const lifecycle = document.getElementById('filter-lifecycle').value;
 
   const filtered = allProjects.filter(p => {
     const matchQ = !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
                       || (p.client||'').toLowerCase().includes(q);
     const matchS = !status || p.status === status;
-    return matchQ && matchS;
+    const matchL = !lifecycle || (lifecycle === 'closed' ? p.is_closed : !p.is_closed);
+    return matchQ && matchS && matchL;
   });
 
   document.getElementById('proj-count').textContent =
@@ -379,7 +373,7 @@ function renderProjects(list) {
         <div class="empty-icon">📂</div>
         <div class="empty-title">No projects yet</div>
         <div class="empty-sub">Create your first project to start managing construction documents.</div>
-        <button class="btn btn-primary" onclick="openProjectModal()">＋ Create First Project</button>
+        ${canCreateProjects ? '<button class="btn btn-primary" onclick="openProjectModal()">＋ Create First Project</button>' : ''}
       </div>`;
     return;
   }
@@ -400,6 +394,7 @@ function renderProjects(list) {
 function projCard(p) {
   const statusClass = { active:'status-active', 'on-hold':'status-on-hold', completed:'status-completed' }[p.status] || 'status-active';
   const statusLabel = { active:'● Active', 'on-hold':'◐ On Hold', completed:'✓ Completed' }[p.status] || p.status;
+  const manager = companyMembers.find(m => m.id === p.project_manager_user_id);
 
   const modules = [
     ['dc','DC'],['dr','DR'],['dwg','DWG'],['fir','FIR'],['mir','MIR'],
@@ -410,23 +405,25 @@ function projCard(p) {
     `<a class="mod-pill" href="/legacy/${key}" onclick="setLegacyProject(event,${p.id})" title="${BINNA.esc(p.name)}">${label}</a>`
   ).join('');
 
-  const canEdit = (p.my_role === 'owner' || p.my_role === 'admin');
+  const canEdit = !!(p.capabilities && p.capabilities.edit_project);
   const editBtn = canEdit
     ? `<button class="btn btn-sm" onclick="openEditModal(${p.id})">Edit</button>`
     : '';
 
   return `
-  <div class="proj-card" id="card-${p.id}">
+  <div class="proj-card mgmt-rail${p.is_closed ? ' closed' : ''}" id="card-${p.id}">
     <div class="proj-card-top">
       <div class="proj-card-badges">
         <span class="code-badge">${BINNA.esc(p.code)}</span>
         <span class="status-badge ${statusClass}">${statusLabel}</span>
+        ${p.is_closed ? `<span class="mgmt-closed-badge">${BINNA_I18N.t('closed')}</span>` : ''}
       </div>
       <div class="proj-name">${BINNA.esc(p.name)}</div>
       <div class="proj-meta">
         ${p.client     ? `<span><span class="meta-key">Client</span>${BINNA.esc(p.client)}</span>` : ''}
         ${p.consultant ? `<span><span class="meta-key">Consultant</span>${BINNA.esc(p.consultant)}</span>` : ''}
         ${p.contractor ? `<span><span class="meta-key">Contractor</span>${BINNA.esc(p.contractor)}</span>` : ''}
+        <span><span class="meta-key">Project manager</span>${manager ? BINNA.esc(manager.username) : '—'}</span>
       </div>
     </div>
     <div class="proj-card-modules">
@@ -472,11 +469,13 @@ function updateStats(list) {
 
 // ── Project modal ──────────────────────────────────────────────────────────────
 function openProjectModal() {
+  if (!canCreateProjects) return;
   editingId = null;
   clearForm();
   document.getElementById('modal-title').textContent    = 'New Project';
   document.getElementById('btn-save-proj').textContent  = 'Create Project';
-  document.getElementById('btn-delete-proj').style.display = 'none';
+  fillProjectManagerOptions('');
+  document.getElementById('manager-field-row').style.display = '';
   openOverlay('proj-modal');
 }
 
@@ -495,9 +494,7 @@ function openEditModal(projectId) {
 
   document.getElementById('modal-title').textContent   = 'Edit Project';
   document.getElementById('btn-save-proj').textContent = 'Save Changes';
-  document.getElementById('btn-delete-proj').style.display =
-    (p.my_role === 'owner') ? 'inline-flex' : 'none';
-  document.getElementById('confirm-proj-name').textContent = `"${p.name}"`;
+  document.getElementById('manager-field-row').style.display = 'none';
 
   hideModalError();
   openOverlay('proj-modal');
@@ -523,6 +520,8 @@ async function saveProject() {
 
   try {
     const payload = { code, name, client, consultant, contractor, description, status };
+    const selectedManager = Number(document.getElementById('f-project-manager').value);
+    if (!editingId && selectedManager) payload.project_manager_user_id = selectedManager;
 
     if (editingId) {
       const { project } = await BINNA.updateProject(editingId, payload);
@@ -541,40 +540,17 @@ async function saveProject() {
     closeProjectModal();
 
   } catch(e) {
-    showModalError(e.error || 'An error occurred. Please try again.');
+    showModalError(BINNA.managementError(e));
   } finally {
     btn.disabled    = false;
     btn.textContent = editingId ? 'Save Changes' : 'Create Project';
   }
 }
 
-// ── Delete ────────────────────────────────────────────────────────────────────
-function confirmDeleteProject() {
-  const id = editingId;
-  closeProjectModal();
-  editingId = id;
-  openOverlay('confirm-overlay');
-}
-
-function closeConfirm() { closeOverlay('confirm-overlay'); }
-
-async function executeDelete() {
-  if (!editingId) return;
-  const btn = document.getElementById('btn-confirm-delete');
-  btn.disabled    = true;
-  btn.textContent = 'Deleting…';
-  try {
-    await BINNA.deleteProject(editingId);
-    allProjects = allProjects.filter(p => p.id !== editingId);
-    updateStats(allProjects);
-    filterProjects();
-    BINNA.toast('Project deleted', 'info');
-    closeConfirm();
-  } catch(e) {
-    BINNA.toast(e.error || 'Delete failed', 'error');
-    btn.disabled    = false;
-    btn.textContent = 'Delete Permanently';
-  }
+function fillProjectManagerOptions(selected) {
+  const select = document.getElementById('f-project-manager');
+  select.innerHTML = '<option value="">Use projects manager as interim manager</option>' +
+    companyMembers.filter(m => m.is_active).map(m => `<option value="${m.id}" ${String(m.id) === String(selected) ? 'selected' : ''}>${BINNA.esc(m.username)}</option>`).join('');
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -587,6 +563,7 @@ function clearForm() {
     document.getElementById(id).value = '';
   });
   document.getElementById('f-status').value = 'active';
+  document.getElementById('f-project-manager').value = '';
   editingId = null;
 }
 

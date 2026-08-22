@@ -27,6 +27,7 @@ from app.tenancy import (
     current_user,
     can_manage_project_portfolio,
     is_company_manager,
+    is_projects_manager,
     phase_1b_schema_status,
     phase_1b_2_schema_status,
     require_company_role,
@@ -86,7 +87,17 @@ def get_company():
     user = current_user()
     if not user or not user.company:
         return jsonify({'error': 'No company attached to this account'}), 404
-    return jsonify({'company': user.company.to_dict(), 'my_role': user.company_role})
+    phase_1b = phase_1b_schema_status()
+    phase_1b_2 = phase_1b_2_schema_status()
+    company = user.company.to_dict()
+    if phase_1b['ready']:
+        company['projects_manager_user_id'] = user.company.projects_manager_user_id
+    return jsonify({
+        'company': company,
+        'my_role': user.company_role,
+        'phase_1b_ready': phase_1b['ready'],
+        'phase_1b_2_ready': phase_1b_2['ready'],
+    })
 
 
 @company_bp.route('/audit-logs', methods=['GET'])
@@ -156,6 +167,8 @@ def list_members():
             'email_verified': m.email_verified,
             'is_active':      m.is_active,
             'pending':        m.invite_pending,
+            'is_company_manager': is_company_manager(m),
+            'is_projects_manager': is_projects_manager(m),
         } for m in members],
         'total': len(members),
     })

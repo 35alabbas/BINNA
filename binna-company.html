@@ -137,6 +137,7 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
 .empty,.loading{padding:40px 20px;text-align:center;color:var(--txt-mid);font-size:13.5px}
 .hidden{display:none!important}
 </style>
+<link rel="stylesheet" href="/static/css/management.css">
 </head>
 <body>
 
@@ -146,13 +147,17 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
   </a>
   <div class="topbar-right">
     <a class="nav-link" href="/dashboard">← Dashboard</a>
-    <button class="binna-theme-toggle" id="binna-theme-toggle" title="Toggle theme">
-      <span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span>
-    </button>
+    <button class="mgmt-language-toggle" type="button" onclick="BINNA_I18N.toggle()">العربية</button>
     <div class="user-chip"><span class="avatar" id="avatar">U</span><span id="username">user</span></div>
     <button class="btn-logout" onclick="BINNA.logout()">Sign out</button>
   </div>
 </div>
+
+<aside class="mgmt-sidebar" aria-label="Management navigation">
+  <a href="/dashboard" data-i18n="dashboard">Dashboard</a>
+  <a href="/company" data-i18n="company">Company</a>
+  <a href="/dashboard" data-i18n="project">Project</a>
+</aside>
 
 <div class="wrap">
   <div class="page-title">Company <span class="accent">Settings</span></div>
@@ -162,6 +167,13 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
   <div class="panel">
     <div class="panel-head"><div class="panel-title">Workspace</div><span class="badge" id="co-status">—</span></div>
     <div class="panel-body"><div class="info-grid" id="co-info"><div class="loading">Loading…</div></div></div>
+  </div>
+
+  <div class="panel mgmt-rail" id="projects-manager-panel">
+    <div class="panel-head"><div class="panel-title" data-i18n="projectsManager">Projects manager</div></div>
+    <div class="panel-body">
+      <div id="projects-manager-content" class="loading">Loading projects manager…</div>
+    </div>
   </div>
 
   <!-- STORAGE -->
@@ -217,10 +229,11 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
 </div>
 
 <div id="toast"></div>
+<script src="/static/js/management-i18n.js"></script>
 
 <script>
 'use strict';
-const ME = BINNA.getUser();
+let ME = BINNA.getUser();
 if (!ME || !BINNA.getToken()) { location.replace('/?signin=1'); }
 if (ME) {
   document.getElementById('username').textContent = ME.username || 'user';
@@ -230,6 +243,9 @@ if (ME) {
 const ROLE_ORDER = { viewer: 0, member: 1, admin: 2, owner: 3 };
 let MY_ROLE = 'viewer';
 let CAN_MANAGE = false;   // company_role >= admin
+let COMPANY_DATA = null;
+let COMPANY_MEMBERS = [];
+let PHASE_1B_READY = false;
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtDate = iso => { if (!iso) return null; const d = new Date(iso); return isNaN(d) ? null : d.toISOString().slice(0, 10); };
@@ -249,7 +265,9 @@ function toast(msg, kind) {
 // ── COMPANY ──────────────────────────────────────────────────────
 async function loadCompany() {
   try {
-    const { company, my_role } = await BINNA.get('/company');
+    const { company, my_role, phase_1b_ready } = await BINNA.fetchCompany();
+    COMPANY_DATA = company;
+    PHASE_1B_READY = phase_1b_ready === true;
     MY_ROLE = my_role || 'viewer';
     CAN_MANAGE = (ROLE_ORDER[MY_ROLE] || 0) >= ROLE_ORDER.admin;
     const badge = document.getElementById('co-status');
@@ -288,9 +306,46 @@ async function loadStorage() {
 // ── MEMBERS ──────────────────────────────────────────────────────
 async function loadMembers() {
   try {
-    const { members } = await BINNA.get('/company/members');
+    const { members } = await BINNA.fetchCompanyMembers();
+    COMPANY_MEMBERS = members || [];
     renderMembers(members);
+    renderProjectsManager();
   } catch (e) { document.getElementById('member-rows').innerHTML = `<tr><td colspan="4" class="empty">${esc(e.error || 'Failed to load members')}</td></tr>`; }
+}
+
+function renderProjectsManager() {
+  const box = document.getElementById('projects-manager-content');
+  if (!PHASE_1B_READY) {
+    box.className = 'mgmt-notice warning';
+    box.textContent = BINNA_I18N.t('migration1');
+    return;
+  }
+  const currentId = COMPANY_DATA && COMPANY_DATA.projects_manager_user_id;
+  const current = COMPANY_MEMBERS.find(m => m.id === currentId);
+  const mayAssign = !!(ME && ME.is_company_manager);
+  const options = COMPANY_MEMBERS.filter(m => m.is_active).map(m =>
+    `<option value="${m.id}" ${m.id === currentId ? 'selected' : ''}>${esc(m.username)}${m.is_company_manager ? ' — Company manager' : ''}</option>`
+  ).join('');
+  box.className = '';
+  box.innerHTML = `<div class="mgmt-grid">
+    <div class="mgmt-card"><h3>Current assignment</h3><p>${current ? esc(current.username) : 'No projects manager assigned'}</p></div>
+    <div class="mgmt-card"><div class="mgmt-field"><label>Projects manager</label>
+      <select id="projects-manager-select" ${mayAssign ? '' : 'disabled'}><option value="">Select a company member</option>${options}</select></div>
+      <p style="margin-top:9px">The company manager may select themselves. This person becomes interim manager when a new project has no explicit manager.</p>
+      ${mayAssign ? '<div class="mgmt-actions" style="margin-top:12px"><button class="mgmt-btn primary" onclick="saveProjectsManager()">Save assignment</button></div>' : ''}
+    </div></div>`;
+}
+
+async function saveProjectsManager() {
+  const select = document.getElementById('projects-manager-select');
+  const userId = Number(select && select.value);
+  if (!userId) { toast('Select a company member.', 'bad'); return; }
+  try {
+    await BINNA.setProjectsManager(userId);
+    COMPANY_DATA.projects_manager_user_id = userId;
+    if (ME && ME.id === userId) { ME.is_projects_manager = true; BINNA.setUser(ME); }
+    renderProjectsManager(); toast('Projects manager updated', 'ok');
+  } catch (e) { toast(BINNA.managementError(e), 'bad'); }
 }
 function renderMembers(members) {
   if (!members.length) { document.getElementById('member-rows').innerHTML = '<tr><td colspan="4" class="empty">No members yet.</td></tr>'; return; }
@@ -340,17 +395,19 @@ const MODULE_LABELS = {
   submittals: 'Submittals', global_parties: 'Global Parties',
   subcontracts: 'Subcontracts', projects: 'Project Settings',
 };
+const PERMISSION_PROJECTS = new Map();
 
 async function loadPermPanel() {
   let projects = [];
   try { ({ projects = [] } = await BINNA.get('/projects')); }
   catch (e) { return; }   // no access → leave the panel hidden
-  const manage = projects.filter(p => p.my_role === 'admin' || p.my_role === 'owner');
+  const manage = projects.filter(p => p.capabilities && p.capabilities.manage_permissions);
   if (!manage.length) return;   // not a project admin anywhere → panel stays hidden
   const panel = document.getElementById('perm-panel');
   const sel = document.getElementById('perm-project');
+  manage.forEach(p => PERMISSION_PROJECTS.set(String(p.id), p));
   sel.innerHTML = manage.map(p =>
-    `<option value="${p.id}">${esc(p.code ? p.code + ' — ' : '')}${esc(p.name)}</option>`).join('');
+    `<option value="${p.id}">${esc(p.code ? p.code + ' — ' : '')}${esc(p.name)}${p.is_closed ? ` — ${BINNA_I18N.t('closed')}` : ''}</option>`).join('');
   sel.onchange = () => loadProjectPerms(sel.value);
   panel.classList.remove('hidden');
   loadProjectPerms(sel.value);
@@ -369,13 +426,13 @@ async function loadProjectPerms(pid) {
 
 function renderPermGrid(pid, modules, members) {
   const body = document.getElementById('perm-body');
+  const locked = !!(PERMISSION_PROJECTS.get(String(pid)) || {}).is_closed;
   if (!members.length) { body.innerHTML = '<div class="empty">No members on this project.</div>'; return; }
   body.innerHTML =
-    '<div class="perm-hint">Toggle who can view or edit each module for this project. ' +
-    'Edit implies view. The project owner always has full access.</div>' +
+    `<div class="perm-hint">${locked ? 'This project is closed. Permissions are readable but cannot be changed.' : 'Toggle who can view or edit each module for this project. Edit implies view. The project owner always has full access.'}</div>` +
     members.map(m => {
       const isOwner = m.role === 'owner';
-      const dis = isOwner ? 'disabled' : '';
+      const dis = isOwner || locked ? 'disabled' : '';
       const rows = modules.map(mod => {
         const p = m.permissions[mod] || { view: false, edit: false };
         return `<div class="pm">${esc(MODULE_LABELS[mod] || mod)}</div>` +
@@ -440,11 +497,15 @@ async function submitInvite() {
 
 // ── boot ─────────────────────────────────────────────────────────
 (async function () {
+  try { ME = await BINNA.fetchMe(); } catch (_) { return; }
   await loadCompany();   // sets CAN_MANAGE before members render
   loadStorage();
   loadMembers();
   loadPermPanel();       // shows only if the caller administers ≥1 project
 })();
+window.addEventListener('binna:languagechange', () => {
+  if (COMPANY_DATA) renderProjectsManager();
+});
 document.getElementById('invite-modal').addEventListener('click', e => { if (e.target.id === 'invite-modal') closeInvite(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInvite(); });
 </script>

@@ -256,7 +256,11 @@ def get_me():
     user = User.query.get(int(get_jwt_identity()))
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    payload = {'user': user.to_dict()}
+    from app.tenancy import is_company_manager, is_projects_manager
+    user_data = user.to_dict()
+    user_data['is_company_manager'] = is_company_manager(user)
+    user_data['is_projects_manager'] = is_projects_manager(user)
+    payload = {'user': user_data}
     if user.company:
         payload['company'] = user.company.to_dict()
     return jsonify(payload)
