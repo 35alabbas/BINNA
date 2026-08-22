@@ -1,139 +1,34 @@
-/* ── BINNA THEME VARIABLES — OBSIDIAN CROWN ──────────────────────────
-   Site-wide dark palette. Every module page aliases its local :root vars
-   to the canonical tokens below, so remapping these recolors the whole app.
-   The named Obsidian tokens (--bg-deep, --purple, --gold, …) are also exposed
-   for base.html and any new components.
-   ──────────────────────────────────────────────────────────────────── */
-:root {
-  /* Obsidian Crown named tokens */
-  --bg-deep:           #060608;
-  --bg-elevated:       #0f0f16;
-  --purple:            #8B5CF6;
-  --purple-light:      #A78BFA;
-  --purple-dim:        rgba(139,92,246,0.12);
-  --purple-border:     rgba(139,92,246,0.3);
-  --gold:              #C5A85A;
-  --gold-dim:          rgba(197,168,90,0.08);
-  --gold-border:       rgba(197,168,90,0.15);
-  --text-bright:       #ffffff;
-  --text-mid:          rgba(255,255,255,0.55);
-  --text-faint:        rgba(255,255,255,0.18);
-  --border:            rgba(255,255,255,0.05);
-  --border-gold:       rgba(197,168,90,0.1);
-
-  /* Canonical tokens remapped onto Obsidian Crown (drives all aliased pages) */
-  --bg-base:           #060608;
-  --bg-surface:        #0b0b10;
-  --bg-surface-2:      #0f0f16;
-  --bg-sidebar:        #0b0b10;
-  --bg-modal:          #0b0b10;
-  --bg-input:          #0f0f16;
-  --bg-hover:          #0f0f16;
-  --bg-badge:          rgba(139,92,246,0.12);
-
-  --text-primary:      #ffffff;
-  --text-secondary:    rgba(255,255,255,0.55);
-  --text-muted:        rgba(255,255,255,0.35);
-  --text-inverse:      #ffffff;
-
-  --border-color:      rgba(255,255,255,0.05);
-  --border-color-strong: rgba(197,168,90,0.1);
-
-  --brand-primary:     #8B5CF6;
-  --brand-primary-hover: #7C3AED;
-  --brand-success:     #10b981;
-  --brand-warning:     #f59e0b;
-  --brand-danger:      #ef4444;
-  --brand-info:        #3b82f6;
-
-  --shadow-sm:         0 1px 3px rgba(0,0,0,0.30);
-  --shadow-md:         0 4px 12px rgba(0,0,0,0.40);
-  --shadow-lg:         0 8px 24px rgba(0,0,0,0.50);
-
-  --gantt-bg:          #0b0b10;
-  --gantt-row-alt:     #0f0f16;
-  --gantt-grid-line:   rgba(255,255,255,0.05);
-  --gantt-today:       rgba(139,92,246,0.18);
+/* BINNA canonical light tokens. Legacy aliases remain available while pages
+   move onto the shared application shell in controlled slices. */
+:root,[data-theme="light"],[data-theme="dark"] {
+  color-scheme:light;
+  --bg-deep:#f4f7fb;--bg-elevated:#ffffff;--bg-base:#f4f7fb;
+  --bg-surface:#ffffff;--bg-surface-2:#f8faff;--bg-sidebar:#ffffff;
+  --bg-modal:#ffffff;--bg-input:#ffffff;--bg-hover:#f1f6ff;--bg-badge:#eaf2ff;
+  --text-bright:#172033;--text-primary:#172033;--text-mid:#536176;
+  --text-secondary:#64748b;--text-muted:#8591a3;--text-faint:#b6c0cc;
+  --text-inverse:#ffffff;--border:#dce5f0;--border-color:#dce5f0;
+  --border-color-strong:#cbd7e5;--border-gold:#dce5f0;--gold-border:#dce5f0;
+  --brand-primary:#2563eb;--brand-primary-hover:#1d4ed8;
+  --brand-success:#158f62;--brand-warning:#d97706;--brand-danger:#d13c4b;
+  --brand-info:#2563eb;--purple:#2563eb;--purple-light:#3b82f6;
+  --purple-dim:#eaf2ff;--purple-border:#bfd4fb;--gold:#2563eb;--gold-dim:#eaf2ff;
+  --shadow-sm:0 1px 3px rgba(23,32,51,.06);
+  --shadow-md:0 8px 24px rgba(23,32,51,.10);
+  --shadow-lg:0 24px 60px rgba(23,32,51,.16);
+  --gantt-bg:#ffffff;--gantt-row-alt:#f8faff;
+  --gantt-grid-line:#dce5f0;--gantt-today:#eaf2ff;
 }
-
-/* Dark mode mirrors :root — the app is Obsidian Crown in both states */
-[data-theme="dark"] {
-  --bg-base:           #060608;
-  --bg-surface:        #0b0b10;
-  --bg-surface-2:      #0f0f16;
-  --bg-sidebar:        #0b0b10;
-  --bg-modal:          #0b0b10;
-  --bg-input:          #0f0f16;
-  --bg-hover:          #0f0f16;
-  --bg-badge:          rgba(139,92,246,0.12);
-
-  --text-primary:      #ffffff;
-  --text-secondary:    rgba(255,255,255,0.55);
-  --text-muted:        rgba(255,255,255,0.35);
-  --text-inverse:      #ffffff;
-
-  --border-color:      rgba(255,255,255,0.05);
-  --border-color-strong: rgba(197,168,90,0.1);
-
-  --brand-primary:     #8B5CF6;
-  --brand-primary-hover: #7C3AED;
-
-  --shadow-sm:         0 1px 3px rgba(0,0,0,0.30);
-  --shadow-md:         0 4px 12px rgba(0,0,0,0.40);
-  --shadow-lg:         0 8px 24px rgba(0,0,0,0.50);
-
-  --gantt-bg:          #0b0b10;
-  --gantt-row-alt:     #0f0f16;
-  --gantt-grid-line:   rgba(255,255,255,0.05);
-  --gantt-today:       rgba(139,92,246,0.18);
-}
-
-/* Site-wide base — lock the app dark regardless of the theme toggle */
-body { background: var(--bg-deep); color: var(--text-bright); }
-[data-theme="light"] body, [data-theme="dark"] body { background: var(--bg-deep) !important; }
-
-/* ── TOGGLE BUTTON ───────────────────────────── */
-.binna-theme-toggle {
-  background: var(--bg-surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  transition: background 0.2s;
-}
-.binna-theme-toggle:hover { background: var(--bg-hover); }
-[data-theme="dark"]  .theme-icon-light { display: none; }
-[data-theme="dark"]  .theme-icon-dark  { display: inline; }
-:root:not([data-theme="dark"]) .theme-icon-dark  { display: none; }
-:root:not([data-theme="dark"]) .theme-icon-light { display: inline; }
-
-/* ── PRINT: always force the light "paper" palette regardless of theme so
-   certificates / reports never print on a dark background. ──────────────── */
-@media print {
-  :root, [data-theme="dark"], [data-theme="light"] {
-    --bg-deep:      #ffffff;
-    --bg-elevated:  #ffffff;
-    --text-bright:  #1a1d2e;
-    --bg-base:      #ffffff;
-    --bg-surface:   #ffffff;
-    --bg-surface-2: #ffffff;
-    --bg-sidebar:   #ffffff;
-    --bg-modal:     #ffffff;
-    --bg-input:     #ffffff;
-    --bg-hover:     #ffffff;
-    --text-primary:   #1a1d2e;
-    --text-secondary: #6b7280;
-    --text-muted:     #9ca3af;
-    --text-inverse:   #ffffff;
-    --border-color:        #e5e7eb;
-    --border-color-strong: #d1d5db;
-    --gantt-bg:        #ffffff;
-    --gantt-row-alt:   #f9fafb;
-    --gantt-grid-line: #e5e7eb;
+html{background:var(--bg-base);color-scheme:light}
+body{background:var(--bg-base);color:var(--text-primary)}
+.binna-theme-toggle{display:none!important}
+@media print{
+  :root,[data-theme="light"],[data-theme="dark"]{
+    --bg-deep:#fff;--bg-base:#fff;--bg-surface:#fff;--bg-surface-2:#fff;
+    --bg-sidebar:#fff;--bg-modal:#fff;--bg-input:#fff;--bg-hover:#fff;
+    --text-primary:#172033;--text-secondary:#536176;--text-muted:#64748b;
+    --border-color:#dce5f0;--border-color-strong:#cbd7e5;
+    --gantt-bg:#fff;--gantt-row-alt:#f8fafc;--gantt-grid-line:#dce5f0;
   }
-  /* override the dark body-lock so paper output stays white */
-  body, [data-theme="light"] body, [data-theme="dark"] body { background: #ffffff !important; color: #1a1d2e !important; }
-  .binna-theme-toggle { display: none !important; }
+  body{background:#fff!important;color:#172033!important}
 }

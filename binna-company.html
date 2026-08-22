@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Company Settings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="/static/js/binna-api.js"></script>
 <!-- Auth gate — any signed-in member may view their own company settings. -->
 <script>
@@ -138,13 +138,23 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
 .hidden{display:none!important}
 </style>
 <link rel="stylesheet" href="/static/css/management.css">
+<link rel="stylesheet" href="/static/css/app-shell.css">
 </head>
-<body>
+<body class="binna-app">
+<div class="app-layout">
+<aside class="app-sidebar" id="app-sidebar" aria-label="Management navigation">
+  <a class="app-brand" href="/dashboard"><span class="app-brand-mark">B</span><span class="app-brand-copy"><span class="app-brand-name">BINNA</span><span class="app-brand-sub">Construction PM</span></span></a>
+  <nav class="app-nav"><div class="app-nav-section">Workspace</div>
+    <a class="app-nav-link" href="/dashboard"><span class="app-nav-icon">▦</span><span class="app-nav-label" data-i18n="dashboard">Dashboard</span></a>
+    <a class="app-nav-link active" href="/company"><span class="app-nav-icon">⌂</span><span class="app-nav-label" data-i18n="company">Company</span></a>
+    <a class="app-nav-link" href="/dashboard"><span class="app-nav-icon">◇</span><span class="app-nav-label" data-i18n="project">Project</span></a>
+  </nav>
+  <div class="app-sidebar-footer"><button class="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true"><span>⇤</span><span class="app-collapse-label">Collapse sidebar</span></button></div>
+</aside>
+<div class="app-main">
 
 <div class="topbar">
-  <a class="brand" href="/dashboard">
-    <span><span class="brand-mark">BINNA</span><span class="brand-tag">Construction PM</span></span>
-  </a>
+  <div style="display:flex;align-items:center;gap:12px"><button class="app-mobile-menu" type="button" aria-label="Open navigation">☰</button><div><div class="app-topbar-title">Company workspace</div><div class="app-topbar-context">Team, roles, and project access</div></div></div>
   <div class="topbar-right">
     <a class="nav-link" href="/dashboard">← Dashboard</a>
     <button class="mgmt-language-toggle" type="button" onclick="BINNA_I18N.toggle()">العربية</button>
@@ -153,23 +163,16 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
   </div>
 </div>
 
-<aside class="mgmt-sidebar" aria-label="Management navigation">
-  <a href="/dashboard" data-i18n="dashboard">Dashboard</a>
-  <a href="/company" data-i18n="company">Company</a>
-  <a href="/dashboard" data-i18n="project">Project</a>
-</aside>
-
-<div class="wrap">
-  <div class="page-title">Company <span class="accent">Settings</span></div>
-  <div class="page-sub">Your workspace, team, and storage.</div>
+<div class="app-content"><div class="wrap">
+  <div class="app-page-head" data-reveal><div><div class="page-title app-page-title">Company workspace</div><div class="page-sub app-page-subtitle">Manage your team, assignments, and access from one place.</div></div></div>
 
   <!-- COMPANY INFO -->
-  <div class="panel">
+  <div class="panel" data-reveal>
     <div class="panel-head"><div class="panel-title">Workspace</div><span class="badge" id="co-status">—</span></div>
     <div class="panel-body"><div class="info-grid" id="co-info"><div class="loading">Loading…</div></div></div>
   </div>
 
-  <div class="panel mgmt-rail" id="projects-manager-panel">
+  <div class="panel mgmt-rail" id="projects-manager-panel" data-reveal>
     <div class="panel-head"><div class="panel-title" data-i18n="projectsManager">Projects manager</div></div>
     <div class="panel-body">
       <div id="projects-manager-content" class="loading">Loading projects manager…</div>
@@ -177,13 +180,13 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
   </div>
 
   <!-- STORAGE -->
-  <div class="panel">
+  <div class="panel" data-reveal>
     <div class="panel-head"><div class="panel-title">File storage</div></div>
     <div class="panel-body" id="storage-body"><div class="loading">Loading storage usage…</div></div>
   </div>
 
   <!-- MEMBERS -->
-  <div class="panel">
+  <div class="panel" data-reveal>
     <div class="panel-head">
       <div class="panel-title">Team members</div>
       <button class="btn btn-gold btn-sm hidden" id="invite-btn" onclick="openInvite()">+ Invite member</button>
@@ -197,14 +200,14 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
   </div>
 
   <!-- MODULE PERMISSIONS (only shown to project admins/owners) -->
-  <div class="panel hidden" id="perm-panel">
+  <div class="panel hidden" id="perm-panel" data-reveal>
     <div class="panel-head">
       <div class="panel-title">Module permissions</div>
       <select class="role-sel" id="perm-project"></select>
     </div>
     <div class="panel-body" id="perm-body"><div class="loading">Loading permissions…</div></div>
   </div>
-</div>
+</div></div>
 
 <!-- INVITE MODAL -->
 <div class="modal-overlay" id="invite-modal">
@@ -230,6 +233,7 @@ input.perm-cb:disabled{cursor:not-allowed;opacity:.55}
 
 <div id="toast"></div>
 <script src="/static/js/management-i18n.js"></script>
+<script src="/static/js/ui-motion.js"></script>
 
 <script>
 'use strict';
@@ -509,5 +513,6 @@ window.addEventListener('binna:languagechange', () => {
 document.getElementById('invite-modal').addEventListener('click', e => { if (e.target.id === 'invite-modal') closeInvite(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInvite(); });
 </script>
+</div></div>
 </body>
 </html>

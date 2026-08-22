@@ -231,6 +231,7 @@ textarea.form-input{resize:vertical;min-height:72px}
 <!-- Topbar (project-specific) -->
 <div class="topbar">
   <div class="topbar-left">
+    <button class="app-mobile-menu" type="button" aria-label="Open navigation">☰</button>
     <a href="/dashboard" class="back-btn">← Dashboard</a>
     <div class="topbar-logo">BINNA</div>
     <div class="topbar-divider"></div>
@@ -271,14 +272,22 @@ textarea.form-input{resize:vertical;min-height:72px}
     </div>
   </div>
 
+  <div class="overview-grid" id="project-overview" data-reveal>
+    <div class="overview-card app-skeleton" style="height:104px"></div>
+    <div class="overview-card app-skeleton" style="height:104px"></div>
+    <div class="overview-card app-skeleton" style="height:104px"></div>
+    <div class="overview-card app-skeleton" style="height:104px"></div>
+  </div>
+  <div class="pulse-pair" id="project-pulse" data-reveal style="margin-bottom:24px"></div>
+
   <!-- Modules -->
-  <div id="modules-container">
+  <div id="modules-container" data-reveal>
     <!-- populated by JS -->
   </div>
 
   <div id="closed-project-notice" class="mgmt-notice warning" style="display:none;margin:0 0 18px"></div>
 
-  <div class="mgmt-section">
+  <div class="mgmt-section" data-reveal>
     <div class="mgmt-section-head"><div class="mgmt-section-title">Project management</div></div>
     <div class="mgmt-grid">
       <div class="mgmt-card" id="project-manager-card"><h3 data-i18n="projectManager">Project manager</h3><p>Loading assignment…</p></div>
@@ -286,18 +295,18 @@ textarea.form-input{resize:vertical;min-height:72px}
     </div>
   </div>
 
-  <div class="mgmt-section">
+  <div class="mgmt-section" data-reveal>
     <div class="mgmt-section-head"><div><div class="mgmt-section-title" data-i18n="employees">Project employees</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Authoritative project memberships and project-specific roles.</div></div>
       <button class="mgmt-btn primary" id="btn-add-member" onclick="openAddMember()" style="display:none">+ Add employee</button></div>
     <div id="team-legend-list" class="mgmt-notice">Loading project employees…</div>
   </div>
 
-  <div class="mgmt-section" id="permissions-section" style="display:none">
+  <div class="mgmt-section" id="permissions-section" data-reveal style="display:none">
     <div class="mgmt-section-head"><div class="mgmt-section-title" data-i18n="permissions">Module permissions</div></div>
     <div id="project-permissions" class="mgmt-notice">Loading module permissions…</div>
   </div>
 
-  <div class="mgmt-section" id="management-records" style="display:none">
+  <div class="mgmt-section" id="management-records" data-reveal style="display:none">
     <div class="mgmt-grid">
       <div class="mgmt-card"><h3 data-i18n="monitoring">Monitoring comments</h3><p>Append-only management observations.</p>
         <div id="comment-form" style="display:none;margin-top:12px"><div class="mgmt-field"><textarea id="monitoring-comment-body" rows="3" placeholder="Add a monitoring comment"></textarea></div><div class="mgmt-actions" style="margin-top:8px"><button class="mgmt-btn primary" onclick="addMonitoringComment()">Add comment</button></div></div>
@@ -437,6 +446,7 @@ const PROJECT_ID = parseInt(pathParts[pathParts.length - 1], 10);
 if (!PROJECT_ID) { window.location.href = '/dashboard'; throw 0; }
 
 let PROJECT = null;
+let OVERVIEW = null;
 let MY_ROLE  = null;
 let COMPANY_MEMBERS = [];
 let PROJECT_MEMBERS = [];
@@ -535,6 +545,7 @@ async function loadProject() {
     BINNA.setProject(PROJECT);
 
     renderHeader();
+    await loadProjectOverview();
     await renderManagement();
 
   } catch (err) {
@@ -542,6 +553,35 @@ async function loadProject() {
       window.location.href = '/dashboard';
     }
   }
+}
+
+function recorded(value){return value===null||value===undefined||value===''?BINNA_I18N.t('notRecorded'):value;}
+function overviewMoney(value,currency){
+  if(value===null||value===undefined)return BINNA_I18N.t('notRecorded');
+  try{return new Intl.NumberFormat(BINNA_I18N.lang==='ar'?'ar-IQ':'en-US',{maximumFractionDigits:0}).format(value)+' '+(currency||'');}
+  catch(_){return String(value)+' '+(currency||'');}
+}
+function overviewDate(value){if(!value)return BINNA_I18N.t('notRecorded');try{return new Intl.DateTimeFormat(BINNA_I18N.lang==='ar'?'ar-IQ':'en-GB',{dateStyle:'medium'}).format(new Date(value+'T00:00:00'));}catch(_){return value;}}
+async function loadProjectOverview(){
+  const grid=document.getElementById('project-overview');
+  try{OVERVIEW=(await BINNA.fetchProjectOverview(PROJECT_ID)).overview||{};renderProjectOverview();}
+  catch(e){grid.innerHTML=`<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;}
+}
+function renderProjectOverview(){
+  if(!OVERVIEW)return;
+  const n=BINNA_I18N.t('notRecorded'),currency=OVERVIEW.currency||'';
+  const dateMeta=[OVERVIEW.contract_date?overviewDate(OVERVIEW.contract_date):'',OVERVIEW.contract_completion_date?overviewDate(OVERVIEW.contract_completion_date):''].filter(Boolean).join(' → ')||n;
+  const cards=[
+    [BINNA_I18N.t('durationDates'),OVERVIEW.contract_duration_days===null?n:`${OVERVIEW.contract_duration_days} ${BINNA_I18N.t('days')}`,dateMeta,''],
+    [BINNA_I18N.t('contractValue'),overviewMoney(OVERVIEW.contract_value,currency),currency||n,''],
+    [BINNA_I18N.t('ownerPayments'),overviewMoney(OVERVIEW.received_owner_payments,currency),currency||n,'success'],
+    [BINNA_I18N.t('employees'),recorded(OVERVIEW.employee_count),BINNA_I18N.t('employees'),''],
+    [BINNA_I18N.t('cashPosition'),overviewMoney(OVERVIEW.project_cash_position,currency),OVERVIEW.project_cash_position===null?n:currency,'warning']
+  ];
+  document.getElementById('project-overview').innerHTML=cards.map(c=>`<div class="overview-card ${c[3]}"><div class="overview-label">${BINNA.esc(c[0])}</div><div class="overview-value">${BINNA.esc(c[1])}</div><div class="overview-meta">${BINNA.esc(c[2])}</div></div>`).join('');
+  const progressCard=(label,value,kind)=>`<div class="overview-card"><div class="overview-label">${label}</div><div class="overview-value">${value===null?n:`${value}%`}</div><div class="pulse-track ${value===null?'pulse-unavailable':''}"><div class="pulse-fill ${kind}" data-progress="${value===null?0:value}"></div></div></div>`;
+  document.getElementById('project-pulse').innerHTML=progressCard(BINNA_I18N.t('financialProgress'),OVERVIEW.financial_progress,'')+progressCard(BINNA_I18N.t('scheduleProgress'),OVERVIEW.schedule_progress,'schedule');
+  if(window.BINNA_UI)BINNA_UI.reveal();
 }
 
 function statusClass(s) {
@@ -913,7 +953,7 @@ renderUser();
 renderModules();   // builds the cards (so stat-* spans exist)
 loadStats();       // fills the card counters from the stats API
 window.addEventListener('binna:languagechange', () => {
-  if (PROJECT) { renderHeader(); renderManagement(); }
+  if (PROJECT) { renderHeader(); renderProjectOverview(); renderManagement(); }
 });
 // Wait for the project (and MY_ROLE) to load before honouring #parties, so the
 // Parties modal renders with the correct edit/delete permissions. Other modules

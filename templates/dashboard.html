@@ -177,36 +177,36 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <div class="main">
 
   <!-- Page header -->
-  <div class="page-header">
-    <div class="page-title">
-      Projects
-      <small>All construction projects you have access to</small>
+  <div class="page-header app-page-head" data-reveal>
+    <div class="page-title app-page-title">
+      Project portfolio
+      <small class="app-page-subtitle">A clear view of every construction project your role can access.</small>
     </div>
     <button class="btn btn-primary" id="btn-new-project" onclick="openProjectModal()" style="display:none">＋ New Project</button>
   </div>
 
   <!-- Stats -->
-  <div class="stats">
-    <div class="stat-card">
+  <div class="stats" data-reveal>
+    <div class="stat-card" data-reveal>
       <div class="stat-lbl">Total Projects</div>
       <div class="stat-val c-accent" id="s-total">—</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" data-reveal>
       <div class="stat-lbl">Active</div>
       <div class="stat-val c-success" id="s-active">—</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" data-reveal>
       <div class="stat-lbl">On Hold</div>
       <div class="stat-val c-warning" id="s-hold">—</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" data-reveal>
       <div class="stat-lbl">Completed</div>
       <div class="stat-val" id="s-done">—</div>
     </div>
   </div>
 
   <!-- Toolbar -->
-  <div class="toolbar">
+  <div class="toolbar" data-reveal>
     <input class="search-input" type="text" id="search" placeholder="Search projects…" oninput="filterProjects()"/>
     <select class="filter-sel" id="filter-status" onchange="filterProjects()">
       <option value="">All Statuses</option>
@@ -221,7 +221,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   </div>
 
   <!-- Projects grid -->
-  <div id="proj-grid"></div>
+  <div id="proj-grid" data-reveal></div>
 
 </div><!-- /main -->
 
@@ -389,6 +389,7 @@ function renderProjects(list) {
   }
 
   grid.innerHTML = `<div class="proj-grid">${list.map(projCard).join('')}</div>`;
+  if (window.BINNA_UI) BINNA_UI.reveal();
 }
 
 function projCard(p) {
@@ -411,7 +412,7 @@ function projCard(p) {
     : '';
 
   return `
-  <div class="proj-card mgmt-rail${p.is_closed ? ' closed' : ''}" id="card-${p.id}">
+  <div class="proj-card mgmt-rail${p.is_closed ? ' closed' : ''}" id="card-${p.id}" data-reveal>
     <div class="proj-card-top">
       <div class="proj-card-badges">
         <span class="code-badge">${BINNA.esc(p.code)}</span>

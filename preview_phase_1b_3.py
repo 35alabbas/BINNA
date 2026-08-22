@@ -92,6 +92,20 @@ def seed_demo():
     dc_permissions = {'dc': {'view': True, 'edit': True},
                       'uploads': {'view': True, 'edit': True},
                       'financial': {'view': False, 'edit': False}}
+    overview_payloads = {
+        active.id: {
+            'currency': 'IQD',
+            'contractDetails': {'contract-value': '2850000000', 'date': '2026-02-01',
+                                'contract-end': '2027-07-15', 'period': '530'},
+            'cashflowSummary': {'totalCertified': 740000000, 'totalReceived': 610000000},
+        },
+        closed.id: {
+            'currency': 'IQD',
+            'contractDetails': {'contract-value': '920000000', 'date': '2024-04-10',
+                                'contract-end': '2025-06-30', 'period': '446'},
+            'cashflowSummary': {'totalCertified': 920000000, 'totalReceived': 920000000},
+        },
+    }
     for project in (active, closed):
         db.session.add_all([
             ProjectMember(company_id=company.id, project_id=project.id,
@@ -104,7 +118,8 @@ def seed_demo():
                           permissions=json.dumps(dc_permissions)),
         ])
         db.session.add(FinancialData(company_id=company.id, project_id=project.id,
-                                     data='{}', updated_by=manager.id))
+                                     data=json.dumps(overview_payloads[project.id]),
+                                     updated_by=manager.id))
 
     db.session.add_all([
         ProjectMonitoringComment(company_id=company.id, project_id=active.id,

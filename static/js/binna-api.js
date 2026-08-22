@@ -142,6 +142,7 @@ const BINNA = {
   async fetchMonitoringComments(pid){ return this.get(`/projects/${pid}/monitoring-comments`); },
   async addMonitoringComment(pid, body) { return this.post(`/projects/${pid}/monitoring-comments`, { body }); },
   async fetchProjectAudit(pid)      { return this.get(`/projects/${pid}/audit-logs`); },
+  async fetchProjectOverview(pid)   { return this.get(`/projects/${pid}/overview`); },
   managementError(error) {
     if (error && error.code === 'phase_1b_migration_required') return (window.BINNA_I18N ? BINNA_I18N.t('migration1') : error.error);
     if (error && error.code === 'phase_1b_2_migration_required') return (window.BINNA_I18N ? BINNA_I18N.t('migration2') : error.error);

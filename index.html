@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/static/css/theme.css">
 <title>BINNA — Construction Project Management</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=Noto+Kufi+Arabic:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -357,9 +357,10 @@ footer{background:#060608;border-top:1px solid rgba(197,168,90,0.1)}
 [data-theme="dark"] body{background:#060608 !important}
 [data-theme="light"] body{background:#060608 !important}
 </style>
+<link rel="stylesheet" href="/static/css/app-shell.css">
+<link rel="stylesheet" href="/static/css/landing-slice1.css">
 </head>
-<body>
-<button id="binna-theme-toggle" class="binna-theme-toggle" style="position:fixed;top:14px;right:14px;z-index:9999" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
+<body class="binna-public">
 
 <nav id="nav">
   <a href="/" class="nb"><span class="nb-m">BINNA</span><span class="nb-s">بِنّا · Construction PM</span></a>
@@ -1427,8 +1428,8 @@ function applyLang(lang){
 
   /* ── Font ── */
   document.body.style.fontFamily = isAr
-    ? "'Noto Kufi Arabic', system-ui, sans-serif"
-    : "'DM Sans', system-ui, sans-serif";
+    ? "'Noto Sans Arabic', Tahoma, 'Segoe UI', Arial, sans-serif"
+    : "Inter, 'Segoe UI', Arial, sans-serif";
 
   /* ── Syne headings: Arabic needs different font + size adjustment ── */
   document.querySelectorAll('.st, .fn, .nb-m, .fb-brand').forEach(el => {
@@ -1504,7 +1505,8 @@ function applyLang(lang){
   document.querySelector('[data-tid="iraq-p1"]').innerHTML = t['iraq-p1'];
   document.querySelector('[data-tid="iraq-p2"]').innerHTML = t['iraq-p2'];
   document.querySelector('[data-tid="iraq-p3"]').innerHTML = t['iraq-p3'];
-  document.querySelector('[data-tid="iraq-p4"]').innerHTML = t['iraq-p4'];
+  const iraqP4 = document.querySelector('[data-tid="iraq-p4"]');
+  if (iraqP4) iraqP4.innerHTML = t['iraq-p4'];
 
   // Iraq section: flip columns (text right, cert card left in Arabic)
   const ig = document.querySelector('.ig');

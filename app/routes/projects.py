@@ -636,6 +636,69 @@ def project_stats(project_id):
     return jsonify({'stats': stats})
 
 
+@projects_bp.route('/<int:project_id>/overview', methods=['GET'])
+@jwt_required()
+def project_overview(project_id):
+    """Read-only dashboard facts from authoritative records already in BINNA.
+
+    Undefined business metrics deliberately remain ``None`` so the interface
+    can say "Not recorded" instead of presenting an inferred value.
+    """
+    uid = int(get_jwt_identity())
+    project, member = _requires_role(project_id, uid, 'viewer')
+    if not project:
+        return jsonify({'error': 'Project not found or insufficient permissions'}), 404
+
+    overview = {
+        'contract_value': None,
+        'currency': None,
+        'contract_date': None,
+        'contract_completion_date': None,
+        'contract_duration_days': None,
+        'received_owner_payments': None,
+        'financial_progress': None,
+        'schedule_progress': None,
+        'project_cash_position': None,
+        'alert_count': None,
+        'employee_count': len(project.members),
+    }
+
+    user = User.query.get(uid)
+    may_view_financial = (
+        can_manage_project_portfolio(user)
+        or is_project_manager(user, project)
+        or (member is not None and member.can('financial', 'view'))
+    )
+    if may_view_financial:
+        fin = FinancialData.query.filter_by(project_id=project_id).first()
+        try:
+            payload = json.loads(fin.data) if fin and fin.data else {}
+        except (TypeError, ValueError):
+            payload = {}
+        details = payload.get('contractDetails') or {}
+        cashflow = payload.get('cashflowSummary') or {}
+
+        def recorded_number(value, integer=False):
+            if value in (None, ''):
+                return None
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                return None
+            return int(number) if integer or number.is_integer() else number
+
+        overview.update({
+            'contract_value': recorded_number(details.get('contract-value')),
+            'currency': payload.get('currency') or None,
+            'contract_date': details.get('date') or None,
+            'contract_completion_date': details.get('contract-end') or None,
+            'contract_duration_days': recorded_number(details.get('period'), integer=True),
+            'received_owner_payments': recorded_number(cashflow.get('totalReceived')),
+        })
+
+    return jsonify({'overview': overview})
+
+
 # ── Update project ────────────────────────────────────────────────────────────
 
 @projects_bp.route('/<int:project_id>', methods=['PUT'])

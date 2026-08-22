@@ -2,6 +2,7 @@
 """Phase 1B-3 UI response contract on an isolated SQLite database."""
 import os
 import sys
+import json
 from pathlib import Path
 
 
@@ -27,7 +28,7 @@ TEST_DB_PATH = _verified_test_database()
 from flask_jwt_extended import create_access_token  # noqa: E402
 
 from app import create_app, db  # noqa: E402
-from app.models import Company, Project, ProjectMember, User  # noqa: E402
+from app.models import Company, FinancialData, Project, ProjectMember, User  # noqa: E402
 
 
 app = create_app('development')
@@ -58,7 +59,23 @@ with app.app_context():
         ProjectMember(company_id=company.id, project_id=project.id, user_id=pm.id,
                       role='viewer', permissions='{}'),
         ProjectMember(company_id=company.id, project_id=project.id, user_id=employee.id,
-                      role='member', permissions='{}'),
+                      role='member', permissions=json.dumps({
+                          'financial': {'view': False, 'edit': False},
+                      })),
+        FinancialData(company_id=company.id, project_id=project.id, updated_by=owner.id,
+                      data=json.dumps({
+                          'currency': 'IQD',
+                          'contractDetails': {
+                              'contract-value': '1250000000',
+                              'date': '2026-01-15',
+                              'contract-end': '2027-03-31',
+                              'period': '440',
+                          },
+                          'cashflowSummary': {
+                              'totalCertified': 240000000,
+                              'totalReceived': 180000000,
+                          },
+                      })),
     ])
     db.session.commit()
     ids = {'owner': owner.id, 'portfolio': portfolio.id, 'pm': pm.id,
@@ -134,6 +151,33 @@ employee_project = (client.get(f"/api/v1/projects/{ids['project']}", headers=hea
 employee_caps = employee_project.get('project', {}).get('capabilities', {})
 check('ordinary employee receives no management-record capability',
       employee_caps.get('read_management_records') is False)
+
+pm_overview_response = client.get(
+    f"/api/v1/projects/{ids['project']}/overview", headers=headers['pm'],
+)
+pm_overview = (pm_overview_response.get_json() or {}).get('overview', {})
+check('overview exposes only authoritative recorded project values',
+      pm_overview_response.status_code == 200 and
+      pm_overview.get('contract_value') == 1250000000 and
+      pm_overview.get('currency') == 'IQD' and
+      pm_overview.get('contract_date') == '2026-01-15' and
+      pm_overview.get('contract_completion_date') == '2027-03-31' and
+      pm_overview.get('contract_duration_days') == 440 and
+      pm_overview.get('received_owner_payments') == 180000000 and
+      pm_overview.get('employee_count') == 3)
+check('undefined progress cash and alerts remain explicitly unavailable',
+      pm_overview.get('financial_progress') is None and
+      pm_overview.get('schedule_progress') is None and
+      pm_overview.get('project_cash_position') is None and
+      pm_overview.get('alert_count') is None)
+
+employee_overview = (client.get(
+    f"/api/v1/projects/{ids['project']}/overview", headers=headers['employee'],
+).get_json() or {}).get('overview', {})
+check('financial overview values follow existing module permissions',
+      employee_overview.get('contract_value') is None and
+      employee_overview.get('received_owner_payments') is None and
+      employee_overview.get('employee_count') == 3)
 
 print(f'RESULT: {passed} passed, {failed} failed')
 sys.exit(1 if failed else 0)
