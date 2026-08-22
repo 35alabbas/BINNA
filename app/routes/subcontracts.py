@@ -31,6 +31,13 @@ from app.models import (
     VALID_SUBCONTRACT_KINDS,
 )
 from app.tenancy import authorize_project_access
+from app.payment_expenses import (
+    SUBCONTRACT_CATEGORY_ID,
+    SUPPLIER_CATEGORY_ID,
+    has_active_payment_links,
+    normalize_payment_ids,
+    sync_paid_payment_log,
+)
 
 subcontracts_bp = Blueprint('subcontracts', __name__)
 
@@ -344,6 +351,7 @@ def create_subcontract(project_id):
         return jsonify({'error': 'Party not found in this project'}), 404
 
     sub = Subcontract(
+        company_id = proj.company_id,
         project_id = project_id,
         party_id   = party_id,
         ref        = _generate_sub_ref(proj),
@@ -411,9 +419,44 @@ def update_subcontract(project_id, sub_id):
             }), 409
         sub.kind = body['kind']
 
+    try:
+        old_blob = json.loads(sub.data) if sub.data else {}
+    except (ValueError, TypeError):
+        old_blob = {}
+    if not isinstance(old_blob, dict):
+        old_blob = {}
     # Full blob replace (same pattern as the financial PUT).
     if 'data' in body:
-        sub.data = json.dumps(body['data'], ensure_ascii=False)
+        new_blob = body['data'] if isinstance(body['data'], dict) else {}
+        currency = new_blob.get('currency') or old_blob.get('currency') or 'IQD'
+        if sub.kind == 'open_supply':
+            key = 'supplyPayments'
+            source_type = 'open_supply_payment'
+            old_paid = [dict(p) for p in old_blob.get(key, []) if isinstance(p, dict) and p.get('paid')]
+            new_rows = normalize_payment_ids(new_blob.get(key) or [])
+            new_blob[key] = new_rows
+            new_paid = [dict(p) for p in new_rows if isinstance(p, dict) and p.get('paid')]
+        else:
+            key = 'payments'
+            source_type = 'subcontract_payment'
+            old_rows = old_blob.get(key) or []
+            new_rows = normalize_payment_ids(new_blob.get(key) or [])
+            new_blob[key] = new_rows
+            old_paid = [dict(p, amount=_row_net(p)) for p in old_rows if isinstance(p, dict) and p.get('paid')]
+            new_paid = [dict(p, amount=_row_net(p)) for p in new_rows if isinstance(p, dict) and p.get('paid')]
+        try:
+            sync_paid_payment_log(
+                project=proj, actor_user_id=uid, source_type=source_type,
+                agreement_id=sub.id, party_name=sub.party.name if sub.party else sub.ref,
+                currency=currency, old_payments=old_paid, new_payments=new_paid,
+                category_id=SUBCONTRACT_CATEGORY_ID, category_name='Subcontractors',
+            )
+        except ValueError as exc:
+            if str(exc) == 'exchange_rate_required':
+                db.session.rollback()
+                return jsonify({'error': 'exchange_rate_required'}), 400
+            raise
+        sub.data = json.dumps(new_blob, ensure_ascii=False)
 
     db.session.commit()
     return jsonify({'subcontract': sub.to_dict()}), 200
@@ -432,6 +475,10 @@ def delete_subcontract(project_id, sub_id):
     sub = Subcontract.query.filter_by(id=sub_id, project_id=project_id).first()
     if not sub:
         return jsonify({'error': 'Subcontract not found'}), 404
+
+    if (has_active_payment_links(project_id, 'subcontract_payment', sub.id) or
+            has_active_payment_links(project_id, 'open_supply_payment', sub.id)):
+        return jsonify({'error': 'Agreement has active linked paid expenses'}), 409
 
     db.session.delete(sub)
     db.session.commit()
@@ -696,6 +743,7 @@ def create_supply_agreement(project_id):
 
     blob = {'payments': [], 'notes': (body.get('notes') or '')}
     sa = SupplyAgreement(
+        company_id      = proj.company_id,
         project_id      = project_id,
         global_party_id = body.get('global_party_id') or None,
         ref             = _generate_po_ref(proj),
@@ -750,9 +798,31 @@ def update_supply_agreement(project_id, agreement_id):
         sa.currency = body['currency'].strip()
     if 'date_issued' in body:
         sa.date_issued = (body['date_issued'] or '').strip()
+    try:
+        old_blob = json.loads(sa.data) if sa.data else {}
+    except (ValueError, TypeError):
+        old_blob = {}
+    if not isinstance(old_blob, dict):
+        old_blob = {}
     # Full blob replace (same pattern as the subcontract PUT).
     if 'data' in body:
-        sa.data = json.dumps(body['data'], ensure_ascii=False)
+        new_blob = body['data'] if isinstance(body['data'], dict) else {}
+        payments = normalize_payment_ids(new_blob.get('payments') or [])
+        new_blob['payments'] = payments
+        try:
+            sync_paid_payment_log(
+                project=proj, actor_user_id=uid, source_type='supply_agreement_payment',
+                agreement_id=sa.id, party_name=_sa_dict(sa).get('party_name') or sa.ref,
+                currency=sa.currency, old_payments=old_blob.get('payments') or [],
+                new_payments=payments, category_id=SUPPLIER_CATEGORY_ID,
+                category_name='Suppliers',
+            )
+        except ValueError as exc:
+            if str(exc) == 'exchange_rate_required':
+                db.session.rollback()
+                return jsonify({'error': 'exchange_rate_required'}), 400
+            raise
+        sa.data = json.dumps(new_blob, ensure_ascii=False)
 
     # Status is derived from the resulting payment log — never trust the client.
     total_paid, _ = _po_rollup(sa)
@@ -775,6 +845,9 @@ def delete_supply_agreement(project_id, agreement_id):
     sa = SupplyAgreement.query.filter_by(id=agreement_id, project_id=project_id).first()
     if not sa:
         return jsonify({'error': 'Supply agreement not found'}), 404
+
+    if has_active_payment_links(project_id, 'supply_agreement_payment', sa.id):
+        return jsonify({'error': 'Agreement has active linked paid expenses'}), 409
 
     db.session.delete(sa)
     db.session.commit()

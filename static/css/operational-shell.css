@@ -1,4 +1,5 @@
-body.binna-operational{background:#f4f7fb;color:#172033;font-family:Inter,'Noto Sans Arabic','Segoe UI',Arial,sans-serif}
+:root{--op-bg:#f4f7fb;--op-surface:#fff;--op-text:#172033;--op-muted:#65758b;--op-primary:#2563eb;--op-soft:#eaf2ff;--op-border:#dce5f0;--op-success:#158f62;--op-warning:#d97706;--op-danger:#d13c4b}
+body.binna-operational{background:var(--op-bg);color:var(--op-text);font-family:Inter,'Noto Sans Arabic','Segoe UI',Arial,sans-serif;--bg:var(--op-bg);--surface:var(--op-surface);--surface2:#f8faff;--card:var(--op-surface);--text:var(--op-text);--muted:var(--op-muted);--muted2:#8a98ac;--border:var(--op-border);--blue:var(--op-primary);--accent:var(--op-primary);--primary:var(--op-primary);--success:var(--op-success);--warning:var(--op-warning);--danger:var(--op-danger)}
 body.binna-operational .topbar{height:64px;padding:0 22px;background:rgba(255,255,255,.96);border-bottom:1px solid #dce5f0;box-shadow:none;backdrop-filter:blur(12px)}
 body.binna-operational .logo{display:flex;align-items:center;gap:9px;color:#172033;font-size:15px;letter-spacing:0}
 .op-brand-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#2563eb;color:#fff;font-size:16px;font-weight:800;box-shadow:0 7px 16px rgba(37,99,235,.2)}
@@ -16,7 +17,16 @@ body.binna-operational .sidebar-item.active{background:#eaf2ff;color:#2563eb;box
 [dir=rtl] body.binna-operational .sidebar-item.active{box-shadow:inset -3px 0 0 #2563eb}
 .op-nav-icon{width:19px;text-align:center;font-size:14px}.op-nav-label{white-space:nowrap}
 body.binna-operational .main{background:#f4f7fb}
-body.binna-operational .sheet-wrap,body.binna-operational .summary-card,body.binna-operational .stat-card,body.binna-operational .ctype-box{border-color:#dce5f0;border-radius:12px;box-shadow:0 4px 14px rgba(25,45,75,.045)}
+body.binna-operational :where(.card,.panel,.section,.sheet-wrap,.summary-card,.stat-card,.ctype-box,.table-wrap,.modal-box,.modal-content){background:#fff;color:var(--op-text);border-color:var(--op-border);border-radius:12px;box-shadow:0 4px 14px rgba(25,45,75,.045)}
+body.binna-operational :where(table,thead,tbody,tr,th,td){border-color:var(--op-border)}
+body.binna-operational :where(th,.table-head){background:#f7faff;color:#536176}
+body.binna-operational :where(input,select,textarea){background:#fff;color:var(--op-text);border-color:var(--op-border);border-radius:8px}
+body.binna-operational :where(input,select,textarea)::placeholder{color:#98a5b7}
+body.binna-operational :where(.modal,.overlay){background:rgba(23,32,51,.42)}
+body.binna-operational :where(.badge,.status-badge,.pill){border-radius:999px}
+body.binna-operational .system-linked-row{background:#f3f8ff}
+.op-system-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;background:#eaf2ff;color:#2563eb;font-size:10px;font-weight:800}
+.op-category-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.op-category-list{display:grid;gap:8px;margin-top:12px}.op-category-row{display:flex;align-items:center;gap:8px;padding:9px;border:1px solid var(--op-border);border-radius:9px;background:#fff}.op-category-row input{flex:1}.op-category-row.is-archived{opacity:.62}
 body.binna-operational .btn{border-radius:8px;transition:background .18s,border-color .18s,box-shadow .18s,transform .12s}
 body.binna-operational .btn:active{transform:scale(.98)}
 body.binna-operational :where(input,select,textarea,button):focus-visible{outline:3px solid rgba(37,99,235,.22);outline-offset:2px}

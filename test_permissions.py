@@ -15,28 +15,102 @@ Asserted behaviour:
   * the project OWNER's grants are immutable (always full access) → 403
   * unknown module keys are ignored; a missing "permissions" object → 400
 
-Runs offline against a throwaway SQLite DB (RESEND_API_KEY unset → email logged,
-not sent). Exit 0 only when every assertion holds.
+Runs offline against a caller-provided, newly created SQLite database outside
+C:\\BINNA\\instance. It never imports run.py. Exit 0 only when every assertion holds.
 """
-import os, sys, tempfile
+import json
+import os
+import sys
+from datetime import timedelta
+from pathlib import Path
 
-_TMP = os.path.join(tempfile.gettempdir(), 'binna_permissions_test.db')
-if os.path.exists(_TMP):
-    os.remove(_TMP)
-os.environ['DATABASE_URL'] = 'sqlite:///' + _TMP
-os.environ['FLASK_ENV']    = 'development'
-os.environ.pop('RESEND_API_KEY', None)
-os.environ['APP_BASE_URL'] = 'http://localhost:5000'
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 
-from app import create_app, db                       # noqa: E402
-from app.models import User, PERMISSION_MODULES      # noqa: E402
+
+def _verified_test_database():
+    url = os.environ.get('DATABASE_URL', '')
+    if os.environ.get('BINNA_ISOLATED_TEST_DB') != '1' or not url.startswith('sqlite:///'):
+        raise RuntimeError('Refusing to run without an explicitly isolated SQLite database')
+    path = Path(url[len('sqlite:///'):]).resolve()
+    instance = (Path(__file__).resolve().parent / 'instance').resolve()
+    try:
+        path.relative_to(instance)
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError('Refusing to use a database inside C:\\BINNA\\instance')
+    if not path.is_file() or path.stat().st_size != 0:
+        raise RuntimeError('Test database must be a newly created empty file')
+    return path
+
+
+TEST_DB_PATH = _verified_test_database()
+
+from flask_jwt_extended import create_access_token  # noqa: E402
+from app import create_app, db  # noqa: E402
+from app.models import (  # noqa: E402
+    Company, FinancialData, PERMISSION_MODULES, Project, ProjectMember, User, _now,
+)
 
 app = create_app('development')
-import run                                            # noqa: E402,F401
+client = app.test_client()
+
+
+def headers(user_id):
+    with app.app_context():
+        token = create_access_token(identity=str(user_id))
+    return {'Authorization': 'Bearer ' + token}
+
+
 with app.app_context():
     db.create_all()
-    run._ensure_schema()
-client = app.test_client()
+    alpha = Company(name='Acme', slug='permissions-acme', status='trial',
+                    trial_ends_at=_now() + timedelta(days=14))
+    beta = Company(name='Beta', slug='permissions-beta', status='trial',
+                   trial_ends_at=_now() + timedelta(days=14))
+    db.session.add_all([alpha, beta])
+    db.session.flush()
+    manager = User(username='ceo', email='ceo@acme.test', password_hash='unused',
+                   company_id=alpha.id, company_role='owner',
+                   is_company_manager=True, email_verified=True)
+    member = User(username='pm', email='pm@acme.test', password_hash='unused',
+                  company_id=alpha.id, company_role='member', email_verified=True)
+    viewer = User(username='eyes', email='eyes@acme.test', password_hash='unused',
+                  company_id=alpha.id, company_role='viewer', email_verified=True)
+    outsider = User(username='outside', email='outside@beta.test', password_hash='unused',
+                    company_id=beta.id, company_role='owner',
+                    is_company_manager=True, email_verified=True)
+    db.session.add_all([manager, member, viewer, outsider])
+    db.session.flush()
+    alpha.projects_manager_user_id = manager.id
+    # The company manager also serves as projects manager and explicit project
+    # manager; the other users exercise legacy project roles and module grants.
+    project = Project(company_id=alpha.id, code='ACM', name='Acme Tower',
+                      created_by=manager.id, project_manager_user_id=manager.id)
+    db.session.add(project)
+    db.session.flush()
+    owner_membership = ProjectMember(company_id=alpha.id, project_id=project.id,
+                                     user_id=manager.id, role='owner', permissions='{}')
+    member_membership = ProjectMember(company_id=alpha.id, project_id=project.id,
+                                      user_id=member.id, role='member', permissions='{}')
+    viewer_membership = ProjectMember(company_id=alpha.id, project_id=project.id,
+                                      user_id=viewer.id, role='viewer', permissions='{}')
+    db.session.add_all([owner_membership, member_membership, viewer_membership])
+    db.session.add(FinancialData(company_id=alpha.id, project_id=project.id,
+                                 updated_by=manager.id,
+                                 data=json.dumps({'income': [], 'expenses': []})))
+    db.session.commit()
+    ids = {'project': project.id, 'manager': manager.id, 'member': member.id,
+           'viewer': viewer.id, 'outsider': outsider.id,
+           'member_membership': member_membership.id}
+
+owner_hdr = headers(ids['manager'])
+mem_hdr = headers(ids['member'])
+viewer_hdr = headers(ids['viewer'])
+outsider_hdr = headers(ids['outsider'])
+pid = ids['project']
+mem_id = ids['member_membership']
 
 _PASS = _FAIL = 0
 def check(name, cond):
@@ -45,52 +119,12 @@ def check(name, cond):
     print(('  ok   ' if cond else '  FAIL ') + name)
 
 
-def signup_owner(username, email, pw, company):
-    r = client.post('/api/v1/auth/register', json={
-        'username': username, 'email': email, 'password': pw, 'company_name': company})
-    assert r.status_code == 201, r.get_json()
-    with app.app_context():
-        tok = User.query.filter_by(email=email).first().email_verification_token
-    client.get(f'/api/v1/auth/verify/{tok}')
-    rl = client.post('/api/v1/auth/login', json={'email': email, 'password': pw})
-    return {'Authorization': 'Bearer ' + rl.get_json()['access_token']}
-
-
-def invited_member(owner_hdr, email, pw, company_role='member'):
-    """Owner invites into the company; invitee accepts → verified login header."""
-    inv = client.post('/api/v1/company/invite',
-                      json={'email': email, 'company_role': company_role}, headers=owner_hdr)
-    assert inv.status_code == 201, inv.get_json()
-    with app.app_context():
-        itok = User.query.filter_by(email=email).first().email_verification_token
-    acc = client.post('/api/v1/company/accept-invite', json={'token': itok, 'password': pw})
-    assert acc.status_code == 200, acc.get_json()
-    rl = client.post('/api/v1/auth/login', json={'email': email, 'password': pw})
-    return {'Authorization': 'Bearer ' + rl.get_json()['access_token']}
-
-
-def add_to_project(owner_hdr, pid, email, role):
-    am = client.post(f'/api/v1/projects/{pid}/members',
-                     json={'email': email, 'role': role}, headers=owner_hdr)
-    assert am.status_code == 201, am.get_json()
-    return am.get_json()['member']['id']
-
-
 print('═' * 70)
 print('  PHASE 5 item 3 — per-module permission management API')
 print('═' * 70)
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
-owner_hdr = signup_owner('ceo', 'ceo@acme.test', 'ownerpass', 'Acme')
-pr = client.post('/api/v1/projects', json={'code': 'ACM', 'name': 'Acme Tower'},
-                 headers=owner_hdr)
-pid = pr.get_json()['project']['id']
-
-mem_hdr = invited_member(owner_hdr, 'pm@acme.test', 'memberpass', 'member')
-mem_id  = add_to_project(owner_hdr, pid, 'pm@acme.test', 'member')
-
-viewer_hdr = invited_member(owner_hdr, 'eyes@acme.test', 'viewerpass', 'viewer')
-add_to_project(owner_hdr, pid, 'eyes@acme.test', 'viewer')
+print(f'ISOLATED_DATABASE={TEST_DB_PATH}')
 
 # ── GET permissions — owner sees the whole grid ────────────────────────────────
 print('\n[A] GET /permissions')
@@ -112,6 +146,9 @@ check("member (role 'member') has NO edit on projects by default",
 gv = client.get(f'/api/v1/projects/{pid}/permissions', headers=viewer_hdr)
 check(f'[{gv.status_code}] viewer CANNOT read permissions (403/404)',
       gv.status_code in (403, 404))
+foreign = client.get(f'/api/v1/projects/{pid}/permissions', headers=outsider_hdr)
+check(f'[{foreign.status_code}] cross-company permissions stay hidden (404)',
+      foreign.status_code == 404)
 
 # ── PUT — set the member read-only on financial ────────────────────────────────
 print('\n[B] PUT member permissions')

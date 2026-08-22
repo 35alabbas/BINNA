@@ -37,11 +37,15 @@ if os.environ.get('BINNA_ISOLATED_TEST_DB') != '1':
 
 from app import create_app, db
 from app.models import (
-    AuditLog, Company, FinancialData, GanttData, Project, ProjectMember,
-    ProjectMonitoringComment, User,
+    AuditLog, Company, FinancialData, GanttData, GlobalParty, Party, Project,
+    ProjectMember, ProjectMonitoringComment, Subcontract, SupplyAgreement, User,
 )
 from migrate_phase_1b_roles import apply_migration as apply_phase_1b_1
 from migrate_phase_1b_2_lifecycle import apply_migration as apply_phase_1b_2
+from migrate_payment_expense_links import apply_migration as apply_payment_expense_links
+from app.payment_expenses import (
+    SUBCONTRACT_CATEGORY_ID, SUPPLIER_CATEGORY_ID, sync_paid_payment_log,
+)
 
 app = create_app('production')
 app.config.update(DEBUG=False, TESTING=False)
@@ -62,6 +66,7 @@ def seed_demo():
     # demo schema they verify columns/tables and create the required indexes.
     apply_phase_1b_1()
     apply_phase_1b_2()
+    apply_payment_expense_links()
     company = Company(name='BINNA Demo Contracting', slug='binna-demo',
                       status='active', plan='trial')
     db.session.add(company)
@@ -104,6 +109,14 @@ def seed_demo():
                 {'num': 'A-12', 'desc': 'أعمال إنهاء الواجهات الخارجية', 'unit': 'm²', 'qty': '1850', 'price': '95000'},
             ],
             'vo': [], 'payments': [],
+            'income': [{'id': 'demo-income-1', 'desc': 'Company project funding',
+                        'cat': 'demo-income-funding', 'date': '2026-02-01',
+                        'cur': 'IQD', 'amount': 350000000, 'rate': 1}],
+            'expenses': [{'id': 'demo-expense-1', 'desc': 'Site setup',
+                          'cat': 'demo-expense-site', 'date': '2026-02-03',
+                          'cur': 'IQD', 'amount': 48000000, 'rate': 1}],
+            'incomeCategories': [{'id': 'demo-income-funding', 'name': 'Company funding', 'archived': False}],
+            'expenseCategories': [{'id': 'demo-expense-site', 'name': 'Site setup', 'archived': False}],
             'cashflowSummary': {'totalCertified': 740000000, 'totalReceived': 610000000},
         },
         closed.id: {
@@ -140,6 +153,48 @@ def seed_demo():
             'notes': 'Site access was suspended for safety.', 'reference': 'SITE-INS-014',
         }]),
     ))
+
+    subcontractor = Party(company_id=company.id, project_id=active.id,
+                          name='Tigris Civil Works', role='subcontractor')
+    supplier = GlobalParty(company_id=company.id, project_id=active.id,
+                           name_en='Mesopotamia Steel', name_ar='حديد بلاد الرافدين',
+                           role='supplier')
+    db.session.add_all([subcontractor, supplier])
+    db.session.flush()
+    subcontract = Subcontract(
+        company_id=company.id, project_id=active.id, party_id=subcontractor.id,
+        ref='DEMO-A-SUB-001', title='Foundation concrete works', kind='monthly',
+        status='active', data=json.dumps({'currency': 'IQD', 'payments': [
+            {'id': 'demo-sub-paid', 'date': '2026-03-10', '_net': 72000000,
+             'paid': True, 'paidDate': '2026-03-10', 'exchangeRate': 1},
+            {'id': 'demo-sub-unpaid', 'date': '2026-04-10', '_net': 31000000,
+             'paid': False, 'paidDate': ''},
+        ]}), documents='[]')
+    supply = SupplyAgreement(
+        company_id=company.id, project_id=active.id, global_party_id=supplier.id,
+        ref='DEMO-A-PO-001', description='Reinforcement steel', po_value=185000,
+        currency='USD', date_issued='2026-02-05', status='partially_paid',
+        data=json.dumps({'payments': [
+            {'id': 'demo-supplier-paid', 'date': '2026-03-05', 'amount': 65000,
+             'exchangeRate': 1310, 'invoiceRef': 'MS-104'},
+        ]}),
+    )
+    db.session.add_all([subcontract, supply])
+    db.session.flush()
+    sync_paid_payment_log(
+        project=active, actor_user_id=project_manager.id,
+        source_type='subcontract_payment', agreement_id=subcontract.id,
+        party_name=subcontractor.name, currency='IQD', old_payments=[],
+        new_payments=[{'id': 'demo-sub-paid', 'date': '2026-03-10', 'amount': 72000000,
+                       'exchangeRate': 1}], category_id=SUBCONTRACT_CATEGORY_ID,
+        category_name='Subcontractors')
+    sync_paid_payment_log(
+        project=active, actor_user_id=project_manager.id,
+        source_type='supply_agreement_payment', agreement_id=supply.id,
+        party_name=supplier.name_en, currency='USD', old_payments=[],
+        new_payments=[{'id': 'demo-supplier-paid', 'date': '2026-03-05', 'amount': 65000,
+                       'exchangeRate': 1310}], category_id=SUPPLIER_CATEGORY_ID,
+        category_name='Suppliers')
 
     db.session.add_all([
         ProjectMonitoringComment(company_id=company.id, project_id=active.id,

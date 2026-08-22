@@ -18,6 +18,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import FinancialData, Project, ProjectMember, _ROLE_ORDER
 from app.tenancy import authorize_project_access
+from app.payment_expenses import preserve_linked_expenses
 
 financial_bp = Blueprint('financial', __name__)
 
@@ -90,6 +91,16 @@ def save_financial(project_id):
         fd = FinancialData(project_id=project_id, updated_by=uid)
         db.session.add(fd)
 
+    existing = {}
+    if fd.data:
+        try:
+            existing = json.loads(fd.data) or {}
+        except (ValueError, TypeError):
+            existing = {}
+    if isinstance(payload, dict):
+        payload['expenses'] = preserve_linked_expenses(
+            existing.get('expenses', []), payload.get('expenses', []))
+    fd.company_id = proj.company_id
     fd.data       = json.dumps(payload, ensure_ascii=False)
     fd.updated_by = uid
     fd.updated_at = datetime.now(timezone.utc)
@@ -125,7 +136,8 @@ def save_income_expenses(project_id):
 
     # Patch only the income/expense fields
     existing['income']             = body.get('income',             existing.get('income', []))
-    existing['expenses']           = body.get('expenses',           existing.get('expenses', []))
+    existing['expenses']           = preserve_linked_expenses(
+        existing.get('expenses', []), body.get('expenses', existing.get('expenses', [])))
     existing['incomeCategories']   = body.get('incomeCategories',   existing.get('incomeCategories', []))
     existing['expenseCategories']  = body.get('expenseCategories',  existing.get('expenseCategories', []))
     existing['usdRate']            = body.get('usdRate',            existing.get('usdRate', 1310))
@@ -135,6 +147,97 @@ def save_income_expenses(project_id):
     fd.updated_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({'ok': True}), 200
+
+
+def _category_lists(payload):
+    return {
+        'income_categories': payload.get('incomeCategories', []),
+        'expense_categories': payload.get('expenseCategories', []),
+    }
+
+
+@financial_bp.route('/categories', methods=['GET'])
+@jwt_required()
+def get_categories(project_id):
+    uid = int(get_jwt_identity())
+    proj = _check_access(project_id, uid)
+    if not proj:
+        return jsonify({'error': 'Project not found or access denied'}), 404
+    fd = FinancialData.query.filter_by(project_id=project_id).first()
+    try:
+        payload = json.loads(fd.data) if fd and fd.data else {}
+    except (ValueError, TypeError):
+        payload = {}
+    return jsonify(_category_lists(payload if isinstance(payload, dict) else {})), 200
+
+
+@financial_bp.route('/categories', methods=['POST'])
+@jwt_required()
+def create_category(project_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if not proj:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    body = request.get_json(silent=True) or {}
+    kind = body.get('kind')
+    name = (body.get('name') or '').strip()
+    if kind not in ('income', 'expense') or not name:
+        return jsonify({'error': 'kind and name are required'}), 400
+    import uuid
+    fd = FinancialData.query.filter_by(project_id=project_id).first()
+    if not fd:
+        fd = FinancialData(company_id=proj.company_id, project_id=project_id,
+                           updated_by=uid, data='{}')
+        db.session.add(fd)
+    try:
+        payload = json.loads(fd.data) if fd.data else {}
+    except (ValueError, TypeError):
+        payload = {}
+    key = 'incomeCategories' if kind == 'income' else 'expenseCategories'
+    category = {'id': str(uuid.uuid4()), 'name': name, 'archived': False}
+    payload.setdefault(key, []).append(category)
+    fd.data = json.dumps(payload, ensure_ascii=False)
+    db.session.commit()
+    return jsonify({'category': category}), 201
+
+
+@financial_bp.route('/categories/<kind>/<category_id>', methods=['PUT'])
+@jwt_required()
+def update_category(project_id, kind, category_id):
+    uid = int(get_jwt_identity())
+    proj, mem = _requires_role(project_id, uid, 'member')
+    if not proj:
+        return jsonify({'error': 'Project not found'}), 404
+    if mem is None:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    if kind not in ('income', 'expense'):
+        return jsonify({'error': 'Invalid category kind'}), 400
+    fd = FinancialData.query.filter_by(project_id=project_id).first()
+    if not fd or not fd.data:
+        return jsonify({'error': 'Category not found'}), 404
+    try:
+        payload = json.loads(fd.data) or {}
+    except (ValueError, TypeError):
+        payload = {}
+    key = 'incomeCategories' if kind == 'income' else 'expenseCategories'
+    category = next((c for c in payload.get(key, []) if isinstance(c, dict) and str(c.get('id')) == category_id), None)
+    if not category:
+        return jsonify({'error': 'Category not found'}), 404
+    body = request.get_json(silent=True) or {}
+    if 'name' in body:
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'name is required'}), 400
+        category['name'] = name
+    if 'archived' in body:
+        if category.get('system_required') and body.get('archived'):
+            return jsonify({'error': 'Required payment category cannot be archived'}), 409
+        category['archived'] = bool(body.get('archived'))
+    fd.data = json.dumps(payload, ensure_ascii=False)
+    db.session.commit()
+    return jsonify({'category': category}), 200
 
 
 def _parse_localized_number(value):

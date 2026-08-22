@@ -7,18 +7,30 @@
     ['submittals','drawings','/legacy/dwg','▱'],['submittals','FIR','/legacy/fir','F'],
     ['submittals','MIR','/legacy/mir','M'],['submittals','methodStatements','/legacy/ms','§'],
     ['submittals','RFI','/legacy/rfi','R'],['lbt','labTests','/legacy/lbt','⌬']
+    ,['financial','Income','/legacy/income','+'],['financial','Expenses','/legacy/expense','−']
   ];
+  let currentPermissions=null;
   function activePath(){return location.pathname.replace(/\/$/,'');}
+  function moduleLabel(key){
+    const translated=global.BINNA_I18N&&BINNA_I18N.t(key);
+    if(translated&&translated!==key)return translated;
+    const phrases=global.BINNA_OPERATIONAL_I18N&&BINNA_OPERATIONAL_I18N.phrases;
+    return global.BINNA_I18N&&BINNA_I18N.isArabic&&phrases&&phrases[key]?phrases[key]:key;
+  }
   function renderNav(permissions){
+    currentPermissions=permissions;
     const sidebar=document.getElementById('sidebar');if(!sidebar)return;
     const extras=Array.from(sidebar.children).filter(el=>el.id==='sidebar-team-legend');
     const title='<div class="op-nav-section" data-i18n="projectNavigation">Project navigation</div>';
     const links=modules.filter(row=>!permissions||!permissions[row[0]]||permissions[row[0]].view!==false).map(row=>{
       const active=activePath()===row[2]?' active':'';
-      const label=(global.BINNA_I18N&&BINNA_I18N.t(row[1]))||row[1];
+      const label=moduleLabel(row[1]);
       return '<a class="sidebar-item'+active+'" href="'+row[2]+'" data-module="'+row[0]+'"><span class="op-nav-icon">'+row[3]+'</span><span class="op-nav-label" data-i18n="'+row[1]+'">'+label+'</span></a>';
     }).join('');
-    sidebar.innerHTML=title+links;extras.forEach(el=>sidebar.appendChild(el));
+    const pid=global.BINNA&&BINNA.getProjectId?BINNA.getProjectId():null;
+    const context='<a class="sidebar-item" href="/dashboard"><span class="op-nav-icon">⌂</span><span class="op-nav-label">'+moduleLabel('Dashboard')+'</span></a>'+
+      (pid?'<a class="sidebar-item" href="/project/'+pid+'"><span class="op-nav-icon">P</span><span class="op-nav-label">'+moduleLabel('Project Dashboard')+'</span></a>':'');
+    sidebar.innerHTML=context+title+links;extras.forEach(el=>sidebar.appendChild(el));
     if(global.BINNA_I18N)BINNA_I18N.localize(sidebar);
   }
   function brand(){
@@ -35,5 +47,6 @@
     if(global.BINNA_I18N)BINNA_I18N.apply();
   }
   global.BINNA_OPERATIONAL_SHELL={init,renderNav};
+  global.addEventListener('binna:languagechange',()=>renderNav(currentPermissions));
   document.addEventListener('DOMContentLoaded',init);
 })(window);

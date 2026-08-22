@@ -206,6 +206,9 @@ const BINNA = {
       income, expenses, incomeCategories, expenseCategories, usdRate
     });
   },
+  async fetchFinancialCategories(pid) { return this.get(`/projects/${pid}/financial/categories`); },
+  async createFinancialCategory(pid, kind, name) { return this.post(`/projects/${pid}/financial/categories`, {kind, name}); },
+  async updateFinancialCategory(pid, kind, id, data) { return this.put(`/projects/${pid}/financial/categories/${kind}/${id}`, data); },
 
   // ── Gantt API ─────────────────────────────────────────────────────────────
   async fetchGantt(pid)       { return this.get(`/projects/${pid}/gantt`); },

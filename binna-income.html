@@ -78,6 +78,11 @@ td.del-cell{width:32px;text-align:center}
 @media print{.topbar,.sidebar,.filter-bar,.pag-bar,.del-btn,.btn{display:none!important}.main{padding:0}}
 </style>
 <script src="/static/js/binna-api.js?v=3"></script>
+<script src="/static/js/management-i18n.js"></script>
+<script src="/static/js/operational-i18n.js"></script>
+<link rel="stylesheet" href="/static/css/operational-shell.css">
+<script src="/static/js/operational-shell.js"></script>
+<script src="/static/js/financial-categories.js"></script>
 </head>
 <body>
 <button id="binna-theme-toggle" class="binna-theme-toggle" style="position:fixed;top:14px;right:14px;z-index:9999" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
@@ -211,7 +216,7 @@ function getIqd(row){
   var rate=parseFloat(row.rate)||fullData.usdRate||1310;
   return row.cur==='USD'?a*rate:a;
 }
-function getCats(){return fullData.incomeCategories||[];}
+function getCats(){return (fullData.incomeCategories||[]).filter(function(c){return !c.archived;});}
 function getCatName(catId){var c=getCats().find(function(x){return x.id===catId;});return c?c.name:'';}
 
 function catOptions(sel){
@@ -440,7 +445,7 @@ function doSave(){
     income:allRows,
     expenses:fullData.expenses||[],
     incomeCategories:fullData.incomeCategories||[],
-    expenseCategories:(fullData.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};}),
+    expenseCategories:fullData.expenseCategories||[],
     usdRate:fullData.usdRate||1310
   };
   fetch('/api/v1/projects/'+PROJECT_ID+'/financial/income',{
@@ -459,7 +464,7 @@ function doSave(){
 window.addEventListener('beforeunload',function(){
   if(!_pendingSave||!PROJECT_ID)return;
   clearTimeout(_saveTimer);
-  var payload={income:allRows,expenses:fullData.expenses||[],incomeCategories:fullData.incomeCategories||[],expenseCategories:(fullData.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};}),usdRate:fullData.usdRate||1310};
+  var payload={income:allRows,expenses:fullData.expenses||[],incomeCategories:fullData.incomeCategories||[],expenseCategories:fullData.expenseCategories||[],usdRate:fullData.usdRate||1310};
   var xhr=new XMLHttpRequest();xhr.open('PUT','/api/v1/projects/'+PROJECT_ID+'/financial/income',false);
   xhr.setRequestHeader('Content-Type','application/json');xhr.setRequestHeader('Authorization','Bearer '+(BINNA.getToken()||''));
   try{xhr.send(JSON.stringify(payload));}catch(e){}
@@ -478,7 +483,7 @@ window.addEventListener('DOMContentLoaded',async function(){
       if(!Array.isArray(fullData.income))fullData.income=[];
       if(!Array.isArray(fullData.expenses))fullData.expenses=[];
       if(!fullData.incomeCategories)fullData.incomeCategories=[];
-      fullData.expenseCategories=(fullData.expenseCategories||[]).map(function(c){return{id:c.id,name:c.name};});
+      fullData.expenseCategories=fullData.expenseCategories||[];
       // Migrate old expense format
       if(fullData.expenseCategories.some(function(c){return c.rows&&c.rows.length;})){
         if(!fullData.expenses||!fullData.expenses.length){
@@ -487,7 +492,7 @@ window.addEventListener('DOMContentLoaded',async function(){
             if(cat.rows)cat.rows.forEach(function(r){fullData.expenses.push(Object.assign({},r,{cat:cat.id}));});
           });
         }
-        fullData.expenseCategories=fullData.expenseCategories.map(function(c){return{id:c.id,name:c.name};});
+        fullData.expenseCategories=fullData.expenseCategories;
       }
     }
   }catch(err){BINNA.toast('Could not load data: '+(err.error||'error'),'error');}

@@ -791,6 +791,36 @@ class FinancialData(db.Model):
         return f'<FinancialData project={self.project_id}>'
 
 
+class PaymentExpenseLink(db.Model):
+    """Immutable identity bridge between an operational payment and cash expense."""
+    __tablename__ = 'payment_expense_links'
+    __table_args__ = (
+        db.UniqueConstraint(
+            'source_type', 'source_agreement_id', 'source_payment_uuid', 'version',
+            name='uq_payment_expense_source_version',
+        ),
+    )
+
+    id                   = db.Column(db.Integer, primary_key=True)
+    company_id           = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=False, index=True)
+    project_id           = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
+    source_type          = db.Column(db.String(40), nullable=False)
+    source_agreement_id  = db.Column(db.Integer, nullable=False)
+    source_payment_uuid  = db.Column(db.String(80), nullable=False)
+    version              = db.Column(db.Integer, nullable=False, default=1)
+    expense_entry_id     = db.Column(db.String(80), nullable=False, unique=True)
+    reversal_entry_id    = db.Column(db.String(80))
+    status               = db.Column(db.String(20), nullable=False, default='active')
+    amount               = db.Column(db.Float, nullable=False)
+    currency             = db.Column(db.String(10), nullable=False)
+    exchange_rate        = db.Column(db.Float, nullable=False, default=1)
+    amount_iqd           = db.Column(db.Float, nullable=False)
+    payment_date         = db.Column(db.String(20))
+    created_by           = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at           = db.Column(db.DateTime, default=_now, nullable=False)
+    updated_at           = db.Column(db.DateTime, default=_now, onupdate=_now, nullable=False)
+
+
 # ── GanttData ─────────────────────────────────────────────────────────────────
 
 class GanttData(db.Model):

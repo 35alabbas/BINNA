@@ -12,28 +12,101 @@ authorization gap (financial, gantt, uploads) plus a project-field edit:
       GANTT          PUT  /projects/<id>/gantt       (gated 'member' → viewer 403, owner 200)
       UPLOADS        POST /projects/<id>/uploads     (gated 'member' → viewer 403, owner 201)
 
-Runs offline against a throwaway SQLite DB (RESEND_API_KEY unset → email logged,
-not sent). Exit 0 only when every assertion holds.
+Runs offline against a caller-provided, newly created SQLite database outside
+C:\\BINNA\\instance. It never imports run.py. Exit 0 only when every assertion holds.
 """
-import io, os, sys, tempfile
+import io
+import json
+import os
+import sys
+from datetime import timedelta
+from pathlib import Path
 
-_TMP = os.path.join(tempfile.gettempdir(), 'binna_viewer_edit_test.db')
-if os.path.exists(_TMP):
-    os.remove(_TMP)
-os.environ['DATABASE_URL'] = 'sqlite:///' + _TMP
-os.environ['FLASK_ENV']    = 'development'
-os.environ.pop('RESEND_API_KEY', None)
-os.environ['APP_BASE_URL'] = 'http://localhost:5000'
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 
-from app import create_app, db                       # noqa: E402
-from app.models import User                          # noqa: E402
+
+def _verified_test_database():
+    url = os.environ.get('DATABASE_URL', '')
+    if os.environ.get('BINNA_ISOLATED_TEST_DB') != '1' or not url.startswith('sqlite:///'):
+        raise RuntimeError('Refusing to run without an explicitly isolated SQLite database')
+    path = Path(url[len('sqlite:///'):]).resolve()
+    instance = (Path(__file__).resolve().parent / 'instance').resolve()
+    try:
+        path.relative_to(instance)
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError('Refusing to use a database inside C:\\BINNA\\instance')
+    if not path.is_file() or path.stat().st_size != 0:
+        raise RuntimeError('Test database must be a newly created empty file')
+    return path
+
+
+TEST_DB_PATH = _verified_test_database()
+
+from flask_jwt_extended import create_access_token  # noqa: E402
+from app import create_app, db  # noqa: E402
+from app.models import (  # noqa: E402
+    Company, FinancialData, Project, ProjectMember, User, _now,
+)
 
 app = create_app('development')
-import run                                            # noqa: E402,F401
+upload_dir = TEST_DB_PATH.with_name(TEST_DB_PATH.name + '.uploads')
+app.config.update(UPLOAD_FOLDER=str(upload_dir), R2_ACCESS_KEY_ID='',
+                  R2_SECRET_ACCESS_KEY='', R2_BUCKET='', R2_ENDPOINT='')
+client = app.test_client()
+
+
+def headers(user_id):
+    with app.app_context():
+        token = create_access_token(identity=str(user_id))
+    return {'Authorization': 'Bearer ' + token}
+
+
 with app.app_context():
     db.create_all()
-    run._ensure_schema()
-client = app.test_client()
+    alpha = Company(name='Acme', slug='viewer-acme', status='trial',
+                    trial_ends_at=_now() + timedelta(days=14))
+    beta = Company(name='Beta', slug='viewer-beta', status='trial',
+                   trial_ends_at=_now() + timedelta(days=14))
+    db.session.add_all([alpha, beta])
+    db.session.flush()
+    manager = User(username='boss', email='boss@acme.test', password_hash='unused',
+                   company_id=alpha.id, company_role='owner',
+                   is_company_manager=True, email_verified=True)
+    viewer = User(username='eyes', email='eyes@acme.test', password_hash='unused',
+                  company_id=alpha.id, company_role='viewer', email_verified=True)
+    outsider = User(username='outside', email='outside@beta.test', password_hash='unused',
+                    company_id=beta.id, company_role='owner',
+                    is_company_manager=True, email_verified=True)
+    db.session.add_all([manager, viewer, outsider])
+    db.session.flush()
+    alpha.projects_manager_user_id = manager.id
+    # One user deliberately holds the company-manager, projects-manager, and
+    # explicit project-manager authorities; the viewer receives no edit grant.
+    project = Project(company_id=alpha.id, code='ACM', name='Acme Tower',
+                      client='C', consultant='K', contractor='T',
+                      created_by=manager.id, project_manager_user_id=manager.id)
+    db.session.add(project)
+    db.session.flush()
+    db.session.add_all([
+        ProjectMember(company_id=alpha.id, project_id=project.id,
+                      user_id=manager.id, role='owner', permissions='{}'),
+        ProjectMember(company_id=alpha.id, project_id=project.id,
+                      user_id=viewer.id, role='viewer', permissions='{}'),
+    ])
+    db.session.add(FinancialData(company_id=alpha.id, project_id=project.id,
+                                 updated_by=manager.id,
+                                 data=json.dumps({'income': [], 'expenses': []})))
+    db.session.commit()
+    ids = {'project': project.id, 'manager': manager.id,
+           'viewer': viewer.id, 'outsider': outsider.id}
+
+owner_hdr = headers(ids['manager'])
+viewer_hdr = headers(ids['viewer'])
+outsider_hdr = headers(ids['outsider'])
+pid = ids['project']
 
 _PASS = _FAIL = 0
 def check(name, cond):
@@ -42,47 +115,17 @@ def check(name, cond):
     print(('  ok   ' if cond else '  FAIL ') + name)
 
 
-def signup_owner(username, email, pw, company):
-    r = client.post('/api/v1/auth/register', json={
-        'username': username, 'email': email, 'password': pw, 'company_name': company})
-    assert r.status_code == 201, r.get_json()
-    with app.app_context():
-        tok = User.query.filter_by(email=email).first().email_verification_token
-    client.get(f'/api/v1/auth/verify/{tok}')
-    rl = client.post('/api/v1/auth/login', json={'email': email, 'password': pw})
-    return {'Authorization': 'Bearer ' + rl.get_json()['access_token']}
-
-
-def make_viewer_in_company(owner_hdr, email, pw):
-    """Owner invites a VIEWER into the company; invitee accepts → verified login."""
-    inv = client.post('/api/v1/company/invite',
-                      json={'email': email, 'company_role': 'viewer'}, headers=owner_hdr)
-    assert inv.status_code == 201, inv.get_json()
-    with app.app_context():
-        itok = User.query.filter_by(email=email).first().email_verification_token
-    acc = client.post('/api/v1/company/accept-invite', json={'token': itok, 'password': pw})
-    assert acc.status_code == 200, acc.get_json()
-    rl = client.post('/api/v1/auth/login', json={'email': email, 'password': pw})
-    return {'Authorization': 'Bearer ' + rl.get_json()['access_token']}
-
-
 print('═' * 70)
 print('  ITEM (d) — VIEWER cannot edit, OWNER can')
 print('═' * 70)
 
 # ── Setup ────────────────────────────────────────────────────────────────────
-owner_hdr = signup_owner('boss', 'boss@acme.test', 'ownerpass', 'Acme')
-pr = client.post('/api/v1/projects', json={'code': 'ACM', 'name': 'Acme Tower',
-                 'client': 'C', 'consultant': 'K', 'contractor': 'T'}, headers=owner_hdr)
-pid = pr.get_json()['project']['id']
-
-viewer_hdr = make_viewer_in_company(owner_hdr, 'eyes@acme.test', 'viewerpass')
-# Owner adds the viewer onto the project with PROJECT-role 'viewer'.
-am = client.post(f'/api/v1/projects/{pid}/members',
-                 json={'email': 'eyes@acme.test', 'role': 'viewer'}, headers=owner_hdr)
-assert am.status_code == 201, am.get_json()
-check("setup: viewer is a project member with role 'viewer'",
-      am.get_json()['member']['role'] == 'viewer')
+print(f'ISOLATED_DATABASE={TEST_DB_PATH}')
+with app.app_context():
+    viewer_membership = ProjectMember.query.filter_by(
+        project_id=pid, user_id=ids['viewer']).first()
+    check("setup: viewer is a project member with role 'viewer'",
+          viewer_membership is not None and viewer_membership.role == 'viewer')
 
 # ── A. PROJECT-FIELD edit — PUT /projects/<id> ────────────────────────────────
 # projects.py collapses "insufficient role" into 404 (it won't disclose the
@@ -98,6 +141,10 @@ check(f'[{o_edit.status_code}] OWNER edit SUCCEEDS (200)', o_edit.status_code ==
 after = client.get(f'/api/v1/projects/{pid}', headers=owner_hdr).get_json()['project']
 check("project name reflects OWNER's edit, not the viewer's",
       after['name'] == 'Acme Tower (renamed by owner)')
+cross_edit = client.put(f'/api/v1/projects/{pid}',
+                        json={'name': 'FOREIGN EDIT'}, headers=outsider_hdr)
+check(f'[{cross_edit.status_code}] cross-company project edit is hidden (404)',
+      cross_edit.status_code == 404)
 
 # ── B. MODULE edits — the patched gap: viewer 403, owner success ──────────────
 # financial / gantt / uploads were membership-only (any member, incl. a viewer,

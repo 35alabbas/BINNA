@@ -118,6 +118,10 @@ table.pst .pst-net .pst-amt{color:var(--accent)}
   .cert-doc{border:none;margin:0;max-width:none}
 }
 </style>
+<script src="/static/js/management-i18n.js"></script>
+<script src="/static/js/operational-i18n.js"></script>
+<link rel="stylesheet" href="/static/css/operational-shell.css">
+<script src="/static/js/operational-shell.js"></script>
 </head>
 <body>
 
@@ -449,7 +453,7 @@ async function deleteSupply(id){
   try{ await BINNA.del('/projects/'+PID+'/supply-agreements/'+id); BINNA.toast('Supply agreement deleted','success'); await loadAll(); render(); }
   catch(e){ BINNA.toast(e.error||'Delete failed','error'); }
 }
-function addAgrPayment(){ agr.data.payments.push({id:'pp'+Date.now(),date:todayISO(),amount:'',invoiceRef:'',notes:''}); scheduleAgrSave(); render(); }
+function addAgrPayment(){ agr.data.payments.push({id:(globalThis.crypto&&crypto.randomUUID?crypto.randomUUID():'pp'+Date.now()),date:todayISO(),amount:'',exchangeRate:agr.currency==='IQD'?1:'',invoiceRef:'',notes:''}); scheduleAgrSave(); render(); }
 function delAgrPayment(i){ if(!confirm('Delete this payment?')) return; agr.data.payments.splice(i,1); scheduleAgrSave(); render(); }
 async function backToSupplyDash(){ if(agrSaveTimer){ clearTimeout(agrSaveTimer); agrSaveTimer=null; await saveAgrNow(); } agr=null; dashTab='supply'; switchView('dashboard'); }
 
@@ -489,12 +493,13 @@ function renderSupplyAgreement(m){
   if(!agrPayments().length){
     h+='<div class="empty" style="padding:30px"><div>No payments logged yet — click <b>+ Log Payment</b>.</div></div>';
   }else{
-    h+='<table class="data"><thead><tr><th style="width:36px">#</th><th>Date</th><th style="text-align:right">Amount</th><th>Invoice Ref</th><th>Notes</th><th style="width:40px"></th></tr></thead><tbody>';
+    h+='<table class="data"><thead><tr><th style="width:36px">#</th><th>Date</th><th style="text-align:right">Amount</th><th>Exchange Rate</th><th>Invoice Ref</th><th>Notes</th><th style="width:40px"></th></tr></thead><tbody>';
     agrPayments().forEach((p,i)=>{
       h+='<tr>'
         +'<td>'+(i+1)+'</td>'
         +'<td><input class="in" style="width:120px" maxlength="10" placeholder="DD/MM/YYYY" value="'+esc(isoToDisp(p.date))+'" oninput="autoFmtDate(this)" onchange="agrPaySet('+i+',\'date\',dispToISO(this.value)||\'\')"/></td>'
         +'<td style="text-align:right"><input type="number" min="0" class="in mono-in" style="width:120px;text-align:right" value="'+esc(p.amount!=null?p.amount:'')+'" oninput="agrPaySet('+i+',\'amount\',this.value)" onchange="render()"/></td>'
+        +'<td><input type="number" min="0" class="in mono-in" style="width:120px" '+(agr.currency==='IQD'?'disabled':'')+' value="'+esc(p.exchangeRate||(agr.currency==='IQD'?1:''))+'" oninput="agrPaySet('+i+',\'exchangeRate\',this.value)" placeholder="IQD / '+esc(agr.currency)+'"/></td>'
         +'<td><input class="in" style="width:140px" placeholder="Invoice #" value="'+esc(p.invoiceRef||'')+'" oninput="agrPaySet('+i+',\'invoiceRef\',this.value)"/></td>'
         +'<td><input class="in" placeholder="Notes" value="'+esc(p.notes||'')+'" oninput="agrPaySet('+i+',\'notes\',this.value)"/></td>'
         +'<td><button class="x-btn" style="font-size:14px;color:var(--danger)" title="Delete" onclick="delAgrPayment('+i+')">✕</button></td>'
@@ -1051,6 +1056,11 @@ function certifyCert(mode,idx){
 }
 function markPaid(mode,idx){
   const row=certRowOf(mode,idx);
+  if(CUR()!=='IQD'&&!num(row.exchangeRate)){
+    const rate=prompt('Exchange rate (IQD per '+CUR()+')');
+    if(!num(rate)){BINNA.toast('Exchange rate is required before marking paid','error');return;}
+    row.exchangeRate=num(rate);
+  }else if(CUR()==='IQD')row.exchangeRate=1;
   row.paid=true; row.paidDate=todayISO(); row.certificate.status='paid';
   scheduleSave(); BINNA.toast('Marked paid','success');
   mode==='pay'?renderPayRows():renderSupply();
@@ -1183,7 +1193,7 @@ function addInvoice(){ sub.data.invoices.push({date:todayISO(),refNo:'',desc:'',
 async function addInvAttach(i,input){ const up=await uploadInput(input); if(!up)return; sub.data.invoices[i].attachment=up; scheduleSave(); renderSupply(); }
 
 function addSupplyPayment(){
-  sub.data.supplyPayments.push({date:todayISO(),amount:'',method:'',note:'',
+  sub.data.supplyPayments.push({id:(globalThis.crypto&&crypto.randomUUID?crypto.randomUUID():'sp'+Date.now()),date:todayISO(),amount:'',exchangeRate:CUR()==='IQD'?1:'',method:'',note:'',
     certificate:{status:'draft',certNo:'',date:'',preparedBy:{name:'',title:''},signature:null,signedCopy:null},paid:false,paidDate:''});
   scheduleSave(); renderSupply();
 }
@@ -1199,6 +1209,7 @@ function renderSupplyPays(){
       +'<div class="sec" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'
         +'<input class="in" style="width:120px" maxlength="10" placeholder="DD/MM/YYYY" value="'+esc(isoToDisp(sp.date))+'" oninput="autoFmtDate(this)" onchange="var x=dispToISO(this.value);if(x){sub.data.supplyPayments['+i+'].date=x;scheduleSave()}"/>'
         +'<input class="in mono-in" style="width:140px" type="number" placeholder="Amount '+cu+'" value="'+esc(sp.amount||'')+'" oninput="sub.data.supplyPayments['+i+'].amount=this.value" onchange="renderSupply();refreshMini()"/>'
+        +(cu==='IQD'?'':'<input class="in mono-in" style="width:150px" type="number" min="0" placeholder="IQD / '+esc(cu)+'" value="'+esc(sp.exchangeRate||'')+'" oninput="sub.data.supplyPayments['+i+'].exchangeRate=this.value;scheduleSave()"/>')
         +'<input class="in" style="width:120px" placeholder="Method" value="'+esc(sp.method||'')+'" oninput="sub.data.supplyPayments['+i+'].method=this.value;scheduleSave()"/>'
         +'<input class="in" style="flex:1;min-width:140px" placeholder="Note" value="'+esc(sp.note||'')+'" oninput="sub.data.supplyPayments['+i+'].note=this.value;scheduleSave()"/>'
       +'</div>'
