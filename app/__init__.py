@@ -64,6 +64,15 @@ def create_app(config_name: str = 'default') -> Flask:
     # ── Import models so Flask-Migrate can detect them ────────────────────────
     from app import models  # noqa: F401
 
+    from app.tenancy import ProjectClosedError
+
+    @app.errorhandler(ProjectClosedError)
+    def project_closed(_error):
+        return jsonify({
+            'error': 'Project is closed and operational modifications are disabled',
+            'code': 'project_closed',
+        }), 409
+
     # ── Blueprints ────────────────────────────────────────────────────────────
     from app.auth import auth_bp
     from app.company import company_bp

@@ -22,14 +22,17 @@ from flask_jwt_extended import (
 from sqlalchemy import func
 
 from app import db
-from app.models import User, Upload
+from app.models import AuditLog, User, Upload
 from app.tenancy import (
     current_user,
+    can_manage_project_portfolio,
     is_company_manager,
     phase_1b_schema_status,
+    phase_1b_2_schema_status,
     require_company_role,
 )
 from app.email import send_invite_email
+from app.audit import record_audit
 
 company_bp = Blueprint('company', __name__, url_prefix='/api/v1/company')
 
@@ -43,6 +46,17 @@ def _phase_1b_required():
     return jsonify({
         'error': 'Phase 1B database migration is required',
         'code': 'phase_1b_migration_required',
+        'missing': status['missing'],
+    }), 503
+
+
+def _phase_1b_2_required():
+    status = phase_1b_2_schema_status()
+    if status['ready']:
+        return None
+    return jsonify({
+        'error': 'Phase 1B-2 database migration is required',
+        'code': 'phase_1b_2_migration_required',
         'missing': status['missing'],
     }), 503
 
@@ -73,6 +87,20 @@ def get_company():
     if not user or not user.company:
         return jsonify({'error': 'No company attached to this account'}), 404
     return jsonify({'company': user.company.to_dict(), 'my_role': user.company_role})
+
+
+@company_bp.route('/audit-logs', methods=['GET'])
+@jwt_required()
+def list_company_audit_logs():
+    missing = _phase_1b_2_required()
+    if missing:
+        return missing
+    user = current_user()
+    if not can_manage_project_portfolio(user):
+        return jsonify({'error': 'Company or projects manager access required'}), 403
+    rows = (AuditLog.query.filter_by(company_id=user.company_id)
+            .order_by(AuditLog.created_at.asc(), AuditLog.id.asc()).all())
+    return jsonify({'audit_logs': [row.to_dict() for row in rows], 'total': len(rows)})
 
 
 # ── Storage usage (company-scoped R2 indicator) ──────────────────────────────────
@@ -160,7 +188,14 @@ def set_projects_manager():
     if not target or target.company_id != user.company_id or not target.is_active:
         return jsonify({'error': 'Company member not found'}), 404
 
+    previous_id = user.company.projects_manager_user_id
     user.company.projects_manager_user_id = target.id
+    record_audit(
+        company_id=user.company_id, actor_user_id=user.id,
+        action_type='company.projects_manager_assigned',
+        previous_values={'projects_manager_user_id': previous_id},
+        new_values={'projects_manager_user_id': target.id},
+    )
     db.session.commit()
     return jsonify({'projects_manager_user_id': target.id})
 

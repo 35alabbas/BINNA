@@ -194,12 +194,20 @@ class Project(db.Model):
     project_manager_user_id = deferred(db.Column(
         db.Integer, db.ForeignKey('users.id'), nullable=True, index=True,
     ))
+    # Phase 1B-2 lifecycle is independent from operational status. Deferred
+    # fields preserve legacy reads before the additive migration is applied.
+    is_closed = deferred(db.Column(db.Boolean, nullable=False, default=False))
+    closed_at = deferred(db.Column(db.DateTime, nullable=True))
+    closed_by_user_id = deferred(db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=True, index=True,
+    ))
 
     # Relationships
     members     = db.relationship('ProjectMember', back_populates='project',
                                   cascade='all, delete-orphan', lazy='select')
     creator     = db.relationship('User', foreign_keys=[created_by])
     project_manager = db.relationship('User', foreign_keys=[project_manager_user_id])
+    closed_by = db.relationship('User', foreign_keys=[closed_by_user_id])
 
     # ── Serialise ─────────────────────────────────────────────────────────────
     def to_dict(self, include_members: bool = False) -> dict:
@@ -227,6 +235,70 @@ class Project(db.Model):
 # ── ProjectMember ─────────────────────────────────────────────────────────────
 
 _ROLE_ORDER = {'viewer': 0, 'member': 1, 'admin': 2, 'owner': 3}
+
+
+class ProjectMonitoringComment(db.Model):
+    """Append-only management observation for one tenant-scoped project."""
+    __tablename__ = 'project_monitoring_comments'
+
+    id             = db.Column(db.Integer, primary_key=True)
+    company_id     = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=False, index=True)
+    project_id     = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
+    author_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    body           = db.Column(db.Text, nullable=False)
+    created_at     = db.Column(db.DateTime, nullable=False, default=_now, index=True)
+
+    author = db.relationship('User', foreign_keys=[author_user_id])
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'company_id': self.company_id,
+            'project_id': self.project_id,
+            'author_user_id': self.author_user_id,
+            'author_username': self.author.username if self.author else None,
+            'body': self.body,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class AuditLog(db.Model):
+    """Application-immutable record of an important company/project action."""
+    __tablename__ = 'audit_logs'
+
+    id              = db.Column(db.Integer, primary_key=True)
+    company_id      = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=False, index=True)
+    project_id      = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, index=True)
+    actor_user_id   = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action_type     = db.Column(db.String(80), nullable=False, index=True)
+    previous_values = db.Column(db.Text, nullable=True)
+    new_values      = db.Column(db.Text, nullable=True)
+    created_at      = db.Column(db.DateTime, nullable=False, default=_now, index=True)
+
+    actor = db.relationship('User', foreign_keys=[actor_user_id])
+
+    @staticmethod
+    def _decoded(value):
+        import json
+        if not value:
+            return None
+        try:
+            return json.loads(value)
+        except (TypeError, ValueError):
+            return None
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'company_id': self.company_id,
+            'project_id': self.project_id,
+            'actor_user_id': self.actor_user_id,
+            'actor_username': self.actor.username if self.actor else None,
+            'action_type': self.action_type,
+            'previous_values': self._decoded(self.previous_values),
+            'new_values': self._decoded(self.new_values),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 class ProjectMember(db.Model):

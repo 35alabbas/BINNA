@@ -11,6 +11,7 @@ DELETE /api/v1/projects/<id>/members/<member_id>
 PUT    /api/v1/projects/<id>/members/<member_id>   (change role)
 """
 import json
+from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -18,6 +19,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import (
     DCLetter,
+    AuditLog,
     DailyReport,
     FinancialData,
     GanttData,
@@ -26,6 +28,7 @@ from app.models import (
     PERMISSION_MODULES,
     Project,
     ProjectMember,
+    ProjectMonitoringComment,
     SEED_GLOBAL_PARTY_ROLES,
     Subcontract,
     Submittal,
@@ -33,12 +36,17 @@ from app.models import (
 )
 from app.tenancy import (
     authorize_project_access,
+    can_read_project_management_records,
     can_manage_project_assignments,
     can_manage_project_portfolio,
     is_project_manager,
+    is_project_closed,
     membership_or_none,
     phase_1b_schema_status,
+    phase_1b_2_schema_status,
+    same_company,
 )
+from app.audit import record_audit
 
 # Blank financial structure seeded for every new project — matches the schema
 # the contract / financial frontends read (contractDetails, boq, vo, payments,
@@ -95,10 +103,44 @@ def _phase_1b_required():
     }), 503
 
 
+def _phase_1b_2_required():
+    status = phase_1b_2_schema_status()
+    if status['ready']:
+        return None
+    return jsonify({
+        'error': 'Phase 1B-2 database migration is required',
+        'code': 'phase_1b_2_migration_required',
+        'missing': status['missing'],
+    }), 503
+
+
+def _with_lifecycle(project, data):
+    if phase_1b_2_schema_status()['ready']:
+        data.update({
+            'is_closed': bool(project.is_closed),
+            'closed_at': project.closed_at.isoformat() if project.closed_at else None,
+            'closed_by_user_id': project.closed_by_user_id,
+        })
+    return data
+
+
+def _management_project(project_id, user_id, read_only=False):
+    user = User.query.get(user_id)
+    project = Project.query.get(project_id)
+    if not same_company(project, user):
+        return None, user
+    allowed = (can_read_project_management_records(user, project) if read_only
+               else can_manage_project_portfolio(user))
+    return (project if allowed else None), user
+
+
 def _assignment_manager(project_id, user_id):
     user = User.query.get(user_id)
     project = Project.query.get(project_id)
     if can_manage_project_assignments(user, project):
+        if is_project_closed(project):
+            from app.tenancy import ProjectClosedError
+            raise ProjectClosedError()
         return project, user
     # Backward compatibility: an existing technical admin/owner with projects
     # edit permission keeps the project-management access they already had.
@@ -168,7 +210,7 @@ def list_projects():
         if not can_manage_project_portfolio(user) and (
                 m is None or not m.can('projects', 'view')):
             continue
-        p = project.to_dict()
+        p = _with_lifecycle(project, project.to_dict())
         p['my_role']      = m.role if m else 'viewer'
         p['member_count'] = len(project.members)
         result.append(p)
@@ -228,6 +270,13 @@ def create_project():
     db.session.add(project)
     db.session.flush()          # populate project.id before member insert
 
+    record_audit(
+        company_id=company_id, project_id=project.id, actor_user_id=user_id,
+        action_type='project.created',
+        new_values={'project_id': project.id, 'code': project.code, 'name': project.name,
+                    'status': project.status, 'project_manager_user_id': manager.id},
+    )
+
     # Creator is the owner — membership row also carries the company stamp.
     _ensure_manager_membership(project, manager)
 
@@ -277,11 +326,138 @@ def get_project(project_id):
     if not project:
         return jsonify({'error': 'Project not found or access denied'}), 404
 
-    result             = project.to_dict(include_members=True)
+    result             = _with_lifecycle(project, project.to_dict(include_members=True))
     result['my_role']  = member.role if member else 'viewer'
     if phase_1b_schema_status()['ready']:
         result['project_manager_user_id'] = project.project_manager_user_id
     return jsonify({'project': result})
+
+
+@projects_bp.route('/<int:project_id>/close', methods=['POST'])
+@jwt_required()
+def close_project(project_id):
+    missing = _phase_1b_2_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, user = _management_project(project_id, uid)
+    if project is None:
+        candidate = Project.query.get(project_id)
+        if candidate is not None and same_company(candidate, user):
+            return jsonify({'error': 'Company or projects manager access required'}), 403
+        return jsonify({'error': 'Project not found'}), 404
+    if project.is_closed:
+        return jsonify({'error': 'Project is already closed', 'code': 'project_already_closed'}), 409
+    now = datetime.now(timezone.utc)
+    project.is_closed = True
+    project.closed_at = now
+    project.closed_by_user_id = uid
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=uid,
+        action_type='project.closed',
+        previous_values={'is_closed': False},
+        new_values={'is_closed': True, 'closed_by_user_id': uid,
+                    'closed_at': now.isoformat()},
+    )
+    db.session.commit()
+    result = project.to_dict()
+    result.update({'is_closed': True, 'closed_at': now.isoformat(),
+                   'closed_by_user_id': uid})
+    return jsonify({'project': result})
+
+
+@projects_bp.route('/<int:project_id>/reopen', methods=['POST'])
+@jwt_required()
+def reopen_project(project_id):
+    missing = _phase_1b_2_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, user = _management_project(project_id, uid)
+    if project is None:
+        candidate = Project.query.get(project_id)
+        if candidate is not None and same_company(candidate, user):
+            return jsonify({'error': 'Company or projects manager access required'}), 403
+        return jsonify({'error': 'Project not found'}), 404
+    if not project.is_closed:
+        return jsonify({'error': 'Project is not closed', 'code': 'project_not_closed'}), 409
+    previous = {'is_closed': True, 'closed_by_user_id': project.closed_by_user_id,
+                'closed_at': project.closed_at.isoformat() if project.closed_at else None}
+    project.is_closed = False
+    project.closed_at = None
+    project.closed_by_user_id = None
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=uid,
+        action_type='project.reopened', previous_values=previous,
+        new_values={'is_closed': False},
+    )
+    db.session.commit()
+    result = project.to_dict()
+    result.update({'is_closed': False, 'closed_at': None, 'closed_by_user_id': None})
+    return jsonify({'project': result})
+
+
+@projects_bp.route('/<int:project_id>/monitoring-comments', methods=['GET'])
+@jwt_required()
+def list_monitoring_comments(project_id):
+    missing = _phase_1b_2_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, user = _management_project(project_id, uid, read_only=True)
+    if project is None:
+        candidate = Project.query.get(project_id)
+        if candidate is not None and same_company(candidate, user):
+            return jsonify({'error': 'Management record access required'}), 403
+        return jsonify({'error': 'Project not found'}), 404
+    rows = (ProjectMonitoringComment.query
+            .filter_by(company_id=project.company_id, project_id=project.id)
+            .order_by(ProjectMonitoringComment.created_at.asc(),
+                      ProjectMonitoringComment.id.asc()).all())
+    return jsonify({'comments': [row.to_dict() for row in rows], 'total': len(rows)})
+
+
+@projects_bp.route('/<int:project_id>/monitoring-comments', methods=['POST'])
+@jwt_required()
+def add_monitoring_comment(project_id):
+    missing = _phase_1b_2_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, user = _management_project(project_id, uid)
+    if project is None:
+        candidate = Project.query.get(project_id)
+        if candidate is not None and same_company(candidate, user):
+            return jsonify({'error': 'Company or projects manager access required'}), 403
+        return jsonify({'error': 'Project not found'}), 404
+    body = ((request.get_json(silent=True) or {}).get('body') or '').strip()
+    if not body:
+        return jsonify({'error': 'Comment body is required'}), 400
+    row = ProjectMonitoringComment(
+        company_id=project.company_id, project_id=project.id,
+        author_user_id=uid, body=body,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({'comment': row.to_dict()}), 201
+
+
+@projects_bp.route('/<int:project_id>/audit-logs', methods=['GET'])
+@jwt_required()
+def list_project_audit_logs(project_id):
+    missing = _phase_1b_2_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, user = _management_project(project_id, uid, read_only=True)
+    if project is None:
+        candidate = Project.query.get(project_id)
+        if candidate is not None and same_company(candidate, user):
+            return jsonify({'error': 'Management record access required'}), 403
+        return jsonify({'error': 'Project not found'}), 404
+    rows = (AuditLog.query.filter_by(company_id=project.company_id, project_id=project.id)
+            .order_by(AuditLog.created_at.asc(), AuditLog.id.asc()).all())
+    return jsonify({'audit_logs': [row.to_dict() for row in rows], 'total': len(rows)})
 
 
 # ── Dashboard stats ───────────────────────────────────────────────────────────
@@ -477,9 +653,10 @@ def delete_project(project_id):
             or not member.can('projects', 'edit')):
         return jsonify({'error': 'Project not found or insufficient permissions'}), 404
 
-    db.session.delete(project)
-    db.session.commit()
-    return jsonify({'message': f'Project "{project.name}" deleted'})
+    return jsonify({
+        'error': 'Project deletion is disabled; close the project instead',
+        'code': 'project_deletion_disabled',
+    }), 409
 
 
 # ── Designated project manager ────────────────────────────────────────────────
@@ -500,8 +677,15 @@ def set_project_manager(project_id):
     if target is None:
         return jsonify({'error': 'Project manager not found'}), 404
 
+    previous_id = project.project_manager_user_id
     _ensure_manager_membership(project, target)
     project.project_manager_user_id = target.id
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=user_id,
+        action_type='project.manager_assigned',
+        previous_values={'project_manager_user_id': previous_id},
+        new_values={'project_manager_user_id': target.id},
+    )
     db.session.commit()
     return jsonify({
         'project_id': project.id,
@@ -563,6 +747,12 @@ def add_member(project_id):
     new_member = ProjectMember(project_id=project_id, user_id=target.id, role=role,
                                company_id=project.company_id)
     db.session.add(new_member)
+    db.session.flush()
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=user_id,
+        action_type='project.member_added',
+        new_values={'member_id': new_member.id, 'user_id': target.id, 'role': role},
+    )
     db.session.commit()
 
     return jsonify({'member': new_member.to_dict()}), 201
@@ -590,7 +780,15 @@ def update_member_role(project_id, member_id):
     if role not in _VALID_ROLES:
         return jsonify({'error': f'Role must be one of: {", ".join(_VALID_ROLES)}'}), 400
 
+    previous_role = target.role
     target.role = role
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=user_id,
+        action_type='project.member_role_changed',
+        previous_values={'member_id': target.id, 'user_id': target.user_id,
+                         'role': previous_role},
+        new_values={'member_id': target.id, 'user_id': target.user_id, 'role': role},
+    )
     db.session.commit()
     return jsonify({'member': target.to_dict()})
 
@@ -615,7 +813,12 @@ def remove_member(project_id, member_id):
             and target.user_id == project.project_manager_user_id):
         return jsonify({'error': 'Replace the project manager before removing them'}), 403
 
+    removed = {'member_id': target.id, 'user_id': target.user_id, 'role': target.role}
     db.session.delete(target)
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=user_id,
+        action_type='project.member_removed', previous_values=removed,
+    )
     db.session.commit()
     return jsonify({'message': 'Member removed successfully'})
 
@@ -700,8 +903,17 @@ def update_member_permissions(project_id, member_id):
     if not isinstance(raw, dict):
         return jsonify({'error': 'A "permissions" object is required'}), 400
 
+    previous = target.effective_permissions()
     final = _normalize_permission_map(raw, target.get_permissions())
     target.permissions = json.dumps(final)
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=user_id,
+        action_type='project.permissions_changed',
+        previous_values={'member_id': target.id, 'user_id': target.user_id,
+                         'permissions': previous},
+        new_values={'member_id': target.id, 'user_id': target.user_id,
+                    'permissions': final},
+    )
     db.session.commit()
 
     return jsonify({'member_id': target.id, 'permissions': final})

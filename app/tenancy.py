@@ -88,6 +88,37 @@ _PHASE_1B_COLUMNS = {
     'projects': {'project_manager_user_id'},
 }
 
+_PHASE_1B_2_COLUMNS = {
+    'projects': {'is_closed', 'closed_at', 'closed_by_user_id'},
+}
+_PHASE_1B_2_TABLES = {'project_monitoring_comments', 'audit_logs'}
+
+
+class ProjectClosedError(Exception):
+    """Raised only after tenant access is established for a closed project."""
+
+
+@lru_cache(maxsize=1)
+def phase_1b_2_schema_status() -> dict:
+    inspector = inspect(db.engine)
+    tables = set(inspector.get_table_names())
+    missing = {}
+    for table, required in _PHASE_1B_2_COLUMNS.items():
+        present = ({c['name'] for c in inspector.get_columns(table)}
+                   if table in tables else set())
+        absent = sorted(required - present)
+        if absent:
+            missing[table] = absent
+    absent_tables = sorted(_PHASE_1B_2_TABLES - tables)
+    if absent_tables:
+        missing['tables'] = absent_tables
+    return {'ready': not missing, 'missing': missing}
+
+
+def is_project_closed(project) -> bool:
+    """Pre-migration projects are treated as open for legacy compatibility."""
+    return bool(phase_1b_2_schema_status()['ready'] and project.is_closed)
+
 
 @lru_cache(maxsize=1)
 def phase_1b_schema_status() -> dict:
@@ -158,6 +189,8 @@ def authorize_project_access(project_id, user_id, module, action='view', min_rol
     ).first()
 
     if is_project_manager(user, project):
+        if action == 'edit' and is_project_closed(project):
+            raise ProjectClosedError()
         return project, member, True
     if action == 'view' and can_manage_project_portfolio(user):
         return project, member, True
@@ -167,11 +200,20 @@ def authorize_project_access(project_id, user_id, module, action='view', min_rol
     from app.models import _ROLE_ORDER
     if _ROLE_ORDER.get(member.role, 0) < _ROLE_ORDER.get(min_role, 0):
         return project, member, False
-    return project, member, member.can(module, action)
+    allowed = member.can(module, action)
+    if allowed and action == 'edit' and is_project_closed(project):
+        raise ProjectClosedError()
+    return project, member, allowed
 
 
 def can_manage_project_assignments(user, project) -> bool:
     """Portfolio managers and the designated PM manage project staffing."""
+    return (user is not None and project is not None and same_company(project, user)
+            and (can_manage_project_portfolio(user) or is_project_manager(user, project)))
+
+
+def can_read_project_management_records(user, project) -> bool:
+    """Portfolio managers or the designated PM may read comments/audit."""
     return (user is not None and project is not None and same_company(project, user)
             and (can_manage_project_portfolio(user) or is_project_manager(user, project)))
 
