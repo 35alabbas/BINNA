@@ -37,9 +37,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .ctype-btn:hover:not(:disabled){border-color:var(--accent)}
 .ctype-btn.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
 .ctype-btn:disabled{cursor:not-allowed}
-.ctype-tag{align-items:center;gap:5px;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700}
-.ctype-tag.gov{background:var(--accent-light);border:1px solid #c7d7fd;color:var(--accent)}
-.ctype-tag.priv{background:#fdf2fa;border:1px solid #fcceee;color:#c11574}
 .topbar-right{display:flex;align-items:center;gap:10px}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
 .btn:hover{background:var(--surface)}
@@ -200,6 +197,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 </style>
 <script src="/static/js/binna-api.js"></script>
 <script src="/static/js/management-i18n.js"></script>
+<script src="/static/js/schedule-calendar.js"></script>
 <script src="/static/js/operational-i18n.js"></script>
 <script src="/static/js/contract-i18n.js"></script>
 <link rel="stylesheet" href="/static/css/operational-shell.css">
@@ -211,8 +209,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
   <div style="display:flex;align-items:center;gap:10px">
     <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide / Show Sidebar">☰</button>
     <a href="/dashboard" class="logo" title="Back to All Projects">BINNA PM <span>binnapm.com</span></a>
-    <div class="proj-badge"><b id="proj-code">APS</b><span id="proj-name">Auxiliary Pump Station</span></div>
-    <span id="contract-type-tag" class="ctype-tag" style="display:none"></span>
+    <div class="proj-badge"><b id="proj-code">—</b><span id="proj-name"></span></div>
   </div>
   <div class="topbar-right">
       <button id="binna-theme-toggle" class="binna-theme-toggle" aria-label="Toggle dark mode"><span class="theme-icon-light">☀️</span><span class="theme-icon-dark">🌙</span></button>
@@ -380,10 +377,9 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
           <td><input class="cell-in" id="cd-period" type="text" inputmode="decimal" min="1" step="1" placeholder="e.g. 540"
             oninput="data.contractDetails['period']=this.value;calcContractEnd()"/></td></tr>
 
-        <tr><td class="row-num">10</td><td><input class="cell-in label" readonly data-i18n-value="contractStoppages" value="Contract stoppages"/></td>
+        <tr><td class="row-num">10</td><td><input class="cell-in label" readonly data-i18n-value="contractStoppages" value="Contract stoppages — interrupted execution periods"/></td>
           <td>
             <div id="cd-stoppages-container"></div>
-            <div class="op-legal-notice" data-i18n="stoppageLegalNotice">Stoppages do not change the contractual completion date. Only approved extensions do.</div>
             <button type="button" class="btn btn-sm" onclick="openContractStoppageForm()" data-i18n="addStoppage">Add stoppage</button>
           </td></tr>
 
@@ -635,7 +631,7 @@ select.cell-in[data-f="unit"]:focus{background:#fffde7;outline:2px solid var(--a
 
 <div class="overlay" id="contract-stoppage-modal">
   <div class="modal" style="width:min(680px,94vw)">
-    <div class="mhead"><div><div class="mtitle" data-i18n="contractStoppages">Contract stoppages</div><div class="msubtitle" data-i18n="stoppageLegalNotice">Stoppages do not change the contractual completion date. Only approved extensions do.</div></div><button class="closex" type="button" onclick="closeContractStoppageForm()">✕</button></div>
+    <div class="mhead"><div class="mtitle" data-i18n="contractStoppages">Contract stoppages — interrupted execution periods</div><button class="closex" type="button" onclick="closeContractStoppageForm()">✕</button></div>
     <div class="mbody op-form-grid">
       <input type="hidden" id="contract-stop-id">
       <label><span data-i18n="reason">Reason</span><input class="cell-in" id="contract-stop-reason" data-i18n-placeholder="reason"></label>
@@ -1000,11 +996,9 @@ function calcContractEnd() {
   // Sum all extension periods
   var exts    = data.contractDetails['extensions'] || [];
   var extDays = exts.reduce(function(s,e){ return s + (BINNA_I18N.numberValue(e.days)||0); }, 0);
-  var total   = days + extDays;
+  var total   = BINNA_SCHEDULE_CALENDAR.contractExecutionDays(days, extDays);
   if (startVal && startVal.length === 10 && total > 0) {
-    var d = new Date(startVal + 'T00:00:00');
-    d.setDate(d.getDate() + Math.round(total));
-    var iso = d.toISOString().split('T')[0];
+    var iso = BINNA_SCHEDULE_CALENDAR.contractCompletionDate(startVal, days, extDays, contractStoppages);
     endEl.value = isoToDisp(iso);
     data.contractDetails['contract-end'] = iso;
   }
@@ -1176,6 +1170,7 @@ async function loadContractStoppages(){
   try{var response=await BINNA.fetchStoppages(PROJECT_ID);contractStoppages=response.stoppages||[];}
   catch(error){contractStoppages=[];BINNA.toast((error&&error.error)||'Could not load stoppages','error');}
   renderContractStoppages();
+  calcContractEnd();
 }
 function renderContractStoppages(){
   var container=document.getElementById('cd-stoppages-container');if(!container)return;
@@ -1202,11 +1197,11 @@ async function saveContractStoppage(){
   var row={id:id,name:document.getElementById('contract-stop-reason').value.trim(),reference:document.getElementById('contract-stop-reference').value.trim(),start:document.getElementById('contract-stop-start').value,end:document.getElementById('contract-stop-end').value,notes:document.getElementById('contract-stop-notes').value.trim(),type:'other'};
   if(!row.name||!row.start){BINNA.toast(BINNA_I18N.t('reason')+' / '+BINNA_I18N.t('startDate'),'error');return;}if(!row.end)row.end=row.start;
   var next=contractStoppages.filter(function(stop){return stop.id!==id;});next.push(row);
-  try{var response=await BINNA.saveStoppages(PROJECT_ID,next);contractStoppages=response.stoppages||next;closeContractStoppageForm();renderContractStoppages();}catch(error){BINNA.toast((error&&error.error)||'Could not save stoppage','error');}
+  try{var response=await BINNA.saveStoppages(PROJECT_ID,next);contractStoppages=response.stoppages||next;closeContractStoppageForm();renderContractStoppages();calcContractEnd();}catch(error){BINNA.toast((error&&error.error)||'Could not save stoppage','error');}
 }
 async function deleteContractStoppage(id){
   var next=contractStoppages.filter(function(stop){return stop.id!==id;});
-  try{var response=await BINNA.saveStoppages(PROJECT_ID,next);contractStoppages=response.stoppages||next;renderContractStoppages();}catch(error){BINNA.toast((error&&error.error)||'Could not delete stoppage','error');}
+  try{var response=await BINNA.saveStoppages(PROJECT_ID,next);contractStoppages=response.stoppages||next;renderContractStoppages();calcContractEnd();}catch(error){BINNA.toast((error&&error.error)||'Could not delete stoppage','error');}
 }
 
 function _loadBoqRow(r){ if(r._type==='section') addBoqSection(r._title||''); else if(r._type==='sub') addBoqSubItem(r); else addBoqRow(r); }
@@ -1327,13 +1322,6 @@ function renderContractType(){
   }
   var lk=document.getElementById('ctype-lock');
   if(lk) lk.style.display=locked?'inline':'none';
-  // Page tag (always visible once known)
-  var tag=document.getElementById('contract-type-tag');
-  if(tag){
-    tag.textContent=type==='government'?'🏛 Government':'🤝 Private';
-    tag.className='ctype-tag '+(type==='government'?'gov':'priv');
-    tag.style.display='inline-flex';
-  }
   // Conditional Payments tab: private → placeholder, government → existing system
   // Currency selector (in Contract Details table — both contract types, Fix 1)
   var curSel=document.getElementById('cd-currency');
@@ -3641,7 +3629,7 @@ function fmtQty(v){
   var s=String(v||'').trim();
   if(!s||s==='0') return '0';
   var n=BINNA_I18N.numberValue(s);
-  return isNaN(n)?s:Math.round(n).toLocaleString('en-US'); // quantities stay integer, independent of money decimals
+  return isNaN(n)?s:(window.BINNA_I18N?BINNA_I18N.formatNumber(Math.round(n),{maximumFractionDigits:0}):Math.round(n).toLocaleString('en-US')); // quantities stay integer, independent of money decimals
 }
 
 // ── UNIT SELECT HELPERS ───────────────────────────────────────────────────────

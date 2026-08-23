@@ -79,6 +79,7 @@ td.del-cell{width:32px;text-align:center}
 </style>
 <script src="/static/js/binna-api.js?v=3"></script>
 <script src="/static/js/management-i18n.js"></script>
+<script src="/static/js/financial-date-filter.js"></script>
 <script src="/static/js/operational-i18n.js"></script>
 <link rel="stylesheet" href="/static/css/operational-shell.css">
 <script src="/static/js/operational-shell.js"></script>
@@ -126,16 +127,19 @@ td.del-cell{width:32px;text-align:center}
     <h1>&#8593; Income</h1>
     <div class="sub" id="page-sub">All income entries</div>
   </div>
-  <button class="btn btn-primary" onclick="addEntry()">+ Add Income Entry</button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="addEntry()">+ Add Income Entry</button>
+    <button class="btn" type="button" data-manage-categories="income">Manage Categories</button>
+  </div>
 </div>
 
 <!-- Filters -->
 <div class="filter-bar">
   <input type="text" id="q" placeholder="Search description, category, amount…" oninput="applyFilter()" style="flex:1;min-width:200px"/>
   <div class="filter-sep"></div>
-  <input type="text" id="from-date" maxlength="10" placeholder="From DD/MM/YYYY" oninput="autoFmt(this);applyFilter()" style="width:140px"/>
+  <span class="op-date-input"><input type="text" id="from-date" maxlength="10" placeholder="From DD/MM/YYYY" oninput="autoFmt(this);applyFilter()"/><input type="date" id="from-date-picker" aria-label="Choose From date" onchange="syncDateFilter('from')"/></span>
   <span style="color:var(--muted);font-size:12px">–</span>
-  <input type="text" id="to-date" maxlength="10" placeholder="To DD/MM/YYYY" oninput="autoFmt(this);applyFilter()" style="width:140px"/>
+  <span class="op-date-input"><input type="text" id="to-date" maxlength="10" placeholder="To DD/MM/YYYY" oninput="autoFmt(this);applyFilter()"/><input type="date" id="to-date-picker" aria-label="Choose To date" onchange="syncDateFilter('to')"/></span>
   <button class="btn btn-sm" onclick="clearDates()">Clear</button>
   <div class="filter-sep"></div>
   <select id="cat-filter" onchange="applyFilter()"><option value="">All Categories</option></select>
@@ -150,6 +154,7 @@ td.del-cell{width:32px;text-align:center}
         <th class="sortable" onclick="setSort('desc')" id="th-desc">Description / Source <span id="arr-desc"></span></th>
         <th style="width:140px">Received From</th>
         <th class="sortable" onclick="setSort('cat')" id="th-cat" style="width:130px">Category <span id="arr-cat"></span></th>
+        <th style="min-width:150px">Notes</th>
         <th class="sortable" onclick="setSort('date')" id="th-date" style="width:110px">Date <span id="arr-date">▼</span></th>
         <th style="width:65px">Currency</th>
         <th class="sortable num-h" onclick="setSort('amount')" id="th-amount" style="width:110px">Amount <span id="arr-amount"></span></th>
@@ -158,7 +163,7 @@ td.del-cell{width:32px;text-align:center}
         <th style="width:32px"></th>
       </tr>
     </thead>
-    <tbody id="tbody"><tr><td colspan="10" style="text-align:center;padding:20px;color:var(--muted2)">Loading…</td></tr></tbody>
+    <tbody id="tbody"><tr><td colspan="11" style="text-align:center;padding:20px;color:var(--muted2)">Loading…</td></tr></tbody>
   </table>
 </div>
 
@@ -205,11 +210,13 @@ var _sidebarOpen=true;
 var globalParties=[]; // Global Parties Registry — options for "Received From"
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
-function fmt(n){return Math.round(n).toLocaleString('en-US');}
+function fmt(n){return window.BINNA_I18N?BINNA_I18N.formatNumber(Math.round(n),{maximumFractionDigits:0}):Math.round(n).toLocaleString('en-US');}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function isoToDisp(s){if(!s)return'—';var p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'—';}
-function dispToISO(s){if(!s||s.length!==10)return'';var p=s.split('/');return(p.length===3&&p[2].length===4)?p[2]+'-'+p[1]+'-'+p[0]:'';}
-function autoFmt(el){var v=el.value.replace(/\D/g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);el.value=v.slice(0,10);}
+function dispToISO(s){return BINNA_FINANCIAL_DATES.parseDate(s)||'';}
+function autoFmt(el){var v=BINNA_FINANCIAL_DATES.normalizeDigits(el.value).replace(/\D/g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);v=v.slice(0,10);el.value=BINNA_I18N.isArabic?BINNA_I18N.toArabicDigits(v):v;}
+function syncDateFilter(which){var picker=document.getElementById(which+'-date-picker'),text=document.getElementById(which+'-date');BINNA_FINANCIAL_DATES.syncPicker(picker,text,BINNA_I18N.isArabic);applyFilter();}
+function setDateValidity(range){['from','to'].forEach(function(which){var el=document.getElementById(which+'-date'),invalid=!!el.value&&!BINNA_FINANCIAL_DATES.parseDate(el.value);if(!invalid&&range.from&&range.to&&range.from>range.to)invalid=true;el.setAttribute('aria-invalid',String(invalid));el.title=invalid?(BINNA_I18N.isArabic?'تاريخ غير صالح أو نطاق زمني معكوس':'Invalid date or reversed date range'):'';});}
 
 function getIqd(row){
   var a=parseFloat(row.amount)||0;
@@ -217,11 +224,13 @@ function getIqd(row){
   return row.cur==='USD'?a*rate:a;
 }
 function getCats(){return (fullData.incomeCategories||[]).filter(function(c){return !c.archived;});}
-function getCatName(catId){var c=getCats().find(function(x){return x.id===catId;});return c?c.name:'';}
+function getCatName(catId){var c=(fullData.incomeCategories||[]).find(function(x){return x.id===catId;});return c?c.name:'';}
 
 function catOptions(sel){
   var opts='<option value="">— No Category —</option>';
   getCats().forEach(function(c){opts+='<option value="'+esc(c.id)+'"'+(c.id===sel?' selected':'')+'>'+esc(c.name)+'</option>';});
+  var selected=(fullData.incomeCategories||[]).find(function(c){return c.id===sel&&c.archived;});
+  if(selected)opts+='<option value="'+esc(selected.id)+'" selected>'+esc(selected.name)+' (Archived)</option>';
   return opts;
 }
 
@@ -247,19 +256,20 @@ function applyFilter(){
   var cat=(document.getElementById('cat-filter')||{value:''}).value;
   var from=(document.getElementById('from-date').value||'');
   var to=(document.getElementById('to-date').value||'');
-  var fromISO=from.length===10?dispToISO(from):'';
-  var toISO=to.length===10?dispToISO(to):'';
+  var range=BINNA_FINANCIAL_DATES.bounds(from,to);
+  var dateMatches=new Set(BINNA_FINANCIAL_DATES.filterRows(allRows,from,to));
+  setDateValidity(range);
 
   filteredRows=allRows.filter(function(r){
     if(q){
       var match=(r.desc||'').toLowerCase().indexOf(q)>=0||
                getCatName(r.cat||'').toLowerCase().indexOf(q)>=0||
+               (r.notes||'').toLowerCase().indexOf(q)>=0||
                String(Math.round(getIqd(r))).indexOf(q)>=0;
       if(!match)return false;
     }
     if(cat&&r.cat!==cat)return false;
-    if(fromISO&&r.date&&r.date<fromISO)return false;
-    if(toISO&&r.date&&r.date>toISO)return false;
+    if(!dateMatches.has(r))return false;
     return true;
   });
 
@@ -302,7 +312,7 @@ function render(){
   if(info)info.textContent=filteredRows.length+' entr'+(filteredRows.length===1?'y':'ies')+(filteredRows.length!==allRows.length?' (filtered from '+allRows.length+')':'');
 
   if(!visible.length){
-    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted2)">No entries'+(allRows.length?' matching filters':' yet — click "+ Add Income Entry" to add one')+'</td></tr>';
+    tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--muted2)">No entries'+(allRows.length?' matching filters':' yet — click "+ Add Income Entry" to add one')+'</td></tr>';
     renderPagination();return;
   }
 
@@ -316,7 +326,8 @@ function render(){
       '<td><input class="cell-in" value="'+esc(row.desc||'')+'" placeholder="Description…" oninput="updateRow('+gi+',\'desc\',this.value)"/></td>'+
       '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'party\',this.value)">'+partyOptions(row.party||'')+'</select></td>'+
       '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'cat\',this.value)">'+catOptions(row.cat||'')+'</select></td>'+
-      '<td><input class="cell-in" type="text" maxlength="10" placeholder="DD/MM/YYYY" value="'+isoToDisp(row.date||'')+'" oninput="autoFmt(this)" onchange="updateRow('+gi+',\'date\',dispToISO(this.value)||this.value)" style="text-align:center;font-size:12px"/></td>'+
+      '<td><input class="cell-in" value="'+esc(row.notes||'')+'" placeholder="Notes" oninput="updateRow('+gi+',\'notes\',this.value)"/></td>'+
+      '<td><input class="cell-in" type="text" maxlength="10" placeholder="DD/MM/YYYY" value="'+isoToDisp(row.date||'')+'" oninput="autoFmt(this)" onchange="updateRowDate('+gi+',this)" style="text-align:center;font-size:12px"/></td>'+
       '<td><select class="cell-in" style="padding:6px 4px;font-size:12px" onchange="updateRow('+gi+',\'cur\',this.value);updateRowState('+gi+')">'+
         '<option value="IQD"'+(isUsd?'':' selected')+'>IQD</option>'+
         '<option value="USD"'+(isUsd?' selected':'')+'>USD $</option>'+
@@ -334,7 +345,7 @@ function render(){
 function renderPagination(){
   var pag=document.getElementById('pagination');
   var sab=document.getElementById('show-all-btn');
-  if(sab)sab.textContent=showAll?'Paginate':'Show All';
+  if(sab){var showLabel=showAll?'Paginate':'Show All';sab.textContent=window.BINNA_OPERATIONAL_I18N?BINNA_OPERATIONAL_I18N.translatePhrase(showLabel,BINNA_I18N.isArabic):showLabel;}
   if(!pag)return;
   if(showAll||filteredRows.length<=perPage){pag.innerHTML='';return;}
   var total=Math.ceil(filteredRows.length/perPage);
@@ -370,9 +381,17 @@ function rebuildCatFilter(){
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 function updateRow(gi,field,val){
   if(!allRows[gi])return;
-  if(field==='date'){val=dispToISO(val)||val;}
+  if(field==='date'){val=BINNA_FINANCIAL_DATES.parseDate(val);if(!val)return;}
   allRows[gi][field]=val;
   scheduleSave();
+}
+
+function updateRowDate(gi,input){
+  var iso=BINNA_FINANCIAL_DATES.parseDate(input.value);
+  if(!iso){input.setAttribute('aria-invalid','true');input.title=BINNA_I18N.isArabic?'أدخل تاريخاً صحيحاً بصيغة يوم/شهر/سنة':'Enter a valid date as DD/MM/YYYY';return;}
+  input.removeAttribute('aria-invalid');input.removeAttribute('title');
+  input.value=BINNA_FINANCIAL_DATES.formatDisplay(iso,BINNA_I18N.isArabic);
+  updateRow(gi,'date',iso);
 }
 
 function updateRowIqd(gi){
@@ -392,7 +411,7 @@ function updateRowState(gi){
 }
 
 function addEntry(){
-  var newRow={desc:'',party:'',cat:'',date:new Date().toISOString().split('T')[0],cur:'IQD',amount:'',rate:''};
+  var newRow={desc:'',party:'',cat:'',notes:'',date:new Date().toISOString().split('T')[0],cur:'IQD',amount:'',rate:''};
   allRows.unshift(newRow);
   // Clear filters to show new row
   document.getElementById('q').value='';
@@ -429,6 +448,7 @@ function clearDates(){
   document.getElementById('to-date').value='';
   applyFilter();
 }
+window.addEventListener('binna:languagechange',function(){['from','to'].forEach(function(which){var el=document.getElementById(which+'-date'),iso=BINNA_FINANCIAL_DATES.parseDate(el.value);if(iso)el.value=BINNA_FINANCIAL_DATES.formatDisplay(iso,BINNA_I18N.isArabic);});applyFilter();});
 
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 function scheduleSave(){

@@ -52,17 +52,28 @@ with app.app_context():
     db.session.add_all([alpha, beta]); db.session.flush()
     pm = User(username='sync-pm', email='sync-pm@test', password_hash='unused',
               company_id=alpha.id, company_role='member', email_verified=True)
+    viewer = User(username='sync-viewer', email='sync-viewer@test', password_hash='unused',
+                  company_id=alpha.id, company_role='member', email_verified=True)
     outsider = User(username='sync-out', email='sync-out@test', password_hash='unused',
                     company_id=beta.id, company_role='owner', email_verified=True)
-    db.session.add_all([pm, outsider]); db.session.flush()
+    db.session.add_all([pm, viewer, outsider]); db.session.flush()
     project = Project(company_id=alpha.id, code='SYNC', name='Sync project',
                       created_by=pm.id, project_manager_user_id=pm.id)
     db.session.add(project); db.session.flush()
-    db.session.add(ProjectMember(
+    other_project = Project(company_id=alpha.id, code='SYNC-OTHER', name='Other project',
+                            created_by=pm.id, project_manager_user_id=pm.id)
+    db.session.add(other_project); db.session.flush()
+    db.session.add_all([ProjectMember(
         company_id=alpha.id, project_id=project.id, user_id=pm.id, role='viewer',
         permissions=json.dumps({'financial': {'view': True, 'edit': True},
                                 'subcontracts': {'view': True, 'edit': True}}),
-    ))
+    ), ProjectMember(
+        company_id=alpha.id, project_id=project.id, user_id=viewer.id, role='viewer',
+        permissions=json.dumps({'financial': {'view': True, 'edit': False}}),
+    ), ProjectMember(
+        company_id=alpha.id, project_id=other_project.id, user_id=pm.id, role='viewer',
+        permissions=json.dumps({'financial': {'view': True, 'edit': True}}),
+    )])
     party = GlobalParty(company_id=alpha.id, project_id=project.id,
                         name_en='Supplier A', role='supplier')
     db.session.add(party); db.session.flush()
@@ -78,11 +89,13 @@ with app.app_context():
         data=json.dumps({'payments': [{'id': 'historical-paid', 'date': '2026-07-02', 'amount': 100}]}),
     )
     db.session.add_all([supply, historical]); db.session.commit()
-    ids = {'project': project.id, 'supply': supply.id, 'historical': historical.id,
-           'pm': pm.id, 'outsider': outsider.id}
+    ids = {'project': project.id, 'other_project': other_project.id,
+           'supply': supply.id, 'historical': historical.id,
+           'pm': pm.id, 'viewer': viewer.id, 'outsider': outsider.id}
 
 
 pm_h = headers(ids['pm'])
+viewer_h = headers(ids['viewer'])
 outsider_h = headers(ids['outsider'])
 passed = failed = 0
 
@@ -156,13 +169,80 @@ category_create = client.post(
     json={'kind': 'expense', 'name': 'Equipment'}, headers=pm_h,
 )
 category = (category_create.get_json() or {}).get('category') or {}
+category_rename = client.put(
+    f"/api/v1/projects/{ids['project']}/financial/categories/expense/{category.get('id')}",
+    json={'name': 'Plant and equipment'}, headers=pm_h,
+)
 category_archive = client.put(
     f"/api/v1/projects/{ids['project']}/financial/categories/expense/{category.get('id')}",
     json={'archived': True}, headers=pm_h,
 )
 check('ordinary project category has a stable id and may be safely archived',
-      category_create.status_code == 201 and category.get('id') and category_archive.status_code == 200 and
+      category_create.status_code == 201 and category.get('id') and
+      category_rename.status_code == 200 and
+      (category_rename.get_json() or {}).get('category', {}).get('id') == category.get('id') and
+      category_archive.status_code == 200 and
       (category_archive.get_json() or {}).get('category', {}).get('archived') is True)
+
+notes_save = client.put(
+    f"/api/v1/projects/{ids['project']}/financial/income",
+    json={
+        'income': [{'id': 'income-notes', 'desc': 'Company funding',
+                    'notes': 'English note / ملاحظة عربية', 'amount': 25, 'cur': 'IQD'}],
+        'expenses': [{'id': 'expense-notes', 'desc': 'Manual expense',
+                      'notes': 'Expense note / ملاحظة مصروف', 'amount': 5, 'cur': 'IQD',
+                      'cat': category.get('id')}],
+    }, headers=pm_h,
+)
+with app.app_context():
+    payload = json.loads(FinancialData.query.filter_by(project_id=ids['project']).first().data)
+    income_note = next((r for r in payload.get('income', []) if r.get('id') == 'income-notes'), {})
+    expense_note = next((r for r in payload.get('expenses', []) if r.get('id') == 'expense-notes'), {})
+    historical_category = next((c for c in payload.get('expenseCategories', [])
+                                if c.get('id') == category.get('id')), {})
+    check('income and expense notes persist in the existing financial JSON structure',
+          notes_save.status_code == 200 and
+          income_note.get('notes') == 'English note / ملاحظة عربية' and
+          expense_note.get('notes') == 'Expense note / ملاحظة مصروف')
+    check('archived category keeps its id, renamed label, and historical entry relationship',
+          historical_category.get('name') == 'Plant and equipment' and
+          historical_category.get('archived') is True and
+          expense_note.get('cat') == category.get('id'))
+
+category_restore = client.put(
+    f"/api/v1/projects/{ids['project']}/financial/categories/expense/{category.get('id')}",
+    json={'archived': False}, headers=pm_h,
+)
+check('archived project category may be restored without changing its id',
+      category_restore.status_code == 200 and
+      (category_restore.get_json() or {}).get('category', {}).get('id') == category.get('id') and
+      (category_restore.get_json() or {}).get('category', {}).get('archived') is False)
+
+with app.app_context():
+    payload = json.loads(FinancialData.query.filter_by(project_id=ids['project']).first().data)
+    required = next(c for c in payload.get('expenseCategories', []) if c.get('system_required'))
+system_archive = client.put(
+    f"/api/v1/projects/{ids['project']}/financial/categories/expense/{required.get('id')}",
+    json={'archived': True}, headers=pm_h,
+)
+check('required synchronized-payment category cannot be archived through category management',
+      system_archive.status_code == 409)
+
+generic_system_bypass = client.put(
+    f"/api/v1/projects/{ids['project']}/financial/income",
+    json={'expenseCategories': [{'id': required.get('id'), 'name': 'Tampered',
+                                 'archived': True, 'system_required': False}]},
+    headers=pm_h,
+)
+with app.app_context():
+    payload = json.loads(FinancialData.query.filter_by(project_id=ids['project']).first().data)
+    required_after = next(c for c in payload.get('expenseCategories', [])
+                          if c.get('id') == required.get('id'))
+    check('generic financial save cannot remove, rename, archive, or declassify a required category',
+          generic_system_bypass.status_code == 200 and
+          required_after.get('name') == required.get('name') and
+          required_after.get('archived') is False and
+          required_after.get('system_required') is True)
 
 missing_rate = client.put(
     f"/api/v1/projects/{ids['project']}/supply-agreements/{ids['supply']}",
@@ -186,6 +266,25 @@ with app.app_context():
 cross = client.get(f"/api/v1/projects/{ids['project']}/financial/categories", headers=outsider_h)
 check('cross-company category access remains denied', cross.status_code == 404)
 
+project_isolation = client.get(
+    f"/api/v1/projects/{ids['other_project']}/financial/categories", headers=pm_h)
+check('categories remain isolated by project within the same company',
+      project_isolation.status_code == 200 and
+      not (project_isolation.get_json() or {}).get('income_categories') and
+      not (project_isolation.get_json() or {}).get('expense_categories'))
+
+viewer_notes = client.put(
+    f"/api/v1/projects/{ids['project']}/financial/income",
+    json={'income': [{'id': 'unauthorized-note', 'notes': 'must not save'}]},
+    headers=viewer_h,
+)
+viewer_category = client.post(
+    f"/api/v1/projects/{ids['project']}/financial/categories",
+    json={'kind': 'income', 'name': 'Unauthorized'}, headers=viewer_h,
+)
+check('view-only financial permission cannot edit notes or manage categories',
+      viewer_notes.status_code == 403 and viewer_category.status_code == 403)
+
 with app.app_context():
     project_row = db.session.get(Project, ids['project'])
     project_row.is_closed = True
@@ -194,7 +293,12 @@ closed_write = client.put(
     f"/api/v1/projects/{ids['project']}/supply-agreements/{ids['supply']}",
     json={'data': {'payments': []}}, headers=pm_h,
 )
-check('closed project payment modifications remain denied', closed_write.status_code == 409)
+closed_financial_write = client.put(
+    f"/api/v1/projects/{ids['project']}/financial/income",
+    json={'income': [{'id': 'closed-note', 'notes': 'must not save'}]}, headers=pm_h,
+)
+check('closed project payment and financial-entry modifications remain denied',
+      closed_write.status_code == 409 and closed_financial_write.status_code == 409)
 with app.app_context():
     project_row = db.session.get(Project, ids['project'])
     project_row.is_closed = False

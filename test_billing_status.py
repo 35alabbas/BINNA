@@ -104,21 +104,22 @@ def signup(username, email, company):
     rl = client.post('/api/v1/auth/login', json={'email': email, 'password': 'password1'})
     return {'Authorization': 'Bearer ' + rl.get_json()['access_token']}, rl.get_json()['user']['id']
 
-def newproj(hdr, code):
+def newproj(hdr, code, manager_id):
     return client.post('/api/v1/projects', json={'code': code, 'name': code,
-                       'client': 'C', 'consultant': 'K', 'contractor': 'T'}, headers=hdr)
+                       'client': 'C', 'consultant': 'K', 'contractor': 'T',
+                       'project_manager_user_id': manager_id}, headers=hdr)
 
 hdr_admin, uid_admin = signup('boss', 'boss@acme.test', 'Acme')      # FIRST user → platform super-admin
 hdr_user,  uid_user  = signup('staff', 'staff@beta.test', 'Beta')    # platform role 'user'
 
-check('[3a] trial-active company CAN create a project (201)', newproj(hdr_user, 'P1').status_code == 201)
+check('[3a] trial-active company CAN create a project (201)', newproj(hdr_user, 'P1', uid_user).status_code == 201)
 
 # lock the non-admin company; a write then triggers the lazy transition → 403
 with app.app_context():
     cu = db.session.get(User, uid_user).company
     cu.status = 'trial'; cu.trial_ends_at = _now() - timedelta(days=30); cu.grace_ends_at = None
     db.session.commit(); cu_id = cu.id
-_blocked = newproj(hdr_user, 'P2')
+_blocked = newproj(hdr_user, 'P2', uid_user)
 check('[3b] locked company write BLOCKED (403)', _blocked.status_code == 403)
 check("[3b'] lock 403 carries code='account_locked' (distinct from role-gate 403s)",
       _blocked.get_json().get('code') == 'account_locked')
@@ -130,7 +131,7 @@ with app.app_context():
     ca = db.session.get(User, uid_admin).company
     ca.status = 'locked'; ca.trial_ends_at = _now() - timedelta(days=30)
     ca.grace_ends_at = _now() - timedelta(days=1); db.session.commit()
-check('[3e] platform super-admin bypasses the lock (201)', newproj(hdr_admin, 'P3').status_code == 201)
+check('[3e] platform super-admin bypasses the lock (201)', newproj(hdr_admin, 'P3', uid_admin).status_code == 201)
 
 print('\n' + '═' * 70)
 print(f'  RESULT: {_PASS} passed, {_FAIL} failed')

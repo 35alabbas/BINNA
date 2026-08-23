@@ -76,10 +76,11 @@ def signup_and_login(username, email, password, company):
     return {'Authorization': f'Bearer {tok}'}, uid
 
 
-def create_project(headers, code, name):
+def create_project(headers, manager_id, code, name):
     r = client.post('/api/v1/projects', json={'code': code, 'name': name,
                                               'client': 'C', 'consultant': 'K',
-                                              'contractor': 'T'}, headers=headers)
+                                              'contractor': 'T',
+                                              'project_manager_user_id': manager_id}, headers=headers)
     assert r.status_code == 201, f'create project failed: {r.status_code} {r.get_json()}'
     return r.get_json()['project']['id']
 
@@ -121,8 +122,8 @@ print('\n[setup] creating Company A and Company B via full signup flow…')
 hdr_a, uid_a = signup_and_login('owner_a', 'a@aco.test', 'passwordA', 'Alpha Co')
 hdr_b, uid_b = signup_and_login('owner_b', 'b@bco.test', 'passwordB', 'Beta Co')
 
-pid_a = create_project(hdr_a, 'APA', 'Alpha Project')
-pid_b = create_project(hdr_b, 'BPB', 'Beta Project')
+pid_a = create_project(hdr_a, uid_a, 'APA', 'Alpha Project')
+pid_b = create_project(hdr_b, uid_b, 'BPB', 'Beta Project')
 seed_data(hdr_a, pid_a)
 seed_data(hdr_b, pid_b)
 file_a = upload_file(hdr_a, pid_a, b'ALPHA SECRET FILE')

@@ -32,6 +32,25 @@ vm.runInContext(fs.readFileSync('static/js/operational-shell.js', 'utf8'), conte
 
 const shell = context.BINNA_APP_SHELL;
 assert.ok(shell, 'shared application shell should be exported');
+assert.strictEqual(typeof shell.isModalBackdropTarget, 'function');
+assert.strictEqual(shell.isModalBackdropTarget({
+  matches(selector) { return selector.includes('.overlay'); },
+  querySelector() { return null; },
+}), true, 'overlay backdrops must be protected from click dismissal');
+assert.strictEqual(shell.isModalBackdropTarget({
+  matches() { return false; },
+  querySelector() { return null; },
+}), false, 'modal content must retain its normal click behavior');
+assert.match(shell.legacyAccountSelector, /\.btn-logout-sm/,
+             'DC legacy logout must be normalized with the other duplicate controls');
+assert.match(shell.legacyAccountSelector, /#user-chip/,
+             'legacy username chips must be normalized by the shared shell');
+assert.strictEqual(typeof shell.operationalToggleHtml, 'function');
+const operationalToggle = shell.operationalToggleHtml();
+assert.match(operationalToggle, /class="op-sidebar-footer"/);
+assert.match(operationalToggle, /data-binna-sidebar-toggle/);
+assert.match(operationalToggle, /data-sidebar-toggle-label/);
+assert.match(operationalToggle, /data-i18n="collapse"/);
 assert.strictEqual(shell.stateKey, 'binna-sidebar-collapsed');
 assert.strictEqual(shell.readCollapsed(context.localStorage), false);
 shell.writeCollapsed(true, context.localStorage);
@@ -107,13 +126,18 @@ assert.deepStrictEqual(
 const project = { id: 42, name: 'Project Alpha' };
 const contextual = shell.visibleNavigation(null, true, project);
 assert.strictEqual(contextual[0].items[2].href, '/project/42');
+assert.strictEqual(typeof shell.projectBadgeSelectors, 'object');
+assert.ok(shell.projectBadgeSelectors.code.includes('#proj-code'));
+assert.ok(shell.projectBadgeSelectors.name.includes('#proj-name'));
+assert.ok(shell.projectBadgeSelectors.code.includes('#proj-code-display'));
+assert.ok(shell.projectBadgeSelectors.name.includes('#proj-name-display'));
 
 const i18n = context.BINNA_I18N;
 assert.strictEqual(i18n.messages.en.accounts, 'Accounts');
 assert.strictEqual(i18n.messages.en.contractPayments, 'Contract & Payments');
 assert.strictEqual(i18n.messages.en.drawingApprovals, 'Drawing Approvals (DWG)');
 assert.strictEqual(i18n.messages.ar.accounts, 'الحسابات');
-assert.strictEqual(i18n.messages.ar.contractPayments, 'العقد والمدفوعات');
+assert.strictEqual(i18n.messages.ar.contractPayments, 'العقد والسلف');
 assert.strictEqual(i18n.messages.ar.drawingApprovals, 'مصادقة المخططات (DWG)');
 assert.strictEqual(i18n.messages.ar.fieldInspectionRequest, 'طلب فحص موقعي (FIR)');
 assert.strictEqual(i18n.messages.ar.materialInspectionRequest, 'طلب فحص مواد (MIR)');

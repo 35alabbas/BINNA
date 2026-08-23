@@ -234,7 +234,7 @@ function dispToISO(s){ if(!s||s.length!==10) return ''; const p=s.split('/'); re
 function autoFmtDate(el){ let v=el.value.replace(/\D/g,''); if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2); if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5); el.value=v.slice(0,10); }
 function pad2(n){ return String(n).padStart(2,'0'); }
 function dp(){ return sub&&sub.data ? Math.max(0,Math.min(2,parseInt(sub.data.decimalPlaces,10)||0)) : 0; }
-function fmt(v){ const d=dp(); return Number(v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmt(v){ const d=dp(); return window.BINNA_I18N?BINNA_I18N.formatNumber(Number(v||0),{minimumFractionDigits:d,maximumFractionDigits:d}):Number(v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function curSymOf(blob){ const c=(blob&&blob.currency)||'IQD'; if(c==='custom') return (blob.currency_custom||'').trim()||'IQD'; return ({IQD:'IQD',USD:'$',EUR:'€'})[c]||c; }
 function CUR(){ return curSymOf(sub&&sub.data); }
 
@@ -331,7 +331,7 @@ function renderDashboard(b){
   const byCur=(summary&&summary.by_currency)||{};
   const curKeys=Object.keys(byCur);
   const multi=curKeys.length>1;
-  const M=(label,val,color)=>'<div class="metric"><div class="l">'+label+'</div><div class="v"'+(color?' style="color:'+color+'"':'')+'>'+Math.round(val).toLocaleString('en-US')+'</div></div>';
+  const M=(label,val,color)=>'<div class="metric"><div class="l">'+label+'</div><div class="v"'+(color?' style="color:'+color+'"':'')+'>'+BINNA_I18N.formatNumber(Math.round(val),{maximumFractionDigits:0})+'</div></div>';
   let strip='<div class="strip">'
     +M('Committed',t.committed)
     +M('Certified',t.certified,'var(--accent)')
@@ -341,7 +341,7 @@ function renderDashboard(b){
   +'</div>';
   if(multi){
     strip+='<div style="font-size:11.5px;color:var(--muted);margin:-8px 0 14px">⚠ Mixed currencies — totals above are an unconverted sum. Per-currency Balance Payable: '
-      +curKeys.map(c=>'<b>'+esc(c)+' '+Math.round(byCur[c].balance).toLocaleString('en-US')+'</b>').join(' · ')+'</div>';
+      +curKeys.map(c=>'<b>'+esc(c)+' '+BINNA_I18N.formatNumber(Math.round(byCur[c].balance),{maximumFractionDigits:0})+'</b>').join(' · ')+'</div>';
   }
   // Subcontracts are created automatically when a subcontractor/supplier party is
   // added in the project's Parties registry — there is no manual "New" button here.
@@ -359,7 +359,7 @@ function renderDashboard(b){
       +'<th style="text-align:right">Paid</th><th style="text-align:right">Balance Payable</th><th>Status</th><th>Cert</th></tr></thead><tbody>';
     rows.forEach(r=>{
       const cu=(r.currency==='custom'?(r.currency_custom||''):r.currency)||'';
-      const fM=v=>Math.round(v).toLocaleString('en-US');
+      const fM=v=>BINNA_I18N.formatNumber(Math.round(v),{maximumFractionDigits:0});
       table+='<tr class="clickable" onclick="openContract('+r.id+')">'
         +'<td class="mono">'+esc(r.ref)+'</td>'
         +'<td>'+esc(r.party&&r.party.name||'')+'</td>'
@@ -382,7 +382,7 @@ function renderDashboard(b){
 //   Suppliers get a simple PO + payment-log workflow: no retention, no درعة,
 //   no progress certificates. PO value → log payments → see balance.
 // ══════════════════════════════════════════════════════════════════════════════
-function mA(v){ return Number(v||0).toLocaleString('en-US',{maximumFractionDigits:2}); }
+function mA(v){ return BINNA_I18N.formatNumber(Number(v||0),{maximumFractionDigits:2}); }
 function poStatusBadge(st){
   const map={open:['Open','#1a56db','#eff4ff','#c7d7fd'],partially_paid:['Partially Paid','#b54708','#fffaeb','#fedf89'],closed:['Closed','#027a48','#ecfdf3','#a6f4c5']};
   const x=map[st]||map.open;

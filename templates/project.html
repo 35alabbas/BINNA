@@ -42,12 +42,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .proj-name-top{font-size:14px;font-weight:600;color:var(--text)}
 
 .topbar-right{display:flex;align-items:center;gap:10px}
-.user-badge{display:flex;align-items:center;gap:8px}
-.avatar{
-  width:30px;height:30px;border-radius:50%;background:var(--accent);
-  color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;
-}
-.username-label{font-size:13px;font-weight:500;color:var(--text)}
 .btn-logout{
   padding:6px 12px;border-radius:var(--radius);border:1px solid var(--border-gold);
   background:var(--gold-dim);font-size:12px;color:var(--gold);cursor:pointer;
@@ -242,10 +236,6 @@ textarea.form-input{resize:vertical;min-height:72px}
   </div>
   <div class="topbar-right">
       <button class="mgmt-language-toggle" type="button" onclick="BINNA_I18N.toggle()">العربية</button>
-    <div class="user-badge">
-      <div class="avatar" id="user-avatar">?</div>
-      <span class="username-label" id="user-name"></span>
-    </div>
     <button class="btn-logout" onclick="BINNA.logout()">Log out</button>
   </div>
 </div>
@@ -321,7 +311,7 @@ textarea.form-input{resize:vertical;min-height:72px}
 <!-- Edit modal -->
 <div class="overlay" id="edit-overlay" onclick="closeEditIfBg(event)">
   <div class="modal">
-    <div class="modal-title">Edit Project</div>
+    <div class="binna-modal-head"><div class="modal-title">Edit Project</div><button class="binna-modal-close" type="button" onclick="closeEditModal()" aria-label="Close">×</button></div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Project Code</label>
@@ -368,7 +358,7 @@ textarea.form-input{resize:vertical;min-height:72px}
 <!-- Add project employee modal -->
 <div class="overlay" id="member-overlay" onclick="closeMemberIfBg(event)">
   <div class="modal" style="max-width:400px">
-    <div class="modal-title" id="member-modal-title">Add project employee</div>
+    <div class="binna-modal-head"><div class="modal-title" id="member-modal-title">Add project employee</div><button class="binna-modal-close" type="button" onclick="closeMemberModal()" aria-label="Close">×</button></div>
     <div class="form-group">
       <label class="form-label">Company account email or username</label>
       <input class="form-input" id="m-identifier" placeholder="employee@company.com" autocomplete="off" />
@@ -387,7 +377,7 @@ textarea.form-input{resize:vertical;min-height:72px}
 <!-- Global Parties Registry modal -->
 <div class="overlay" id="parties-overlay" onclick="closePartiesIfBg(event)">
   <div class="modal" style="max-width:760px">
-    <div class="modal-title">Parties</div>
+    <div class="binna-modal-head"><div class="modal-title">Parties</div><button class="binna-modal-close" type="button" onclick="closePartiesModal()" aria-label="Close">×</button></div>
     <div style="overflow-x:auto;margin-bottom:14px">
       <table class="parties-table">
         <thead>
@@ -563,10 +553,10 @@ async function loadProject() {
 function recorded(value){return value===null||value===undefined||value===''?BINNA_I18N.t('notRecorded'):value;}
 function overviewMoney(value,currency){
   if(value===null||value===undefined)return BINNA_I18N.t('notRecorded');
-  try{return new Intl.NumberFormat(BINNA_I18N.lang==='ar'?'ar-IQ':'en-US',{maximumFractionDigits:0}).format(value)+' '+(currency||'');}
+  try{return BINNA_I18N.formatMoney(value,currency,{maximumFractionDigits:0});}
   catch(_){return String(value)+' '+(currency||'');}
 }
-function overviewDate(value){if(!value)return BINNA_I18N.t('notRecorded');try{return new Intl.DateTimeFormat(BINNA_I18N.lang==='ar'?'ar-IQ':'en-GB',{dateStyle:'medium'}).format(new Date(value+'T00:00:00'));}catch(_){return value;}}
+function overviewDate(value){return BINNA_I18N.formatDate(value,{dateStyle:'medium'});}
 async function loadProjectOverview(){
   const grid=document.getElementById('project-overview');
   try{OVERVIEW=(await BINNA.fetchProjectOverview(PROJECT_ID)).overview||{};renderProjectOverview();}
@@ -577,14 +567,14 @@ function renderProjectOverview(){
   const n=BINNA_I18N.t('notRecorded'),currency=OVERVIEW.currency||'';
   const dateMeta=[OVERVIEW.contract_date?overviewDate(OVERVIEW.contract_date):'',OVERVIEW.contract_completion_date?overviewDate(OVERVIEW.contract_completion_date):''].filter(Boolean).join(' → ')||n;
   const cards=[
-    [BINNA_I18N.t('durationDates'),OVERVIEW.contract_duration_days===null?n:`${OVERVIEW.contract_duration_days} ${BINNA_I18N.t('days')}`,dateMeta,''],
+    [BINNA_I18N.t('durationDates'),OVERVIEW.contract_duration_days===null?n:BINNA_I18N.formatDuration(OVERVIEW.contract_duration_days),dateMeta,''],
     [BINNA_I18N.t('contractValue'),overviewMoney(OVERVIEW.contract_value,currency),currency||n,''],
     [BINNA_I18N.t('ownerPayments'),overviewMoney(OVERVIEW.received_owner_payments,currency),currency||n,'success'],
     [BINNA_I18N.t('employees'),recorded(OVERVIEW.employee_count),BINNA_I18N.t('employees'),''],
     [BINNA_I18N.t('cashPosition'),overviewMoney(OVERVIEW.project_cash_position,currency),OVERVIEW.project_cash_position===null?n:currency,'warning']
   ];
   document.getElementById('project-overview').innerHTML=cards.map(c=>`<div class="overview-card ${c[3]}"><div class="overview-label">${BINNA.esc(c[0])}</div><div class="overview-value">${BINNA.esc(c[1])}</div><div class="overview-meta">${BINNA.esc(c[2])}</div></div>`).join('');
-  const progressCard=(label,value,kind)=>`<div class="overview-card"><div class="overview-label">${label}</div><div class="overview-value">${value===null?n:`${value}%`}</div><div class="pulse-track ${value===null?'pulse-unavailable':''}"><div class="pulse-fill ${kind}" data-progress="${value===null?0:value}"></div></div></div>`;
+  const progressCard=(label,value,kind)=>`<div class="overview-card"><div class="overview-label">${label}</div><div class="overview-value">${value===null?n:BINNA_I18N.formatPercent(value)}</div><div class="pulse-track ${value===null?'pulse-unavailable':''}"><div class="pulse-fill ${kind}" data-progress="${value===null?0:value}"></div></div></div>`;
   document.getElementById('project-pulse').innerHTML=progressCard(BINNA_I18N.t('financialProgress'),OVERVIEW.financial_progress,'')+progressCard(BINNA_I18N.t('scheduleProgress'),OVERVIEW.schedule_progress,'schedule');
   if(window.BINNA_UI)BINNA_UI.reveal();
 }
@@ -703,9 +693,9 @@ async function loadProjectPermissions(){const box=document.getElementById('proje
 function renderProjectPermissions(modules,members){const box=document.getElementById('project-permissions'),locked=PROJECT.is_closed;box.className='';box.innerHTML=members.map(m=>`<div class="mgmt-card" style="margin-bottom:10px"><h3>${BINNA.esc(m.username)} · ${BINNA.esc(m.role)}</h3><div style="display:grid;grid-template-columns:minmax(140px,1fr) 70px 70px;gap:0;margin-top:10px">${modules.map(mod=>{const p=m.permissions[mod]||{};return `<div style="padding:7px;border-bottom:1px solid var(--border)">${BINNA.esc(mod)}</div><label style="padding:7px;text-align:center;border-bottom:1px solid var(--border)"><input type="checkbox" data-mid="${m.member_id}" data-mod="${mod}" data-kind="view" ${p.view?'checked':''} ${locked||m.role==='owner'?'disabled':''}> ${BINNA_I18N.t('view')}</label><label style="padding:7px;text-align:center;border-bottom:1px solid var(--border)"><input type="checkbox" data-mid="${m.member_id}" data-mod="${mod}" data-kind="edit" ${p.edit?'checked':''} ${locked||m.role==='owner'?'disabled':''}> ${BINNA_I18N.t('edit')}</label>`}).join('')}</div>${!locked&&m.role!=='owner'?`<div class="mgmt-actions" style="margin-top:10px"><button class="mgmt-btn primary" onclick="saveMemberPermissions(${m.member_id})">${BINNA_I18N.t('save')}</button></div>`:''}</div>`).join('');}
 async function saveMemberPermissions(mid){const permissions={};document.querySelectorAll(`[data-mid="${mid}"]`).forEach(cb=>{permissions[cb.dataset.mod]=permissions[cb.dataset.mod]||{view:false,edit:false};permissions[cb.dataset.mod][cb.dataset.kind]=cb.checked;});Object.values(permissions).forEach(p=>{if(p.edit)p.view=true;});try{await BINNA.updatePermissions(PROJECT_ID,mid,permissions);BINNA.toast('Permissions saved','success');await loadProjectPermissions();}catch(e){BINNA.toast(BINNA.managementError(e),'error');}}
 
-async function loadMonitoringComments(){const box=document.getElementById('monitoring-comments');try{const rows=(await BINNA.fetchMonitoringComments(PROJECT_ID)).comments||[];box.innerHTML=rows.length?rows.map(c=>`<div style="padding:10px 0;border-top:1px solid var(--border)"><strong>${BINNA.esc(c.author_username||'User')}</strong><div style="font-size:12px;margin-top:4px">${BINNA.esc(c.body)}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">${new Date(c.created_at).toLocaleString()}</div></div>`).join(''):'<div class="mgmt-notice">No monitoring comments yet.</div>';}catch(e){box.innerHTML=`<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;}}
+async function loadMonitoringComments(){const box=document.getElementById('monitoring-comments');try{const rows=(await BINNA.fetchMonitoringComments(PROJECT_ID)).comments||[];box.innerHTML=rows.length?rows.map(c=>`<div style="padding:10px 0;border-top:1px solid var(--border)"><strong>${BINNA.esc(c.author_username||'User')}</strong><div style="font-size:12px;margin-top:4px">${BINNA.esc(c.body)}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">${BINNA_I18N.formatDateTime(c.created_at)}</div></div>`).join(''):'<div class="mgmt-notice">No monitoring comments yet.</div>';}catch(e){box.innerHTML=`<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;}}
 async function addMonitoringComment(){const input=document.getElementById('monitoring-comment-body'),body=input.value.trim();if(!body)return;try{await BINNA.addMonitoringComment(PROJECT_ID,body);input.value='';await loadMonitoringComments();BINNA.toast('Comment added','success');}catch(e){BINNA.toast(BINNA.managementError(e),'error');}}
-async function loadAuditTimeline(){const box=document.getElementById('audit-timeline');try{const rows=(await BINNA.fetchProjectAudit(PROJECT_ID)).audit_logs||[];box.innerHTML=rows.length?rows.slice().reverse().map(a=>{const changes=[a.previous_values?`Before: ${JSON.stringify(a.previous_values)}`:'',a.new_values?`After: ${JSON.stringify(a.new_values)}`:''].filter(Boolean).join(' · ');return `<div class="mgmt-event"><div class="mgmt-event-title">${BINNA.esc(a.action_type.replaceAll('.',' · '))}</div><div class="mgmt-event-meta">${BINNA.esc(a.actor_username||'User')} · ${new Date(a.created_at).toLocaleString()}</div>${changes?`<div class="mgmt-event-meta">${BINNA.esc(changes)}</div>`:''}</div>`;}).join(''):'<div class="mgmt-notice">No audit events yet.</div>';}catch(e){box.innerHTML=`<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;}}
+async function loadAuditTimeline(){const box=document.getElementById('audit-timeline');try{const rows=(await BINNA.fetchProjectAudit(PROJECT_ID)).audit_logs||[];box.innerHTML=rows.length?rows.slice().reverse().map(a=>{const changes=[a.previous_values?`Before: ${JSON.stringify(a.previous_values)}`:'',a.new_values?`After: ${JSON.stringify(a.new_values)}`:''].filter(Boolean).join(' · ');return `<div class="mgmt-event"><div class="mgmt-event-title">${BINNA.esc(a.action_type.replaceAll('.',' · '))}</div><div class="mgmt-event-meta">${BINNA.esc(a.actor_username||'User')} · ${BINNA_I18N.formatDateTime(a.created_at)}</div>${changes?`<div class="mgmt-event-meta">${BINNA.esc(changes)}</div>`:''}</div>`;}).join(''):'<div class="mgmt-notice">No audit events yet.</div>';}catch(e){box.innerHTML=`<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;}}
 
 // ── Edit modal ────────────────────────────────────────────────────────────
 function openEditModal() {
@@ -944,17 +934,7 @@ async function loadStats() {
   }
 }
 
-// ── User badge ────────────────────────────────────────────────────────────
-function renderUser() {
-  const u = BINNA.getUser();
-  if (!u) return;
-  const initials = (u.username || u.email || '?')[0].toUpperCase();
-  document.getElementById('user-avatar').textContent = initials;
-  document.getElementById('user-name').textContent   = u.username || u.email;
-}
-
 // ── Boot ──────────────────────────────────────────────────────────────────
-renderUser();
 window.addEventListener('binna:languagechange', () => {
   if (PROJECT) { renderHeader(); renderModules(); renderProjectOverview(); renderManagement(); }
 });

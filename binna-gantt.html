@@ -238,6 +238,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 </style>
 <script src="/static/js/binna-api.js"></script>
 <script src="/static/js/management-i18n.js"></script>
+<script src="/static/js/schedule-calendar.js"></script>
 <script src="/static/js/operational-i18n.js"></script>
 <link rel="stylesheet" href="/static/css/operational-shell.css">
 <script src="/static/js/operational-shell.js"></script>
@@ -388,6 +389,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <div id="dgd" onclick="if(event.target===this)document.getElementById('dgd').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;align-items:center;justify-content:center">
   <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:26px 26px 20px;max-width:400px;width:calc(100% - 32px);box-shadow:0 20px 48px rgba(0,0,0,.18)">
+    <button class="closex" type="button" aria-label="Close" onclick="document.getElementById('dgd').style.display='none'" style="float:right">✕</button>
     <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px" id="dgd-title"></div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5" id="dgd-msg"></div>
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -402,6 +404,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <div id="cfm" onclick="if(event.target===this)document.getElementById('cfm').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;align-items:center;justify-content:center">
   <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:26px 26px 20px;max-width:400px;width:calc(100% - 32px);box-shadow:0 20px 48px rgba(0,0,0,.18)">
+    <button class="closex" type="button" aria-label="Close" onclick="document.getElementById('cfm').style.display='none'" style="float:right">✕</button>
     <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px" id="cfm-title"></div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5;white-space:pre-line" id="cfm-msg"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -415,6 +418,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <div id="stoppages-modal" onclick="if(event.target===this)closeStoppagesModal()"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:401;align-items:center;justify-content:center">
   <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:24px 24px 18px;max-width:560px;width:calc(100% - 32px);max-height:88vh;overflow:auto;box-shadow:0 20px 48px rgba(0,0,0,.18)">
+    <button class="closex" type="button" aria-label="Close" onclick="closeStoppagesModal()" style="float:right">✕</button>
     <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px" data-i18n="contractStoppages">Contract stoppages</div>
 
     <div style="display:grid;grid-template-columns:90px 1fr;gap:8px 10px;align-items:center;font-size:13px">
@@ -860,6 +864,14 @@ function _effLeaf(t) {
 function computeEffMap() {
   effMap = {};
   if (!stoppages.length) return;                    // fast path — fall back to stored dates everywhere
+  var hasDirectChildren = {};
+  for (var pi = 0; pi < tasks.length; pi++) {
+    var parentLevel = tasks[pi].level || 0;
+    if (pi + 1 < tasks.length && (tasks[pi + 1].level || 0) === parentLevel + 1) hasDirectChildren[tasks[pi].id] = true;
+  }
+  var leaves = tasks.filter(function(task){ return !hasDirectChildren[task.id]; });
+  var scheduled = BINNA_SCHEDULE_CALENDAR.scheduleLeafTaskChain(tasks, stoppages);
+  leaves.forEach(function(task){var dates=scheduled[String(task.id)];if(dates)effMap[task.id]={s:dates.start,e:dates.end};});
   // Reverse pass mirrors _recalcContainers: containers roll up from children's effective dates.
   for (var gi = tasks.length - 1; gi >= 0; gi--) {
     var g = tasks[gi], gL = g.level || 0, children = [];
@@ -868,12 +880,10 @@ function computeEffMap() {
       if (cL <= gL) break;
       if (cL === gL + 1) children.push(tasks[ci]);
     }
-    if (g.type !== 'task' && children.length) {
+    if (children.length) {
       var ss = children.map(function(c){ return effMap[c.id] ? effMap[c.id].s : c.start; });
       var ee = children.map(function(c){ return effMap[c.id] ? effMap[c.id].e : (c.end || c.start); });
       effMap[g.id] = { s: ss.reduce(function(a,b){ return b < a ? b : a; }), e: ee.reduce(function(a,b){ return b > a ? b : a; }) };
-    } else {
-      effMap[g.id] = _effLeaf(g);
     }
   }
 }
@@ -1189,7 +1199,7 @@ function buildUnits(min, max) {
     while (cur <= max) { var e=new Date(cur); e.setDate(e.getDate()+6); units.push({date:new Date(cur), end:e, label:'W'+wkn(cur)}); cur.setDate(cur.getDate()+7); }
   } else {
     cur.setDate(1);
-    while (cur <= max) { var e2=new Date(cur.getFullYear(),cur.getMonth()+1,0); units.push({date:new Date(cur),end:e2,label:cur.toLocaleDateString('en-GB',{month:'short'}),year:cur.getFullYear()}); cur.setMonth(cur.getMonth()+1); }
+    while (cur <= max) { var e2=new Date(cur.getFullYear(),cur.getMonth()+1,0); units.push({date:new Date(cur),end:e2,label:BINNA_I18N.formatDate(cur,{month:'short'}),year:BINNA_I18N.formatNumber(cur.getFullYear(),{useGrouping:false})}); cur.setMonth(cur.getMonth()+1); }
   }
   return units;
 }
@@ -1208,7 +1218,7 @@ function renderHeader(units, cw) {
   } else {
     var months = [];
     units.forEach(function(u){
-      var l = u.date.toLocaleDateString('en-GB',{month:'short',year:'numeric'});
+      var l = BINNA_I18N.formatDate(u.date,{month:'short',year:'numeric'});
       if(!months.length || months[months.length-1].l !== l) months.push({l:l, c:1});
       else months[months.length-1].c++;
     });
@@ -1247,7 +1257,7 @@ function renderHeader(units, cw) {
 function unitStop(u) {
   if (!stoppages.length) return false;
   var us = u.date, ue = u.end || u.date;
-  return stoppages.some(function(s) {
+  return BINNA_SCHEDULE_CALENDAR.mergeStoppages(stoppages).some(function(s) {
     var ss = new Date(s.start + 'T00:00:00'), se = new Date(s.end + 'T00:00:00');
     return us <= se && ss <= ue;
   });
@@ -1259,7 +1269,7 @@ function barHatch(t, bp, units, cw, min) {
   if (!stoppages.length) return '';
   var bs = new Date(effStart(t) + 'T00:00:00'), be = new Date(effEnd(t) + 'T00:00:00');
   var out = '';
-  stoppages.forEach(function(s) {
+  BINNA_SCHEDULE_CALENDAR.mergeStoppages(stoppages).forEach(function(s) {
     var ss = new Date(s.start + 'T00:00:00'), se = new Date(s.end + 'T00:00:00');
     var ovS = ss > bs ? ss : bs, ovE = se < be ? se : be;
     if (ovS > ovE) return;                                    // no overlap with this bar
@@ -1267,7 +1277,7 @@ function barHatch(t, bp, units, cw, min) {
     var hr = dateOff(ovE, units, cw, min) + cw - bp.l;
     var w = hr - hl;
     if (w <= 0) return;
-    out += '<div class="gbar-stop" style="left:'+hl+'px;width:'+w+'px" title="Stoppage: '+escHtml(s.name)+' ('+disp(s.start)+' → '+disp(s.end)+')"></div>';
+    out += '<div class="gbar-stop" style="left:'+hl+'px;width:'+w+'px" title="'+BINNA_I18N.t('contractStoppages')+': '+disp(s.start)+' → '+disp(s.end)+'"></div>';
   });
   return out;
 }

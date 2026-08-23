@@ -18,7 +18,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import FinancialData, Project, ProjectMember, _ROLE_ORDER
 from app.tenancy import authorize_project_access
-from app.payment_expenses import preserve_linked_expenses
+from app.payment_expenses import (
+    preserve_linked_expenses,
+    preserve_required_expense_categories,
+)
 
 financial_bp = Blueprint('financial', __name__)
 
@@ -100,6 +103,8 @@ def save_financial(project_id):
     if isinstance(payload, dict):
         payload['expenses'] = preserve_linked_expenses(
             existing.get('expenses', []), payload.get('expenses', []))
+        payload['expenseCategories'] = preserve_required_expense_categories(
+            existing.get('expenseCategories', []), payload.get('expenseCategories', []))
     fd.company_id = proj.company_id
     fd.data       = json.dumps(payload, ensure_ascii=False)
     fd.updated_by = uid
@@ -139,7 +144,9 @@ def save_income_expenses(project_id):
     existing['expenses']           = preserve_linked_expenses(
         existing.get('expenses', []), body.get('expenses', existing.get('expenses', [])))
     existing['incomeCategories']   = body.get('incomeCategories',   existing.get('incomeCategories', []))
-    existing['expenseCategories']  = body.get('expenseCategories',  existing.get('expenseCategories', []))
+    existing['expenseCategories']  = preserve_required_expense_categories(
+        existing.get('expenseCategories', []),
+        body.get('expenseCategories', existing.get('expenseCategories', [])))
     existing['usdRate']            = body.get('usdRate',            existing.get('usdRate', 1310))
 
     fd.data       = json.dumps(existing, ensure_ascii=False)
@@ -196,8 +203,13 @@ def create_category(project_id):
     except (ValueError, TypeError):
         payload = {}
     key = 'incomeCategories' if kind == 'income' else 'expenseCategories'
+    categories = payload.setdefault(key, [])
+    if any(isinstance(category, dict) and
+           str(category.get('name') or '').strip().casefold() == name.casefold()
+           for category in categories):
+        return jsonify({'error': 'Category name already exists'}), 409
     category = {'id': str(uuid.uuid4()), 'name': name, 'archived': False}
-    payload.setdefault(key, []).append(category)
+    categories.append(category)
     fd.data = json.dumps(payload, ensure_ascii=False)
     db.session.commit()
     return jsonify({'category': category}), 201
@@ -230,6 +242,10 @@ def update_category(project_id, kind, category_id):
         name = (body.get('name') or '').strip()
         if not name:
             return jsonify({'error': 'name is required'}), 400
+        if any(isinstance(item, dict) and str(item.get('id')) != category_id and
+               str(item.get('name') or '').strip().casefold() == name.casefold()
+               for item in payload.get(key, [])):
+            return jsonify({'error': 'Category name already exists'}), 409
         category['name'] = name
     if 'archived' in body:
         if category.get('system_required') and body.get('archived'):

@@ -25,6 +25,8 @@
     ]},
   ];
   const SIDEBAR_STATE_KEY='binna-sidebar-collapsed';
+  const PROJECT_BADGE_SELECTORS={code:'[data-proj-code],#proj-code,#proj-code-display',name:'[data-proj-name],#proj-name,#proj-name-display'};
+  const LEGACY_ACCOUNT_SELECTOR='.mgmt-language-toggle,.binna-language-toggle,.user-pill,.user-chip,#user-chip,.nav-logout,.btn-logout,.btn-logout-sm';
   let currentPermissions=null;
 
   function copyItem(item,project){
@@ -42,6 +44,13 @@
     return NAVIGATION.filter(section=>!section.projectOnly||hasProject).map(section=>({id:section.id,labelKey:section.labelKey,items:section.items.filter(item=>(!item.projectOnly||hasProject)&&canView(item,permissions)).map(item=>copyItem(item,project))})).filter(section=>section.items.length);
   }
   function label(key){return global.BINNA_I18N?BINNA_I18N.t(key):key;}
+  function updateProjectBadge(project){
+    const current=project||(global.BINNA&&BINNA.getProject?BINNA.getProject():null);
+    if(!current)return null;
+    document.querySelectorAll(PROJECT_BADGE_SELECTORS.code).forEach(el=>el.textContent=current.code||'');
+    document.querySelectorAll(PROJECT_BADGE_SELECTORS.name).forEach(el=>el.textContent=current.name||'');
+    return current;
+  }
   function escapeHtml(value){return String(value==null?'':value).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
   function isActive(item){const path=global.location?location.pathname.replace(/\/$/,''):'';return path===item.href||(item.id==='projectDashboard'&&path.indexOf('/project/')===0);}
   function sectionHtml(section,appStyle){
@@ -79,9 +88,17 @@
     return collapsed;
   }
   function toggleSidebar(){return setCollapsed(!document.body.classList.contains('sidebar-collapsed'),true);}
+  function operationalToggleHtml(){
+    return '<div class="op-sidebar-footer"><button class="op-sidebar-toggle" type="button" data-binna-sidebar-toggle aria-controls="sidebar" aria-expanded="true"><span data-sidebar-toggle-icon aria-hidden="true"></span><span class="op-sidebar-toggle-label" data-sidebar-toggle-label data-i18n="collapse">'+label('collapse')+'</span></button></div>';
+  }
+  function ensureOperationalToggle(){
+    const sidebar=document.getElementById('sidebar');
+    if(sidebar&&!sidebar.querySelector('.op-sidebar-footer'))sidebar.insertAdjacentHTML('beforeend',operationalToggleHtml());
+  }
   function normalizeToggleControls(){
     const operational=document.getElementById('sidebar-toggle-btn');
     if(operational){operational.removeAttribute('onclick');operational.classList.add('binna-sidebar-toggle');operational.setAttribute('data-binna-sidebar-toggle','');operational.setAttribute('aria-controls','sidebar');operational.innerHTML='<span data-sidebar-toggle-icon aria-hidden="true"></span><span class="sr-only" data-sidebar-toggle-label></span>';}
+    ensureOperationalToggle();
     document.querySelectorAll('.app-sidebar-toggle,.app-mobile-menu').forEach(button=>button.setAttribute('data-binna-sidebar-toggle',''));
     document.querySelectorAll('[data-binna-sidebar-toggle]').forEach(button=>{if(button.dataset.binnaSidebarBound)return;button.dataset.binnaSidebarBound='1';button.addEventListener('click',toggleSidebar);});
   }
@@ -89,27 +106,40 @@
     const username=user&&user.username?user.username:label('account'),detail=(user&&user.email)||(user&&user.company_role)||'',initial=username.charAt(0).toUpperCase();
     return '<div class="binna-user-menu"><button class="binna-user-trigger" type="button" aria-haspopup="true" aria-expanded="false"><span class="binna-user-avatar">'+escapeHtml(initial)+'</span><span class="binna-user-name">'+escapeHtml(username)+'</span><span aria-hidden="true">⌄</span></button><div class="binna-user-dropdown" hidden><div class="binna-user-label" data-i18n="accountInformation">'+label('accountInformation')+'</div><div class="binna-user-summary"><strong>'+escapeHtml(username)+'</strong>'+(detail?'<span>'+escapeHtml(detail)+'</span>':'')+'</div><div class="binna-user-label" data-i18n="languageSelection">'+label('languageSelection')+'</div><div class="binna-language-options"><button type="button" data-lang="ar">العربية</button><button type="button" data-lang="en">English</button></div><button class="binna-user-logout" type="button" data-i18n="logout">'+label('logout')+'</button></div></div>';
   }
+  function normalizeAccountControls(root){
+    (root||document).querySelectorAll(LEGACY_ACCOUNT_SELECTOR).forEach(el=>el.remove());
+  }
   function renderUserMenu(){
-    const right=document.querySelector('.topbar-right');if(!right)return;
-    const old=right.querySelector('.binna-user-menu');if(old)old.remove();
+    let right=document.querySelector('.topbar-right');
+    if(!right){right=document.querySelector('.topbar > :last-child');if(right)right.classList.add('topbar-right');}
+    if(!right)return;
+    document.querySelectorAll('.binna-user-menu').forEach(el=>el.remove());
+    normalizeAccountControls(document);
     const user=global.BINNA&&BINNA.getUser?BINNA.getUser():null;right.insertAdjacentHTML('beforeend',userMenuHtml(user));
-    right.querySelectorAll('.mgmt-language-toggle,.binna-language-toggle,.user-pill,.user-chip,.nav-logout,.btn-logout').forEach(el=>el.hidden=true);
     const menu=right.querySelector('.binna-user-menu'),trigger=menu.querySelector('.binna-user-trigger'),dropdown=menu.querySelector('.binna-user-dropdown');
     trigger.addEventListener('click',()=>{const open=dropdown.hidden;dropdown.hidden=!open;trigger.setAttribute('aria-expanded',String(open));});
     menu.querySelectorAll('[data-lang]').forEach(button=>button.addEventListener('click',()=>{if(global.BINNA_I18N)BINNA_I18N.setLang(button.dataset.lang);dropdown.hidden=true;}));
     menu.querySelector('.binna-user-logout').addEventListener('click',()=>{if(global.BINNA)BINNA.logout();});
   }
+  function isModalBackdropTarget(target){
+    if(!target||!target.matches)return false;
+    if(target.matches('.overlay,.modal-overlay,#dgd,#cfm,#stoppages-modal'))return true;
+    return target.matches('.modal')&&!!(target.querySelector&&target.querySelector(':scope > .modal-box,:scope > .modal-content,:scope > .modal-card'));
+  }
+  function protectModalBackdrops(){
+    document.addEventListener('click',event=>{if(isModalBackdropTarget(event.target)){event.preventDefault();event.stopImmediatePropagation();}},true);
+  }
   function brand(){const logo=document.querySelector('.topbar .logo');if(logo)logo.innerHTML='<span class="op-brand-mark">B</span><span class="op-brand-copy"><span class="op-brand-name">BINNA PM</span><span class="op-brand-domain">binnapm.com</span></span>';document.querySelectorAll('#binna-theme-toggle').forEach(el=>el.remove());}
   async function init(){
     if(document.getElementById('sidebar'))document.body.classList.add('binna-operational');
-    brand();renderNav(null);renderUserMenu();normalizeToggleControls();setCollapsed(readCollapsed(),false);
+    brand();updateProjectBadge();renderNav(null);renderUserMenu();normalizeToggleControls();protectModalBackdrops();setCollapsed(readCollapsed(),false);
     const pid=global.BINNA&&BINNA.getProjectId?BINNA.getProjectId():null;
-    if(pid&&BINNA.fetchProject){try{const response=await BINNA.fetchProject(pid);renderNav(response.project&&response.project.my_permissions);}catch(_){/* backend remains authoritative */}}
+    if(pid&&BINNA.fetchProject){try{const response=await BINNA.fetchProject(pid);if(response.project){BINNA.setProject(response.project);updateProjectBadge(response.project);}renderNav(response.project&&response.project.my_permissions);}catch(_){/* backend remains authoritative */}}
     if(global.BINNA&&BINNA.fetchMe){try{await BINNA.fetchMe();renderUserMenu();}catch(_){/* auth helper handles expired sessions */}}
     if(global.BINNA_I18N)BINNA_I18N.apply();
   }
-  const api={navigation:NAVIGATION,stateKey:SIDEBAR_STATE_KEY,readCollapsed,writeCollapsed,togglePresentation,visibleNavigation,hasProjectContext,renderNav,renderUserMenu,userMenuHtml,setCollapsed,toggleSidebar,init};
+  const api={navigation:NAVIGATION,stateKey:SIDEBAR_STATE_KEY,projectBadgeSelectors:PROJECT_BADGE_SELECTORS,legacyAccountSelector:LEGACY_ACCOUNT_SELECTOR,readCollapsed,writeCollapsed,togglePresentation,visibleNavigation,hasProjectContext,updateProjectBadge,renderNav,renderUserMenu,userMenuHtml,normalizeAccountControls,isModalBackdropTarget,protectModalBackdrops,operationalToggleHtml,setCollapsed,toggleSidebar,init};
   global.BINNA_APP_SHELL=api;global.BINNA_OPERATIONAL_SHELL=api;
-  global.addEventListener('binna:languagechange',()=>{renderNav(currentPermissions);renderUserMenu();updateToggleControls(document.body.classList.contains('sidebar-collapsed'));});
+  global.addEventListener('binna:languagechange',()=>{updateProjectBadge();renderNav(currentPermissions);renderUserMenu();updateToggleControls(document.body.classList.contains('sidebar-collapsed'));});
   document.addEventListener('DOMContentLoaded',init);
 })(window);

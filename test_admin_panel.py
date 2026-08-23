@@ -169,29 +169,30 @@ check('[5h] revenue log grows by exactly 1 row', rev['count'] - base_count == 1)
 # ── 6. activate / suspend + end-to-end lock lift ──────────────────────────────
 print('\n[6] activate / suspend + lock lift end-to-end')
 
-def newproj(hdr, code):
+def newproj(hdr, code, manager_id):
     return client.post('/api/v1/projects', json={'code': code, 'name': code,
-                       'client': 'C', 'consultant': 'K', 'contractor': 'T'}, headers=hdr)
+                       'client': 'C', 'consultant': 'K', 'contractor': 'T',
+                       'project_manager_user_id': manager_id}, headers=hdr)
 
 # suspend Beta → read-only; its writes 403 with account_locked
 client.post(f'/api/v1/admin/companies/{beta_id}/suspend', headers=hdr_admin)
-blocked = newproj(hdr_user, 'PB1')
+blocked = newproj(hdr_user, 'PB1', u_user['id'])
 check('[6a] suspended company write BLOCKED (403)', blocked.status_code == 403)
 check("[6b] block carries code='account_locked'", blocked.get_json().get('code') == 'account_locked')
 
 # mark-paid lifts the lock
 client.post(f'/api/v1/admin/companies/{beta_id}/mark-paid',
             json={'amount_iqd': 250000, 'method': 'zain_cash'}, headers=hdr_admin)
-check('[6c] after mark-paid, previously-locked tenant CAN write (201)', newproj(hdr_user, 'PB2').status_code == 201)
+check('[6c] after mark-paid, previously-locked tenant CAN write (201)', newproj(hdr_user, 'PB2', u_user['id']).status_code == 201)
 
 # suspend again, then manual activate (sticky, no payment)
 client.post(f'/api/v1/admin/companies/{beta_id}/suspend', headers=hdr_admin)
 client.post(f'/api/v1/admin/companies/{beta_id}/activate', headers=hdr_admin)
-check('[6d] manual activate lifts lock too (201)', newproj(hdr_user, 'PB3').status_code == 201)
+check('[6d] manual activate lifts lock too (201)', newproj(hdr_user, 'PB3', u_user['id']).status_code == 201)
 
 # ── 7. storage usage indicator ────────────────────────────────────────────────
 print('\n[7] /company/storage usage indicator')
-proj = newproj(hdr_user, 'PST').get_json()
+proj = newproj(hdr_user, 'PST', u_user['id']).get_json()
 pid = proj.get('project', proj).get('id') if isinstance(proj, dict) else None
 if pid is None:
     pid = proj['id'] if isinstance(proj, dict) and 'id' in proj else proj.get('project', {}).get('id')

@@ -196,3 +196,29 @@ def preserve_linked_expenses(existing, incoming):
     canonical = [e for e in existing if isinstance(e, dict) and e.get('system_generated')]
     manual = [e for e in incoming if isinstance(e, dict) and not e.get('system_generated') and not e.get('source')]
     return manual + canonical
+
+
+def preserve_required_expense_categories(existing, incoming):
+    """Keep payment-integration categories canonical across generic JSON saves."""
+    incoming_categories = [dict(c) for c in incoming if isinstance(c, dict)]
+    required = {
+        str(c.get('id')): dict(c) for c in existing
+        if isinstance(c, dict) and c.get('id') and c.get('system_required')
+    }
+    if not required:
+        return incoming_categories
+    preserved_ids = set()
+    result = []
+    for category in incoming_categories:
+        category_id = str(category.get('id'))
+        canonical = required.get(category_id)
+        if canonical is not None:
+            canonical['archived'] = False
+            canonical['system_required'] = True
+            result.append(canonical)
+            preserved_ids.add(category_id)
+        else:
+            result.append(category)
+    result.extend(category for category_id, category in required.items()
+                  if category_id not in preserved_ids)
+    return result

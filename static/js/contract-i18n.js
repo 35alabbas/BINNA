@@ -32,7 +32,15 @@
     'Hide Dashboard':'إخفاء لوحة الملخص','Show Dashboard':'إظهار لوحة الملخص','▲ Hide Dashboard':'▲ إخفاء لوحة الملخص','▼ Show Dashboard':'▼ إظهار لوحة الملخص','Net Paid to Contractor':'صافي المدفوع للمقاول','Quick Manual Entry':'إدخال يدوي سريع','✏ Quick Manual Entry':'✏ إدخال يدوي سريع','Filter by description or item number...':'تصفية حسب الوصف أو رقم الفقرة...','Select/deselect all visible':'تحديد أو إلغاء تحديد جميع الظاهر','minimum':'الحد الأدنى','rows':'صف','Auto from BOQ total':'تلقائي من مجموع جدول الكميات','Auto from VO section':'تلقائي من قسم أوامر التغيير','Auto = Contract Value + VO':'تلقائي = قيمة العقد + أوامر التغيير','Choose File':'اختيار ملف','No file chosen':'لم يتم اختيار ملف','.xlsx / .csv · 5 MB · 5,000 rows':'‎.xlsx / .csv · ٥ ميغابايت · ٥٬٠٠٠ صف','Reverse a Previous Deduction':'عكس استقطاع سابق','↩ Reverse a Previous Deduction':'↩ عكس استقطاع سابق',
     'IQD — Iraqi Dinar (default)':'IQD — الدينار العراقي (الافتراضي)','USD — US Dollar ($)':'USD — الدولار الأمريكي ($)','EUR — Euro (€)':'EUR — اليورو (€)','0 — No decimals (1,500)':'٠ — من دون منازل عشرية (١٬٥٠٠)','1 decimal place (1,500.0)':'منزلة عشرية واحدة (١٬٥٠٠٫٠)','2 decimal places (1,500.00)':'منزلتان عشريتان (١٬٥٠٠٫٠٠)',
     'No BOQ items.':'لا توجد فقرات في جدول الكميات.','No payments received yet':'لم تُستلم دفعات بعد','No stoppages added yet.':'لا توجد توقفات مسجلة.','Nothing to undo':'لا يوجد إجراء للتراجع',
-    'Work item description':'وصف فقرة العمل','Sub-item description':'وصف الفقرة الفرعية','Section / Work Category Title':'عنوان القسم / فئة العمل','Payment description':'وصف الدفعة','Reason / reference':'السبب / المرجع','Company name':'اسم الشركة','Client name':'اسم صاحب العمل','Project name':'اسم المشروع','Contract reference no.':'رقم مرجع العقد','Any special contract rules...':'أي قواعد خاصة بالعقد...'
+    'Work item description':'وصف فقرة العمل','Sub-item description':'وصف الفقرة الفرعية','Section / Work Category Title':'عنوان القسم / فئة العمل','Payment description':'وصف الدفعة','Reason / reference':'السبب / المرجع','Company name':'اسم الشركة','Client name':'اسم صاحب العمل','Project name':'اسم المشروع','Contract reference no.':'رقم مرجع العقد','Any special contract rules...':'أي قواعد خاصة بالعقد...',
+    'VO description':'وصف أمر التغيير','+ Addition':'+ إضافة','− Deduction':'− تخفيض','📦 Lump Sum':'📦 مبلغ مقطوع','🧾 Monthly Invoice':'🧾 فاتورة شهرية',
+    '🏁 Milestone':'🏁 علامة مرحلية','✏ Other (Custom)':'✏ أخرى (مخصص)','Advance Payment':'دفعة مقدمة','Retention':'استقطاع ضمان',
+    'Tax (default)':'الضريبة (افتراضي)','+ Add ذرعة':'+ إضافة ذرعة','★ Mark as Final':'★ تعيين كنهائي','Paid ✓':'مدفوع ✓','Partial':'جزئي',
+    'e.g. Jan–Mar 2026':'مثال: كانون الثاني–آذار ٢٠٢٦','⚙ Auto from BOQ':'⚙ تلقائي من جدول الكميات','✏ Manual Entry':'✏ إدخال يدوي',
+    'View / Edit Items':'عرض / تعديل الفقرات','+ Add Row':'+ إضافة صف','Cumulative Work Done — This Payment':'الأعمال التراكمية المنجزة — هذه الدفعة',
+    'Cumulative Work Done — All Previous Payments':'الأعمال التراكمية المنجزة — جميع الدفعات السابقة','+ Add Deduction':'+ إضافة استقطاع',
+    '+ Add Surplus':'+ إضافة فائض','+ Daily Penalty':'+ غرامة يومية','+ Add Installment':'+ إضافة قسط','+ Attach File':'+ إرفاق ملف',
+    'Amount IQD':'المبلغ IQD','DD/MM/YYYY':'يوم/شهر/سنة','days':'يوم','ton — طن':'طن','MINIMUM':'الحد الأدنى','PREV':'السابق'
   };
   const reverse={};Object.keys(ar).forEach(key=>{reverse[ar[key]]=key;});
   const sourceNodes=new WeakMap(),sourceAttrs=new WeakMap();
@@ -45,7 +53,7 @@
   function translated(value,arabic){
     const trimmed=String(value||'').trim();if(!trimmed)return value;
     const bi=bilingual(trimmed,arabic);if(bi)return bi;
-    if(arabic){if(ar[trimmed])return ar[trimmed];return BINNA_I18N.toArabicDigits(trimmed);}
+    if(arabic){if(ar[trimmed])return ar[trimmed];return BINNA_I18N.toArabicDigits(trimmed.replace(/\(means ([^)]+) per day\)/i,'(تعني $1 يومياً)').replace(/\(Initial Handover\)/g,'(الاستلام الأولي)').replace(/\(Final Handover\)/g,'(الاستلام النهائي)').replace(/\(MINIMUM\)/g,'(الحد الأدنى)').replace(/\bPREV\b/g,'السابق'));}
     if(reverse[trimmed])return reverse[trimmed];return BINNA_I18N.normalizeDigits(trimmed).replace(/,/g,',');
   }
   function localizeTextNode(node){
@@ -59,8 +67,7 @@
     const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT,{acceptNode(node){const parent=node.parentElement;if(!parent||/^(SCRIPT|STYLE|TEXTAREA)$/.test(parent.tagName)||parent.closest('#proj-name,#proj-code,#boq-body,#vo-body input,#pay-rows-container input'))return NodeFilter.FILTER_REJECT;return node.nodeValue.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}});const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);nodes.forEach(localizeTextNode);
     const elements=scope.querySelectorAll?scope.querySelectorAll('input[placeholder],textarea[placeholder],[title],option,input.cell-in.label[readonly]'):[];elements.forEach(el=>{if(el.hasAttribute('placeholder'))localizeAttr(el,'placeholder');if(el.hasAttribute('title'))localizeAttr(el,'title');if(el.matches('input.cell-in.label[readonly]')){let record=sourceAttrs.get(el);if(!record){record={};sourceAttrs.set(el,record);}if(!('value' in record))record.value=el.value;el.value=translated(record.value,BINNA_I18N.isArabic);}});
   }
-  function localizeNumericInputs(){document.querySelectorAll('input[inputmode="decimal"],#cd-tax,#cd-insurance,#cd-penalty-rate').forEach(input=>{if(!input.value)return;const normalized=BINNA_I18N.normalizeDigits(input.value).replace(/٬/g,'').replace(/,/g,'');input.value=BINNA_I18N.isArabic?BINNA_I18N.toArabicDigits(normalized).replace('.', '٫'):normalized.replace('٫','.');});}
-  function refresh(){if(global._contractReady&&typeof global.collectAll==='function')global.collectAll();localizeTree(document.body);if(global._contractReady){if(typeof global.renderContractStoppages==='function')global.renderContractStoppages();if(typeof global.renderContractExtensions==='function')global.renderContractExtensions();if(typeof global.updateSummaries==='function')global.updateSummaries();}localizeNumericInputs();}
+  function refresh(){if(global._contractReady&&typeof global.collectAll==='function')global.collectAll();localizeTree(document.body);if(global._contractReady){if(typeof global.renderContractStoppages==='function')global.renderContractStoppages();if(typeof global.renderContractExtensions==='function')global.renderContractExtensions();if(typeof global.updateSummaries==='function')global.updateSummaries();}}
   global.BINNA_CONTRACT_I18N={refresh,localizeTree};
   global.addEventListener('binna:languagechange',refresh);
   document.addEventListener('DOMContentLoaded',()=>{refresh();const observer=new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(node=>{if(node.nodeType===1){localizeTree(node);BINNA_I18N.localize(node);}})));observer.observe(document.body,{childList:true,subtree:true});});
