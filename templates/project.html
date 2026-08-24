@@ -277,6 +277,25 @@ textarea.form-input{resize:vertical;min-height:72px}
 
   <div id="closed-project-notice" class="mgmt-notice warning" style="display:none;margin:0 0 18px"></div>
 
+  <div id="project-warnings" style="margin-bottom:18px"></div>
+
+  <div class="mgmt-section" id="classification-section" data-reveal>
+    <div class="mgmt-section-head"><div><div class="mgmt-section-title" data-i18n="classification">Project classification</div><div style="font-size:12px;color:var(--muted);margin-top:3px" data-i18n="classificationHelp">Independent project dimensions; no specialist workflow is activated.</div></div></div>
+    <div id="classification-migration-notice" class="mgmt-notice warning" style="display:none"></div>
+    <div id="classification-form" class="mgmt-card">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="projectRegime">Project regime</label><select class="form-select classification-input" id="c-project-regime" onchange="updateClassificationSubtype()"><option value="">Unclassified</option><option value="government">Government</option><option value="private">Private</option><option value="investment">Investment</option></select></div>
+        <div class="form-group" id="c-investment-subtype-wrap" style="display:none"><label class="form-label" data-i18n="investmentSubtype">Investment subtype</label><select class="form-select classification-input" id="c-investment-subtype"><option value="">Not selected</option><option value="public_authority">Public authority</option><option value="private">Private</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="workNature">Work nature</label><select class="form-select classification-input" id="c-work-nature"><option value="">Not selected</option><option value="construction">Construction</option><option value="supply_and_execution">Supply and execution</option><option value="supply">Supply</option><option value="other">Other</option></select></div>
+        <div class="form-group"><label class="form-label" data-i18n="contractStructure">Contract structure</label><select class="form-select classification-input" id="c-contract-structure"><option value="">Not selected</option><option value="independent">Independent</option><option value="investment_no_main_employer">Investment without main employer contract</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label" data-i18n="employerFieldState">Employer / client field</label><select class="form-select classification-input" id="c-client-state"><option value="missing">Missing</option><option value="not_applicable">Not applicable</option></select></div>
+      <div class="mgmt-actions" id="classification-actions"><button class="mgmt-btn primary" onclick="saveProjectClassification()" data-i18n="save">Save</button></div>
+    </div>
+  </div>
+
   <div class="mgmt-section" data-reveal>
     <div class="mgmt-section-head"><div class="mgmt-section-title">Project management</div></div>
     <div class="mgmt-grid">
@@ -541,6 +560,7 @@ async function loadProject() {
 
     renderHeader();
     await loadProjectOverview();
+    await loadProjectClassification();
     await renderManagement();
 
   } catch (err) {
@@ -548,6 +568,71 @@ async function loadProject() {
       window.location.href = '/dashboard';
     }
   }
+}
+
+function updateClassificationSubtype() {
+  const investment = document.getElementById('c-project-regime').value === 'investment';
+  document.getElementById('c-investment-subtype-wrap').style.display = investment ? '' : 'none';
+  if (!investment) document.getElementById('c-investment-subtype').value = '';
+}
+
+async function loadProjectClassification() {
+  const ready = !!PROJECT.project_classification_ready;
+  const form = document.getElementById('classification-form');
+  const notice = document.getElementById('classification-migration-notice');
+  if (!ready) {
+    form.style.display = 'none';
+    notice.style.display = 'block';
+    notice.textContent = BINNA_I18N.t('migrationClassification');
+    document.getElementById('project-warnings').innerHTML = '';
+    return;
+  }
+  notice.style.display = 'none'; form.style.display = 'block';
+  document.getElementById('c-project-regime').value = PROJECT.project_regime || '';
+  document.getElementById('c-investment-subtype').value = PROJECT.investment_subtype || '';
+  document.getElementById('c-work-nature').value = PROJECT.work_nature || '';
+  document.getElementById('c-contract-structure').value = PROJECT.contract_structure || '';
+  document.getElementById('c-client-state').value = (PROJECT.optional_field_states || {}).client || 'missing';
+  updateClassificationSubtype();
+  const mayEdit = !!(PROJECT.capabilities && PROJECT.capabilities.edit_classification && !PROJECT.is_closed);
+  document.querySelectorAll('.classification-input').forEach(el => el.disabled = !mayEdit);
+  document.getElementById('classification-actions').style.display = mayEdit ? 'flex' : 'none';
+  await loadProjectWarnings();
+}
+
+async function saveProjectClassification() {
+  const regime = document.getElementById('c-project-regime').value;
+  const payload = {
+    project_regime: regime || null,
+    investment_subtype: regime === 'investment' ? (document.getElementById('c-investment-subtype').value || null) : null,
+    work_nature: document.getElementById('c-work-nature').value || null,
+    contract_structure: document.getElementById('c-contract-structure').value || null,
+    optional_field_states: {client: document.getElementById('c-client-state').value},
+  };
+  try {
+    const data = await BINNA.updateProjectClassification(PROJECT_ID, payload);
+    PROJECT = {...PROJECT, ...data.classification};
+    BINNA.setProject(PROJECT);
+    await loadProjectClassification();
+    BINNA.toast(BINNA_I18N.t('classificationSaved'), 'success');
+  } catch (e) { BINNA.toast(BINNA.managementError(e), 'error'); }
+}
+
+async function loadProjectWarnings() {
+  const box = document.getElementById('project-warnings');
+  try {
+    const data = await BINNA.fetchProjectWarnings(PROJECT_ID);
+    const mayDismiss = !!(PROJECT.capabilities && PROJECT.capabilities.edit_classification && !PROJECT.is_closed);
+    box.innerHTML = (data.warnings || []).map(w => `<div class="mgmt-notice warning" style="margin-bottom:8px">${BINNA.esc(BINNA_I18N.t(w.message_key))}${mayDismiss ? `<button class="mgmt-btn" style="margin-inline-start:12px" onclick="dismissProjectWarning('${BINNA.esc(w.key)}')">${BINNA_I18N.t('dismissWarning')}</button>` : ''}</div>`).join('');
+  } catch (e) {
+    if (e.code === 'project_classification_migration_required') box.innerHTML = '';
+    else box.innerHTML = `<div class="mgmt-notice danger">${BINNA.esc(BINNA.managementError(e))}</div>`;
+  }
+}
+
+async function dismissProjectWarning(key) {
+  try { await BINNA.dismissProjectWarning(PROJECT_ID, key); await loadProjectWarnings(); }
+  catch (e) { BINNA.toast(BINNA.managementError(e), 'error'); }
 }
 
 function recorded(value){return value===null||value===undefined||value===''?BINNA_I18N.t('notRecorded'):value;}

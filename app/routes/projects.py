@@ -10,6 +10,7 @@ POST   /api/v1/projects/<id>/members
 DELETE /api/v1/projects/<id>/members/<member_id>
 PUT    /api/v1/projects/<id>/members/<member_id>   (change role)
 """
+import hashlib
 import json
 from datetime import datetime, timezone
 
@@ -29,6 +30,7 @@ from app.models import (
     Project,
     ProjectMember,
     ProjectMonitoringComment,
+    ProjectWarningDismissal,
     SEED_GLOBAL_PARTY_ROLES,
     Subcontract,
     Submittal,
@@ -45,6 +47,7 @@ from app.tenancy import (
     membership_or_none,
     phase_1b_schema_status,
     phase_1b_2_schema_status,
+    project_classification_schema_status,
     same_company,
 )
 from app.audit import record_audit
@@ -68,6 +71,15 @@ projects_bp = Blueprint('projects', __name__, url_prefix='/api/v1/projects')
 
 _ROLE_ORDER = {'viewer': 0, 'member': 1, 'admin': 2, 'owner': 3}
 _VALID_ROLES = {'admin', 'member', 'viewer'}
+_PROJECT_REGIMES = {'government', 'private', 'investment'}
+_INVESTMENT_SUBTYPES = {'public_authority', 'private'}
+_WORK_NATURES = {
+    'construction', 'supply_and_execution', 'supply', 'other',
+    'consulting_service', 'non_consulting_service',
+}
+_CONTRACT_STRUCTURES = {'independent', 'investment_no_main_employer'}
+_OPTIONAL_PROJECT_FIELDS = {'client'}
+_OPTIONAL_FIELD_STATES = {'missing', 'not_applicable'}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -115,6 +127,46 @@ def _phase_1b_2_required():
     }), 503
 
 
+def _project_classification_required():
+    status = project_classification_schema_status()
+    if status['ready']:
+        return None
+    return jsonify({
+        'error': 'Project classification database migration is required',
+        'code': 'project_classification_migration_required',
+        'missing': status['missing'],
+    }), 503
+
+
+def _classification_values(project):
+    if not project_classification_schema_status()['ready']:
+        return {
+            'project_regime': None, 'investment_subtype': None,
+            'work_nature': None, 'contract_structure': None,
+            'optional_field_states': {}, 'classification_complete': False,
+            'project_classification_ready': False,
+        }
+    try:
+        field_states = json.loads(project.optional_field_states or '{}')
+    except (TypeError, ValueError):
+        field_states = {}
+    if not isinstance(field_states, dict):
+        field_states = {}
+    complete = bool(
+        project.project_regime and project.work_nature and project.contract_structure
+        and (project.project_regime != 'investment' or project.investment_subtype)
+    )
+    return {
+        'project_regime': project.project_regime,
+        'investment_subtype': project.investment_subtype,
+        'work_nature': project.work_nature,
+        'contract_structure': project.contract_structure,
+        'optional_field_states': field_states,
+        'classification_complete': complete,
+        'project_classification_ready': True,
+    }
+
+
 def _with_lifecycle(project, data):
     if phase_1b_2_schema_status()['ready']:
         data.update({
@@ -145,12 +197,88 @@ def _with_ui_metadata(project, data, user, member=None):
         'read_management_records': can_read_project_management_records(user, project),
         'edit_project': (not closed and
                          (effective_pm or legacy_assignment)),
+        'edit_classification': (not closed and
+                                (portfolio or effective_pm or legacy_assignment)),
         'edit_operational': (not closed and
                              (effective_pm or bool(member and member.role != 'viewer'))),
     }
     data['phase_1b_ready'] = phase_1b_schema_status()['ready']
     data['phase_1b_2_ready'] = phase_1b_2_schema_status()['ready']
+    data.update(_classification_values(project))
     return data
+
+
+def _classification_editor(project_id, user_id):
+    user = User.query.get(user_id)
+    project = Project.query.get(project_id)
+    if not same_company(project, user):
+        return None, None
+    if is_project_closed(project):
+        from app.tenancy import ProjectClosedError
+        raise ProjectClosedError()
+    if can_manage_project_portfolio(user) or is_effective_project_manager(user, project):
+        return project, user
+    member = ProjectMember.query.filter_by(project_id=project_id, user_id=user_id).first()
+    if member and member.can('projects', 'edit'):
+        return project, user
+    return project, None
+
+
+def _generate_project_code(company_id):
+    used = {
+        code for (code,) in db.session.query(Project.code).filter(
+            Project.company_id == company_id,
+            Project.code.like('PRJ-%'),
+        ).all()
+    }
+    number = 1
+    while f'PRJ-{number:04d}' in used:
+        number += 1
+    return f'PRJ-{number:04d}'
+
+
+def _code_exists(company_id, code, excluding_project_id=None):
+    query = Project.query.filter_by(company_id=company_id, code=code)
+    if excluding_project_id is not None:
+        query = query.filter(Project.id != excluding_project_id)
+    return query.first() is not None
+
+
+def _invalidate_warning(project_id, warning_key):
+    if not project_classification_schema_status()['ready']:
+        return
+    ProjectWarningDismissal.query.filter_by(
+        project_id=project_id, warning_key=warning_key,
+    ).delete(synchronize_session=False)
+
+
+def _warning_candidates(project):
+    values = _classification_values(project)
+    states = values['optional_field_states']
+    rows = []
+    if not values['classification_complete']:
+        rows.append({
+            'key': 'classification_incomplete',
+            'message_key': 'classificationIncompleteWarning',
+            'fingerprint': hashlib.sha256(json.dumps({
+                key: values[key] for key in (
+                    'project_regime', 'investment_subtype', 'work_nature',
+                    'contract_structure',
+                )
+            }, sort_keys=True).encode()).hexdigest(),
+        })
+    if not project.client and states.get('client') != 'not_applicable':
+        rows.append({
+            'key': 'missing_client',
+            'message_key': 'missingClientWarning',
+            'fingerprint': hashlib.sha256(json.dumps({
+                'client': project.client or '',
+                'state': states.get('client', 'missing'),
+                'regime': values['project_regime'],
+                'structure': values['contract_structure'],
+            }, sort_keys=True).encode()).hexdigest(),
+        })
+    return rows
 
 
 def _management_project(project_id, user_id, read_only=False):
@@ -266,13 +394,46 @@ def create_project():
     code = (data.get('code') or '').strip().upper()
     name = (data.get('name') or '').strip()
 
-    if not code or not name:
-        return jsonify({'error': 'Project code and name are required'}), 400
+    if not name:
+        return jsonify({'error': 'Project name is required'}), 400
+    if not code:
+        code = _generate_project_code(user.company_id)
     if len(code) > 10:
         return jsonify({'error': 'Project code must be ≤ 10 characters'}), 400
 
     # Stamp the creator's company onto the project (the tenant that owns it).
     company_id = user.company_id
+    if _code_exists(company_id, code):
+        return jsonify({'error': 'Project code already exists in this company'}), 409
+
+    classification_keys = {
+        'project_regime', 'investment_subtype', 'work_nature',
+        'contract_structure', 'optional_field_states',
+    }
+    if any(key in data for key in classification_keys):
+        classification_missing = _project_classification_required()
+        if classification_missing:
+            return classification_missing
+        regime = data.get('project_regime') or None
+        subtype = data.get('investment_subtype') or None
+        work_nature = data.get('work_nature') or None
+        structure = data.get('contract_structure') or None
+        states = data.get('optional_field_states') or {}
+        if regime is not None and regime not in _PROJECT_REGIMES:
+            return jsonify({'error': 'Invalid project regime'}), 400
+        if work_nature is not None and work_nature not in _WORK_NATURES:
+            return jsonify({'error': 'Invalid work nature'}), 400
+        if structure is not None and structure not in _CONTRACT_STRUCTURES:
+            return jsonify({'error': 'Invalid contract structure'}), 400
+        if regime != 'investment' and subtype is not None:
+            return jsonify({'error': 'Investment subtype applies only to investment projects'}), 400
+        if subtype is not None and subtype not in _INVESTMENT_SUBTYPES:
+            return jsonify({'error': 'Invalid investment subtype'}), 400
+        if not isinstance(states, dict) or any(
+            key not in _OPTIONAL_PROJECT_FIELDS or value not in _OPTIONAL_FIELD_STATES
+            for key, value in states.items()
+        ):
+            return jsonify({'error': 'Invalid optional field states'}), 400
 
     requested_manager = data.get('project_manager_user_id')
     if requested_manager in (None, ''):
@@ -284,7 +445,7 @@ def create_project():
     if manager is None:
         return jsonify({'error': 'Project manager not found'}), 404
 
-    project = Project(
+    project_values = dict(
         company_id  = company_id,
         code        = code,
         name        = name,
@@ -296,8 +457,24 @@ def create_project():
         created_by  = user_id,
         project_manager_user_id = manager.id,
     )
-    db.session.add(project)
-    db.session.flush()          # populate project.id before member insert
+    classification_ready = project_classification_schema_status()['ready']
+    if classification_ready:
+        project = Project(**project_values)
+        project.project_regime = data.get('project_regime') or None
+        project.investment_subtype = data.get('investment_subtype') or None
+        project.work_nature = data.get('work_nature') or None
+        project.contract_structure = data.get('contract_structure') or None
+        project.optional_field_states = json.dumps(
+            data.get('optional_field_states') or {}, ensure_ascii=False,
+        )
+        db.session.add(project)
+        db.session.flush()          # populate project.id before member insert
+    else:
+        # An ORM insert includes deferred mapped columns as NULL, which fails
+        # against a pre-migration table. Insert only the legacy columns, then
+        # load the row normally (deferred Stage 1 columns remain unselected).
+        result = db.session.execute(Project.__table__.insert().values(**project_values))
+        project = Project.query.get(result.inserted_primary_key[0])
 
     record_audit(
         company_id=company_id, project_id=project.id, actor_user_id=user_id,
@@ -731,10 +908,17 @@ def update_project(project_id):
     data = request.get_json(silent=True) or {}
 
     if 'code' in data and data['code'].strip():
-        project.code = data['code'].strip().upper()[:10]
+        new_code = data['code'].strip().upper()[:10]
+        if _code_exists(project.company_id, new_code, excluding_project_id=project.id):
+            return jsonify({'error': 'Project code already exists in this company'}), 409
+        project.code = new_code
     if 'name' in data and data['name'].strip():
         project.name = data['name'].strip()
-    if 'client'      in data: project.client      = (data['client']      or '').strip()
+    if 'client' in data:
+        new_client = (data['client'] or '').strip()
+        if new_client != (project.client or ''):
+            _invalidate_warning(project.id, 'missing_client')
+        project.client = new_client
     if 'consultant'  in data: project.consultant  = (data['consultant']  or '').strip()
     if 'contractor'  in data: project.contractor  = (data['contractor']  or '').strip()
     if 'description' in data: project.description = (data['description'] or '').strip()
@@ -746,6 +930,141 @@ def update_project(project_id):
     result            = project.to_dict()
     result['my_role'] = member.role
     return jsonify({'project': result})
+
+
+@projects_bp.route('/<int:project_id>/classification', methods=['PUT'])
+@jwt_required()
+def update_project_classification(project_id):
+    missing = _project_classification_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, actor = _classification_editor(project_id, uid)
+    if project is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if actor is None:
+        return jsonify({'error': 'Project settings edit permission is required'}), 403
+
+    data = request.get_json(silent=True) or {}
+    previous = _classification_values(project)
+    previous_warning_fingerprints = {
+        row['key']: row['fingerprint'] for row in _warning_candidates(project)
+    }
+    regime = data.get('project_regime', project.project_regime) or None
+    subtype = data.get('investment_subtype', project.investment_subtype) or None
+    work_nature = data.get('work_nature', project.work_nature) or None
+    structure = data.get('contract_structure', project.contract_structure) or None
+    if regime is not None and regime not in _PROJECT_REGIMES:
+        return jsonify({'error': 'Invalid project regime'}), 400
+    if work_nature is not None and work_nature not in _WORK_NATURES:
+        return jsonify({'error': 'Invalid work nature'}), 400
+    if structure is not None and structure not in _CONTRACT_STRUCTURES:
+        return jsonify({'error': 'Invalid contract structure'}), 400
+    if regime != 'investment' and subtype is not None:
+        return jsonify({'error': 'Investment subtype applies only to investment projects'}), 400
+    if subtype is not None and subtype not in _INVESTMENT_SUBTYPES:
+        return jsonify({'error': 'Invalid investment subtype'}), 400
+
+    states = data.get('optional_field_states', previous['optional_field_states'])
+    if not isinstance(states, dict):
+        return jsonify({'error': 'optional_field_states must be an object'}), 400
+    normalized_states = {}
+    for key, value in states.items():
+        if key not in _OPTIONAL_PROJECT_FIELDS or value not in _OPTIONAL_FIELD_STATES:
+            return jsonify({'error': f'Invalid optional field state: {key}'}), 400
+        normalized_states[key] = value
+
+    project.project_regime = regime
+    project.investment_subtype = subtype
+    project.work_nature = work_nature
+    project.contract_structure = structure
+    project.optional_field_states = json.dumps(normalized_states, ensure_ascii=False)
+    current_warning_fingerprints = {
+        row['key']: row['fingerprint'] for row in _warning_candidates(project)
+    }
+    changed_warning_keys = {
+        key for key in previous_warning_fingerprints.keys() | current_warning_fingerprints.keys()
+        if previous_warning_fingerprints.get(key) != current_warning_fingerprints.get(key)
+    }
+    if changed_warning_keys:
+        (ProjectWarningDismissal.query
+         .filter(ProjectWarningDismissal.project_id == project.id,
+                 ProjectWarningDismissal.warning_key.in_(changed_warning_keys))
+         .delete(synchronize_session=False))
+    new_values = _classification_values(project)
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=uid,
+        action_type='project.classification_updated',
+        previous_values={key: previous[key] for key in (
+            'project_regime', 'investment_subtype', 'work_nature',
+            'contract_structure', 'optional_field_states',
+        )},
+        new_values={key: new_values[key] for key in (
+            'project_regime', 'investment_subtype', 'work_nature',
+            'contract_structure', 'optional_field_states',
+        )},
+    )
+    db.session.commit()
+    return jsonify({'classification': _classification_values(project)})
+
+
+@projects_bp.route('/<int:project_id>/warnings', methods=['GET'])
+@jwt_required()
+def get_project_warnings(project_id):
+    missing = _project_classification_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, _member, allowed = authorize_project_access(
+        project_id, uid, 'projects', 'view', 'viewer')
+    if not project or not allowed:
+        return jsonify({'error': 'Project not found or access denied'}), 404
+    dismissals = {
+        row.warning_key: row.condition_fingerprint
+        for row in ProjectWarningDismissal.query.filter_by(
+            company_id=project.company_id, project_id=project.id).all()
+    }
+    warnings = [
+        {key: value for key, value in row.items() if key != 'fingerprint'}
+        for row in _warning_candidates(project)
+        if dismissals.get(row['key']) != row['fingerprint']
+    ]
+    return jsonify({'warnings': warnings, 'total': len(warnings)})
+
+
+@projects_bp.route('/<int:project_id>/warnings/<warning_key>/dismiss', methods=['PUT'])
+@jwt_required()
+def dismiss_project_warning(project_id, warning_key):
+    missing = _project_classification_required()
+    if missing:
+        return missing
+    uid = int(get_jwt_identity())
+    project, actor = _classification_editor(project_id, uid)
+    if project is None:
+        return jsonify({'error': 'Project not found'}), 404
+    if actor is None:
+        return jsonify({'error': 'Project settings edit permission is required'}), 403
+    candidate = next((row for row in _warning_candidates(project)
+                      if row['key'] == warning_key), None)
+    if candidate is None:
+        return jsonify({'error': 'Warning is not currently active'}), 409
+    row = ProjectWarningDismissal.query.filter_by(
+        project_id=project.id, warning_key=warning_key).first()
+    if row is None:
+        row = ProjectWarningDismissal(company_id=project.company_id,
+                                      project_id=project.id, warning_key=warning_key)
+        db.session.add(row)
+    row.condition_fingerprint = candidate['fingerprint']
+    row.dismissed_by_user_id = uid
+    row.dismissed_at = datetime.now(timezone.utc)
+    record_audit(
+        company_id=project.company_id, project_id=project.id, actor_user_id=uid,
+        action_type='project.warning_dismissed',
+        new_values={'warning_key': warning_key,
+                    'condition_fingerprint': candidate['fingerprint']},
+    )
+    db.session.commit()
+    return jsonify({'ok': True, 'warning_key': warning_key})
 
 
 # ── Delete project ────────────────────────────────────────────────────────────

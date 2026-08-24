@@ -143,9 +143,13 @@ const BINNA = {
   async addMonitoringComment(pid, body) { return this.post(`/projects/${pid}/monitoring-comments`, { body }); },
   async fetchProjectAudit(pid)      { return this.get(`/projects/${pid}/audit-logs`); },
   async fetchProjectOverview(pid)   { return this.get(`/projects/${pid}/overview`); },
+  async fetchProjectWarnings(pid)   { return this.get(`/projects/${pid}/warnings`); },
+  async updateProjectClassification(pid, data) { return this.put(`/projects/${pid}/classification`, data); },
+  async dismissProjectWarning(pid, key) { return this.put(`/projects/${pid}/warnings/${encodeURIComponent(key)}/dismiss`, {}); },
   managementError(error) {
     if (error && error.code === 'phase_1b_migration_required') return (window.BINNA_I18N ? BINNA_I18N.t('migration1') : error.error);
     if (error && error.code === 'phase_1b_2_migration_required') return (window.BINNA_I18N ? BINNA_I18N.t('migration2') : error.error);
+    if (error && error.code === 'project_classification_migration_required') return (window.BINNA_I18N ? BINNA_I18N.t('migrationClassification') : error.error);
     return (error && error.error) || 'The requested action could not be completed.';
   },
 

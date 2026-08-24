@@ -93,6 +93,14 @@ _PHASE_1B_2_COLUMNS = {
 }
 _PHASE_1B_2_TABLES = {'project_monitoring_comments', 'audit_logs'}
 
+_PROJECT_CLASSIFICATION_COLUMNS = {
+    'projects': {
+        'project_regime', 'investment_subtype', 'work_nature',
+        'contract_structure', 'optional_field_states',
+    },
+}
+_PROJECT_CLASSIFICATION_TABLES = {'project_warning_dismissals'}
+
 
 class ProjectClosedError(Exception):
     """Raised only after tenant access is established for a closed project."""
@@ -136,6 +144,24 @@ def phase_1b_schema_status() -> dict:
         absent = sorted(required - present)
         if absent:
             missing[table] = absent
+    return {'ready': not missing, 'missing': missing}
+
+
+@lru_cache(maxsize=1)
+def project_classification_schema_status() -> dict:
+    """Read-only Stage 1 schema check; never creates or alters structures."""
+    inspector = inspect(db.engine)
+    tables = set(inspector.get_table_names())
+    missing = {}
+    for table, required in _PROJECT_CLASSIFICATION_COLUMNS.items():
+        present = ({c['name'] for c in inspector.get_columns(table)}
+                   if table in tables else set())
+        absent = sorted(required - present)
+        if absent:
+            missing[table] = absent
+    absent_tables = sorted(_PROJECT_CLASSIFICATION_TABLES - tables)
+    if absent_tables:
+        missing['tables'] = absent_tables
     return {'ready': not missing, 'missing': missing}
 
 

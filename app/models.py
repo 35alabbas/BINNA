@@ -176,6 +176,9 @@ class User(db.Model):
 
 class Project(db.Model):
     __tablename__ = 'projects'
+    __table_args__ = (
+        db.UniqueConstraint('company_id', 'code', name='uq_projects_company_code'),
+    )
 
     id          = db.Column(db.Integer,     primary_key=True)
     company_id  = db.Column(db.Integer,     db.ForeignKey('companies.id'), nullable=True, index=True)
@@ -201,6 +204,13 @@ class Project(db.Model):
     closed_by_user_id = deferred(db.Column(
         db.Integer, db.ForeignKey('users.id'), nullable=True, index=True,
     ))
+    # Stage 1 project classification. Deferred nullable columns keep ORM reads
+    # compatible with databases that have not received the additive migration.
+    project_regime = deferred(db.Column(db.String(30), nullable=True))
+    investment_subtype = deferred(db.Column(db.String(30), nullable=True))
+    work_nature = deferred(db.Column(db.String(40), nullable=True))
+    contract_structure = deferred(db.Column(db.String(40), nullable=True))
+    optional_field_states = deferred(db.Column(db.Text, nullable=True))
 
     # Relationships
     members     = db.relationship('ProjectMember', back_populates='project',
@@ -299,6 +309,25 @@ class AuditLog(db.Model):
             'new_values': self._decoded(self.new_values),
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class ProjectWarningDismissal(db.Model):
+    """One project-wide dismissal for the current version of a warning condition."""
+    __tablename__ = 'project_warning_dismissals'
+    __table_args__ = (
+        db.UniqueConstraint('project_id', 'warning_key',
+                            name='uq_project_warning_dismissal'),
+    )
+
+    id                    = db.Column(db.Integer, primary_key=True)
+    company_id            = db.Column(db.Integer, db.ForeignKey('companies.id'),
+                                      nullable=False, index=True)
+    project_id            = db.Column(db.Integer, db.ForeignKey('projects.id'),
+                                      nullable=False, index=True)
+    warning_key           = db.Column(db.String(80), nullable=False)
+    condition_fingerprint = db.Column(db.String(64), nullable=False)
+    dismissed_by_user_id  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    dismissed_at          = db.Column(db.DateTime, nullable=False, default=_now)
 
 
 class ProjectMember(db.Model):

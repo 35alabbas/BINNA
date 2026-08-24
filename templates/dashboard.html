@@ -238,11 +238,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
     <div class="mbody">
       <div class="frow">
         <div class="fgrp">
-          <label class="flbl">Project Code <span class="req">*</span></label>
+          <label class="flbl">Project Code <span style="font-weight:400;text-transform:none">(optional)</span></label>
           <input class="fi" type="text" id="f-code" placeholder="e.g. APS"
                  maxlength="10" style="text-transform:uppercase;font-weight:700;letter-spacing:1px"
                  oninput="this.value=this.value.toUpperCase()" />
-          <div class="fhint">Short code used in all document references</div>
+          <div class="fhint">Leave blank to use a unique auto-generated code. Existing document references are unchanged.</div>
         </div>
         <div class="fgrp">
           <label class="flbl">Status</label>
@@ -286,6 +286,41 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
           <label class="flbl">Project manager <span style="font-weight:400;text-transform:none">(optional)</span></label>
           <select class="fs" id="f-project-manager"><option value="">Use projects manager as interim manager</option></select>
           <div class="fhint" data-i18n="interim">If no project manager is selected, the company projects manager will serve as interim project manager.</div>
+        </div>
+      </div>
+      <div id="classification-create-fields">
+        <div class="frow">
+          <div class="fgrp">
+            <label class="flbl">Project regime <span style="font-weight:400;text-transform:none">(optional)</span></label>
+            <select class="fs" id="f-project-regime" onchange="updateInvestmentSubtypeVisibility()">
+              <option value="">Unclassified</option><option value="government">Government</option>
+              <option value="private">Private</option><option value="investment">Investment</option>
+            </select>
+          </div>
+          <div class="fgrp" id="investment-subtype-field" style="display:none">
+            <label class="flbl">Investment subtype</label>
+            <select class="fs" id="f-investment-subtype">
+              <option value="">Not selected</option><option value="public_authority">Public authority</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fgrp">
+            <label class="flbl">Work nature <span style="font-weight:400;text-transform:none">(optional)</span></label>
+            <select class="fs" id="f-work-nature">
+              <option value="">Not selected</option><option value="construction">Construction</option>
+              <option value="supply_and_execution">Supply and execution</option><option value="supply">Supply</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="fgrp">
+            <label class="flbl">Contract structure <span style="font-weight:400;text-transform:none">(optional)</span></label>
+            <select class="fs" id="f-contract-structure">
+              <option value="">Not selected</option><option value="independent">Independent project</option>
+              <option value="investment_no_main_employer">Investment without main employer contract</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="form-error" id="modal-error"></div>
@@ -477,6 +512,8 @@ function openProjectModal() {
   document.getElementById('btn-save-proj').textContent  = 'Create Project';
   fillProjectManagerOptions('');
   document.getElementById('manager-field-row').style.display = '';
+  document.getElementById('classification-create-fields').style.display = '';
+  updateInvestmentSubtypeVisibility();
   openOverlay('proj-modal');
 }
 
@@ -496,6 +533,7 @@ function openEditModal(projectId) {
   document.getElementById('modal-title').textContent   = 'Edit Project';
   document.getElementById('btn-save-proj').textContent = 'Save Changes';
   document.getElementById('manager-field-row').style.display = 'none';
+  document.getElementById('classification-create-fields').style.display = 'none';
 
   hideModalError();
   openOverlay('proj-modal');
@@ -510,8 +548,8 @@ async function saveProject() {
   const description = document.getElementById('f-description').value.trim();
   const status      = document.getElementById('f-status').value;
 
-  if (!code || !name) {
-    showModalError('Project code and name are required.');
+  if (!name) {
+    showModalError('Project name is required.');
     return;
   }
 
@@ -520,9 +558,20 @@ async function saveProject() {
   btn.textContent = editingId ? 'Saving…' : 'Creating…';
 
   try {
-    const payload = { code, name, client, consultant, contractor, description, status };
+    const payload = { name, client, consultant, contractor, description, status };
+    if (code) payload.code = code;
     const selectedManager = Number(document.getElementById('f-project-manager').value);
     if (!editingId && selectedManager) payload.project_manager_user_id = selectedManager;
+    if (!editingId) {
+      const regime = document.getElementById('f-project-regime').value;
+      const subtype = document.getElementById('f-investment-subtype').value;
+      const workNature = document.getElementById('f-work-nature').value;
+      const structure = document.getElementById('f-contract-structure').value;
+      if (regime) payload.project_regime = regime;
+      if (regime === 'investment' && subtype) payload.investment_subtype = subtype;
+      if (workNature) payload.work_nature = workNature;
+      if (structure) payload.contract_structure = structure;
+    }
 
     if (editingId) {
       const { project } = await BINNA.updateProject(editingId, payload);
@@ -554,6 +603,12 @@ function fillProjectManagerOptions(selected) {
     companyMembers.filter(m => m.is_active).map(m => `<option value="${m.id}" ${String(m.id) === String(selected) ? 'selected' : ''}>${BINNA.esc(m.username)}</option>`).join('');
 }
 
+function updateInvestmentSubtypeVisibility() {
+  const investment = document.getElementById('f-project-regime').value === 'investment';
+  document.getElementById('investment-subtype-field').style.display = investment ? '' : 'none';
+  if (!investment) document.getElementById('f-investment-subtype').value = '';
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
 function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
@@ -565,6 +620,10 @@ function clearForm() {
   });
   document.getElementById('f-status').value = 'active';
   document.getElementById('f-project-manager').value = '';
+  ['f-project-regime','f-investment-subtype','f-work-nature','f-contract-structure'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  updateInvestmentSubtypeVisibility();
   editingId = null;
 }
 
