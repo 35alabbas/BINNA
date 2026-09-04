@@ -14,13 +14,6 @@
       {id:'accounts',permission:'financial',labelKey:'accounts',href:'/legacy/financial',icon:'◈'},
       {id:'gantt',permission:'gantt',labelKey:'gantt',href:'/legacy/gantt',icon:'⌁'},
       {id:'subcontracts',permission:'subcontracts',labelKey:'subcontractors',href:'/legacy/sub',icon:'◇'},
-    ]},
-    {id:'consultant',labelKey:'consultant',projectOnly:true,items:[
-      {id:'dwg',permission:'submittals',labelKey:'drawingApprovals',href:'/legacy/dwg',icon:'▱',abbr:'DWG'},
-      {id:'fir',permission:'submittals',labelKey:'fieldInspectionRequest',href:'/legacy/fir',icon:'F',abbr:'FIR'},
-      {id:'mir',permission:'submittals',labelKey:'materialInspectionRequest',href:'/legacy/mir',icon:'M',abbr:'MIR'},
-      {id:'ms',permission:'submittals',labelKey:'methodStatement',href:'/legacy/ms',icon:'§',abbr:'MS'},
-      {id:'rfi',permission:'submittals',labelKey:'requestForInformation',href:'/legacy/rfi',icon:'R',abbr:'RFI'},
       {id:'lbt',permission:'lbt',labelKey:'laboratoryTests',href:'/legacy/lbt',icon:'⌬',abbr:'LBT'},
     ]},
   ];

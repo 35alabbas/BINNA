@@ -433,8 +433,13 @@ function projCard(p) {
   const manager = companyMembers.find(m => m.id === p.project_manager_user_id);
 
   const modules = [
-    ['dc','DC'],['dr','DR'],['dwg','DWG'],['fir','FIR'],['mir','MIR'],
-    ['ms','MS'],['rfi','RFI'],['lbt','LBT'],['contract','📋'],['financial','💰'],['gantt','📊'],
+    ['dc', 'DC'],
+    ['dr', 'DR'],
+    ['contract', '📋'],
+    ['financial', '💰'],
+    ['gantt', '📊'],
+    ['sub', 'SUB'],
+    ['lbt', 'LBT'],
   ];
 
   const pills = modules.map(([key, label]) =>

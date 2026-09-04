@@ -88,20 +88,19 @@ assert.deepStrictEqual(
 );
 
 const full = shell.visibleNavigation(null, true);
-assert.deepStrictEqual(Array.from(full, section => section.id), ['workspace', 'project', 'consultant']);
+assert.deepStrictEqual(Array.from(full, section => section.id), ['workspace', 'project']);
 assert.deepStrictEqual(
   Array.from(full[1].items, item => item.id),
-  ['dc', 'dr', 'contract', 'accounts', 'gantt', 'subcontracts'],
+  ['dc', 'dr', 'contract', 'accounts', 'gantt', 'subcontracts', 'lbt'],
   'project navigation should use the approved ordering',
-);
-assert.deepStrictEqual(
-  Array.from(full[2].items, item => item.id),
-  ['dwg', 'fir', 'mir', 'ms', 'rfi', 'lbt'],
-  'consultant navigation should use the approved ordering',
 );
 assert.ok(!full.flatMap(section => Array.from(section.items)).some(item =>
   item.id === 'income' || item.id === 'expense'),
   'Income and Expenses must not be primary navigation entries',
+);
+assert.ok(!full.flatMap(section => Array.from(section.items)).some(item =>
+  ['dwg', 'fir', 'mir', 'ms', 'rfi'].includes(item.id)),
+  'consultant workflow modules must not appear in active MVP navigation',
 );
 
 const restricted = shell.visibleNavigation({
@@ -114,14 +113,13 @@ const restricted = shell.visibleNavigation({
 }, true);
 assert.deepStrictEqual(
   Array.from(restricted[1].items, item => item.id),
-  ['dc', 'dr', 'gantt'],
+  ['dc', 'dr', 'gantt', 'lbt'],
   'project modules should respect existing effective view permissions',
 );
-assert.deepStrictEqual(
-  Array.from(restricted[2].items, item => item.id),
-  ['lbt'],
-  'consultant modules should respect existing effective view permissions',
-);
+
+const lbtRestricted = shell.visibleNavigation({ lbt: { view: false } }, true);
+assert.ok(!lbtRestricted.flatMap(section => Array.from(section.items)).some(item => item.id === 'lbt'),
+          'LBT must remain controlled by lbt.view');
 
 const project = { id: 42, name: 'Project Alpha' };
 const contextual = shell.visibleNavigation(null, true, project);

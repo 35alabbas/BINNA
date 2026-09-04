@@ -57,6 +57,23 @@ for route in ('/dashboard', '/project/1', '/company'):
 project_html = client.get('/project/1').get_data(as_text=True)
 check('project cards consume the shared navigation model',
       'BINNA_APP_SHELL.visibleNavigation' in project_html)
+check('project cards request only the active project navigation section',
+      "dashboardModules('project')" in project_html and
+      "dashboardModules('consultant')" not in project_html)
+check('project dashboard does not render a consultant module section',
+      'modules-grid-consultant' not in project_html and
+      'consultant-title' not in project_html)
+
+dashboard_html = client.get('/dashboard').get_data(as_text=True)
+modules_match = re.search(r'const modules = \[(.*?)\];', dashboard_html, re.S)
+dashboard_modules = re.findall(r"\['([^']+)'\s*,\s*'[^']+'\]",
+                               modules_match.group(1) if modules_match else '')
+check('company dashboard pills use the exact active module order',
+      dashboard_modules == ['dc', 'dr', 'contract', 'financial', 'gantt', 'sub', 'lbt'])
+check('company dashboard includes the active subcontractor URL',
+      'sub' in dashboard_modules and '/legacy/${key}' in dashboard_html)
+check('company dashboard excludes consultant workflow pills',
+      not {'dwg', 'fir', 'mir', 'ms', 'rfi'}.intersection(dashboard_modules))
 
 for module in ('contract', 'dc', 'dr', 'financial', 'gantt', 'sub',
                'dwg', 'fir', 'mir', 'ms', 'rfi', 'lbt', 'income', 'expense'):
