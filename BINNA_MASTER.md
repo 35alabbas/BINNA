@@ -773,3 +773,31 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - Offline verification: **578 passed, 0 failed**.
 - Two real external-service tests were intentionally skipped.
 - **Do not merge into `main` yet.**
+
+---
+
+## 2026-09-04 — Active MVP Navigation Cleanup Complete
+
+### Completed feature
+
+- Governing scope-reset commit: `715bc13`.
+- Implementation commit: `b054ead`.
+- DWG, FIR, MIR, MS, and RFI were removed from active MVP navigation, company-project pills, and project module cards.
+- LBT was preserved and moved into the active Project section.
+- Canonical active order: DC, DR, Contract & Payments, Accounts, Gantt, Subcontractors/Suppliers, LBT.
+- Direct consultant-module URLs, pages, translations, backend routes, APIs, permissions, statistics, database records, and historical data remain preserved.
+- No backend, schema, migration, or production-data change occurred.
+- Complete offline verification: **583 passed, 0 failed**.
+- `test_r2_connectivity.py` and `test_resend_send.py` remained intentionally skipped because they require real external services.
+- Mohammed completed the isolated local visual preview and confirmed the requested desktop, mobile, English, Arabic/RTL, navigation, card-order, and direct-legacy-page checks.
+- The preview server was stopped and its temporary SQLite database was removed.
+- **Do not merge into `main` yet.**
+
+### Pre-release follow-ups
+
+- Remove duplicated consultant links from fallback standalone HTML sidebar markup.
+- Replace consultant-module advertising on the public landing page.
+
+### Next product-development step
+
+- Audit the existing Contract & Payments implementation against the unified-contract and flexible Excel-like data-entry direction before modifying it.
