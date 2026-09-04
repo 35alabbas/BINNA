@@ -7,7 +7,7 @@ upload -> store -> serve path is exercised without touching the network. Verifie
 
   1. Upload puts the object under key  <company_id>/<project_id>/<stored_name>
      with the exact bytes (tenant isolation lives in the key path, per the plan).
-  2. Serve returns a 302 redirect to a presigned GET URL for that same key.
+  2. Serve returns HTTP 200 JSON containing a presigned GET URL for that same key.
   3. Tenant isolation carries over to R2: company B cannot fetch company A's file
      (404 before any presign); an unauthenticated caller gets 401.
 
@@ -81,9 +81,10 @@ def signup(username, email, pw, company):
     return {'Authorization': 'Bearer ' + rl.get_json()['access_token']}, rl.get_json()['user']['id']
 
 
-def create_project(hdr, code, name):
+def create_project(hdr, manager_id, code, name):
     r = client.post('/api/v1/projects', json={'code': code, 'name': name,
-                    'client': 'C', 'consultant': 'K', 'contractor': 'T'}, headers=hdr)
+                    'client': 'C', 'consultant': 'K', 'contractor': 'T',
+                    'project_manager_user_id': manager_id}, headers=hdr)
     assert r.status_code == 201, r.get_json()
     return r.get_json()['project']['id']
 
@@ -97,7 +98,7 @@ with app.app_context():
 
 hdr_a, uid_a = signup('owner_a', 'a@aco.test', 'passwordA', 'Alpha Co')
 hdr_b, uid_b = signup('owner_b', 'b@bco.test', 'passwordB', 'Beta Co')
-pid_a = create_project(hdr_a, 'APA', 'Alpha Project')
+pid_a = create_project(hdr_a, uid_a, 'APA', 'Alpha Project')
 with app.app_context():
     cid_a = User.query.get(uid_a).company_id
 

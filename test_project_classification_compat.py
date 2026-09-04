@@ -65,10 +65,10 @@ with app.app_context():
             conn.execute(text(statement))
         conn.execute(text("INSERT INTO companies (id,name,slug,plan,max_users,status,projects_manager_user_id) "
                           "VALUES (1,'Legacy','legacy-stage1','trial',999,'trial',1)"))
-        conn.execute(text("INSERT INTO users (id,username,email,password_hash,role,is_active,company_id," 
+        conn.execute(text("INSERT INTO users (id,username,email,password_hash,role,is_active,company_id,"
                           "company_role,is_company_manager,email_verified,invite_pending) VALUES "
                           "(1,'owner','owner@legacy.test','x','user',1,1,'owner',0,1,0)"))
-        conn.execute(text("INSERT INTO projects (id,company_id,code,name,status,created_by," 
+        conn.execute(text("INSERT INTO projects (id,company_id,code,name,status,created_by,"
                           "project_manager_user_id,is_closed) VALUES "
                           "(1,1,'OLD','Legacy project','active',1,1,0)"))
         conn.execute(text("INSERT INTO project_members (id,company_id,project_id,user_id,role,permissions) "
