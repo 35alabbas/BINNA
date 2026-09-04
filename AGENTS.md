@@ -3,8 +3,23 @@
 ## Product and interface
 
 - BINNA is a bilingual Arabic/English project-management platform for contractor companies operating in Iraq.
+- The active product target is contractor companies, not consultant-side users or government-authority workflows.
 - Arabic interfaces use RTL; English interfaces use LTR.
 - Keep the UI light, professional, and sidebar-based.
+
+## Active MVP scope (authoritative as of 2026-09-04)
+
+- Company and project dashboards.
+- Contract and Payments.
+- BOQ.
+- Accounts.
+- Gantt and progress.
+- Document Control.
+- Daily Reports.
+- Lab Tests.
+- Subcontractors and Suppliers.
+- Roles, permissions, monitoring comments, and audit logs.
+- MIR, FIR, MS, RFI, and DWG are outside the active MVP and must not appear in the active MVP navigation or project module cards. Preserve their existing code, database records, and historical data temporarily; do not delete or migrate them without a later, separately approved cleanup.
 
 ## Project and contract model
 
@@ -15,6 +30,10 @@
 - Call-off is an optional contractual setting for a framework agreement.
 - Support contract-specific variations, guarantees, delays, penalties, preliminary and final handover, and notifications.
 - Maintain a simple immutable audit log for important actions and changes.
+- Use one unified contract workspace for government, private, and investment projects.
+- Treat project classification as metadata for context and warnings only. Do not create separate complex forms or hard-coded workflows for every contract type.
+- Prefer flexible, Excel-like tables with user-entered values, editable rows, notes, and Excel import/export. Avoid hard-coding every possible calculation or contractual workflow.
+- Advanced framework-agreement expansion is deferred beyond the active MVP.
 
 ## Roles, employees, and permissions
 
@@ -23,8 +42,7 @@
 - Each project has one designated project manager with full operational control. The same person may manage multiple projects.
 - Project managers grant employees per-module view/edit permissions but do not create or close projects.
 - Employees may belong to multiple projects and may have different permissions in each project.
-- Consultant modules MIR, FIR, MS, RFI, and DWG are optional and are enabled by the project manager.
-- Framework agreements generally do not require consultant modules, but lab testing may still be enabled.
+- Consultant-side workflow development is deferred beyond the active MVP.
 
 ## Gantt and progress
 
@@ -42,8 +60,7 @@
 - Project cashbox income means funding received from the company only.
 - Payments received from the project owner belong to the main-contract payment records and must never automatically appear as project cashbox income.
 - Subcontractor and supplier payments appear as project expenses and affect the project cashbox only when actually paid.
-- HR and payroll must support payment from either the project cashbox or directly by the company.
-- Payroll paid directly by the company counts as project cost but does not reduce the project cashbox balance.
+- HR and payroll are deferred beyond the active MVP.
 - A framework agreement has one overall cashbox and separate financial tracking for each child contract.
 - Internal allocations must not be double-counted as expenses.
 
@@ -53,6 +70,6 @@
 - Do not rely on Cloudflare, old domains, or discontinued hosting services.
 - Support Excel import and export for BOQs and financial tables.
 - Support Word export for correspondence and official documents.
-- Support both government and private projects.
-- Defer ITP integration and prequalification workflows.
-- Prefer changes that maintain Arabic/English behavior, tenant isolation, project permissions, financial separation, and auditability.
+- Support government, private, and investment projects through the unified contract workspace.
+- Defer ITP integration, prequalification workflows, HR and payroll, advanced framework-agreement expansion, and consultant-side workflow development.
+- Preserve existing code and data, tenant isolation, permissions, auditability, existing financial separation, and Gantt behavior.

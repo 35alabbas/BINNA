@@ -706,5 +706,70 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 - **Phase 3 — COMPLETE ✅** — Cloudflare R2 file storage, tenant-isolated paths, and presigned URLs — **verified on production**. (Built/closed in the 2026-06-22 session; commits `08b51a3` + `dd923bc`, real end-to-end R2 round-trip confirmed, closure commit `ac6685a`.)
 - **Phase 4 — COMPLETE ✅** — admin panel, CEO workspace, billing lifecycle, and revenue tracker — verified on production. (Built/closed in the 2026-06-22 session; commit `40e0f0e`.)
 
-### Next Step
+### Historical Next Step — superseded by the 2026-09-04 scope reset
 - **Phase 5:** (1) **per-module permissions UI** — surface the existing `ProjectMember.permissions` map in company settings so a CEO can toggle view/edit per module per member; (2) **storage add-on tiers** — UI + quota stacking as whole multiples of `STORAGE_QUOTA_BYTES_PER_TIER`; (3) **Hostinger DNS migration (~August 1, 2026)**.
+
+---
+
+## 2026-09-04 — Authoritative Product Scope Reset
+
+> **Authority and precedence:** This section defines BINNA's active product direction as of 2026-09-04. It supersedes conflicting product-scope, module-priority, and “next step” statements in older entries above. Historical implementation records remain preserved as history and must not be interpreted as current authorization to expand scope.
+
+### Active target
+
+- BINNA's active target is contractor companies.
+- Consultant-side workflows and government-authority workflows are not active product targets.
+
+### Active MVP modules
+
+- Company and project dashboards.
+- Contract and Payments.
+- BOQ.
+- Accounts.
+- Gantt and progress.
+- Document Control.
+- Daily Reports.
+- Lab Tests.
+- Subcontractors and Suppliers.
+- Roles, permissions, monitoring comments, and audit logs.
+
+### Consultant workflow modules outside the active MVP
+
+- MIR, FIR, MS, RFI, and DWG are outside the active MVP and must not appear in the active MVP navigation or project module cards.
+- Preserve their existing code, database records, and historical data temporarily.
+- Do not delete, migrate, or destructively clean up these modules or their data until a later, separately approved cleanup.
+- Consultant-side workflow development is deferred.
+
+### Unified contract direction
+
+- Use one unified contract workspace for government, private, and investment projects.
+- Project classification remains metadata used for context and contextual warnings only.
+- Classification must not create separate complex forms or hard-coded workflows for every contract type.
+
+### Flexible data-entry direction
+
+- Prefer flexible, Excel-like tables with user-entered values, editable rows, notes, and Excel import/export.
+- Avoid hard-coding every possible calculation or contractual workflow.
+
+### Deferred scope
+
+- ITP integration.
+- Prequalification workflows.
+- HR and payroll.
+- Advanced framework-agreement expansion.
+- Consultant-side workflow development.
+
+### Non-negotiable preservation constraints
+
+- Preserve tenant isolation, permissions, auditability, existing financial separation, Gantt behavior, and existing data.
+- Preserve existing consultant-module code and data until a later cleanup is separately approved.
+- Do not infer authorization for schema changes, migrations, data deletion, or module removal from this documentation-only scope reset.
+
+### Verified checkpoint
+
+- Branch: `feature/binna-foundation`.
+- Product commit: `ae6af69`.
+- Test-repair commit: `97d3fd8`.
+- Offline verification: **578 passed, 0 failed**.
+- Two real external-service tests were intentionally skipped.
+- **Do not merge into `main` yet.**
