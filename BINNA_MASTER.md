@@ -801,3 +801,20 @@ When specifying an endpoint, provide: method + full path (respect `/projects/<pr
 ### Next product-development step
 
 - Audit the existing Contract & Payments implementation against the unified-contract and flexible Excel-like data-entry direction before modifying it.
+
+---
+
+## 2026-09-04 — Contract & Payments Business Decisions Approved
+
+> **Approval boundary:** Mohammed approved the following product decisions on 2026-09-04. No implementation slice or production-code modification has been approved yet.
+
+1. Payment entry methods must be fully customizable. BINNA may provide reusable cumulative BOQ, lump-sum, monthly, milestone, and flexible-manual templates, but project classification or contract category must never force a payment method.
+2. Government percentages and rules must be optional, editable templates and must not be enforced solely because a project is classified as government, private, or investment.
+3. Every payment must retain a small common financial core for Accounts, reports, and summaries: identity/description, date, status, gross/work value, additions, deductions, net value, amount received, outstanding balance, notes, and attachments. Additional fields, calculation methods, and table layout remain customizable.
+4. Each payment must support either BOQ-based cumulative measurement or direct manual work-value entry.
+5. User-created additions and deductions must affect calculated net using explicit positive or negative treatment and tested arithmetic.
+6. Existing embedded attachments must remain readable. New attachments should eventually use BINNA's protected upload service, but that migration is deferred from the first implementation slice.
+7. For the active MVP, reliable BOQ import and export must be completed before arbitrary custom columns or a spreadsheet formula engine.
+
+- **Current status:** APPROVED BUSINESS DECISIONS — IMPLEMENTATION SLICE NOT YET APPROVED.
+- **Do not merge into `main` yet.**
